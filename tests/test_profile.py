@@ -123,3 +123,54 @@ def test_circular_inheritance_is_rejected(tmp_path: Path) -> None:
     b.write_text(f"conference: {{key: b, extends: '{a}'}}\ntracks: {{long: {{content_page_limit: 8}}}}\n")
     with pytest.raises(ProfileError, match="circular"):
         load_profile(str(a))
+
+
+# -- the US Letter two-column venues --------------------------------------
+
+LETTER_TWO_COLUMN = ("cvpr", "aistats", "icml", "aaai")
+
+
+@pytest.mark.parametrize("key", LETTER_TWO_COLUMN)
+def test_letter_two_column_profiles_load(key: str) -> None:
+    profile = load_profile(key)
+    assert key in available_profiles()
+    assert profile.lineage == (key, "base")
+    assert profile.get("geometry.page_width_pt") == 612.0     # US Letter, not base's A4
+    assert profile.get("geometry.page_height_pt") == 792.0
+    assert profile.get("columns.expected_columns") == 2
+    assert profile.get("fonts.body_size_pt") == 10.0          # not base's 11pt
+
+
+@pytest.mark.parametrize("key", LETTER_TWO_COLUMN)
+def test_letter_two_column_profiles_replace_the_base_track(key: str) -> None:
+    """base.yaml defines `long`; inheriting it would offer a track that does not exist."""
+    profile = load_profile(key)
+    assert "long" not in profile.tracks
+    assert profile.default_track in profile.tracks
+
+
+@pytest.mark.parametrize("key", LETTER_TWO_COLUMN)
+def test_letter_two_column_severity_keys_name_real_checks(key: str) -> None:
+    """A severity override for a misspelled check id would silently do nothing."""
+    from preflight.registry import describe, load_builtin_checks
+
+    load_builtin_checks()
+    ids = {entry["id"] for entry in describe()}
+    profile = load_profile(key)
+    assert set(profile.severity_overrides) <= ids
+    assert set(profile.disabled_checks) <= ids
+
+
+def test_content_page_limits_match_the_published_calls() -> None:
+    assert load_profile("cvpr").track("main").content_page_limit == 8
+    assert load_profile("aistats").track("main").content_page_limit == 8
+    assert load_profile("aistats").track("camera_ready").content_page_limit == 9
+    assert load_profile("icml").track("main").content_page_limit == 8
+    assert load_profile("aaai").track("main").content_page_limit == 7
+
+
+def test_unverified_geometry_cannot_desk_reject() -> None:
+    """None of the four ship an official format checker, so margins must warn."""
+    for key in LETTER_TWO_COLUMN:
+        profile = load_profile(key)
+        assert profile.severity_for("margins", Severity.ERROR) is Severity.WARNING, key

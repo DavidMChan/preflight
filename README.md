@@ -5,8 +5,8 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Checks: 104](https://img.shields.io/badge/checks-104-blue)](#checks)
-[![Venues: 4](https://img.shields.io/badge/venues-ARR%20%C2%B7%20NeurIPS%20%C2%B7%20ICLR%20%C2%B7%20BayLearn-blueviolet)](#conferences)
-[![Tests: 161](https://img.shields.io/badge/tests-161%20passing-brightgreen)](#development)
+[![Venues: 8](https://img.shields.io/badge/venues-8-blueviolet)](#conferences)
+[![Tests: 184](https://img.shields.io/badge/tests-184%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -15,8 +15,9 @@ sections, margins, fonts, anonymity, appendix placement, concealed text directed
 reviewers, reference validity, and the venue's responsible-research checklist. Each finding reports
 the specific location and measurement that produced it — `page 5, x=34.0pt, expected >= 69.0pt`.
 
-It includes profiles for ACL Rolling Review, NeurIPS, ICLR and BayLearn. Conference profiles are
-YAML files; additional venues can be configured without modifying the source code.
+It includes profiles for ACL Rolling Review, NeurIPS, ICLR, ICML, CVPR, AAAI, AISTATS and
+BayLearn. Conference profiles are YAML files; additional venues can be configured without
+modifying the source code.
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────╮
@@ -121,14 +122,24 @@ Exit codes: `0` clean · `1` errors · `2` warnings under `--strict`, or an inva
 
 ## Conferences
 
-Four bundled profiles, each selected with `-c`:
+Eight bundled profiles, each selected with `-c`:
 
 | Key | Venue | Tracks (content page limit) | Format |
 |---|---|---|---|
 | `arr` | ACL Rolling Review | `long` 8p · `short` 4p · `demo` 6p | A4, two-column, 11pt; Limitations mandatory; ARR checklist |
 | `neurips` | NeurIPS (main track) | `main` 9p | US Letter, single-column, 10pt; NeurIPS checklist mandatory |
 | `iclr` | ICLR (main conference) | `main` 9p · `camera_ready` 10p | US Letter, single-column, 10pt |
+| `icml` | ICML | `main` 8p · `position` 8p · `camera_ready` 9p | US Letter, two-column, 10pt; Impact Statement mandatory |
+| `cvpr` | CVPR (IEEE/CVF) | `main` 8p · `rebuttal` 1p | US Letter, two-column, 10pt; no appendix in the submission PDF |
+| `aaai` | AAAI (main technical track) | `main` 7p, and six further tracks | US Letter, two-column, 10pt; reproducibility checklist |
+| `aistats` | AISTATS | `main` 8p · `camera_ready` 9p | US Letter, two-column, 10pt |
 | `baylearn` | BayLearn Symposium (abstracts) | `abstract` 2p | NeurIPS format, no checklist |
+
+Each profile encodes the most recent author kit published at the time it was written, named in a
+note at the top of the file. `cvpr`, `aistats` and `icml` carry 2026 numbers and `aaai` carries
+AAAI-27 numbers, because no later kit exists yet. Where a value could not be confirmed against an
+official source it is documented in the profile and its check is held at warning, so a superseded
+number cannot report a desk rejection.
 
 ---
 
@@ -370,7 +381,7 @@ Conventions observed by the existing checks:
 ## Development
 
 ```bash
-uv run pytest                                  # 161 tests, no network required
+uv run pytest                                  # 184 tests, no network required
 uv run ruff check src tests
 uv run python scripts/try_question.py A1 paper.pdf    # a single checklist item
 ```

@@ -1,0 +1,313 @@
+# AISTATS (Artificial Intelligence and Statistics), main conference.
+#
+# NOTE ON THE CYCLE: this profile is built from AISTATS 2026 (29th, Tangier,
+# Morocco; PMLR vol. 300) — the most recent cycle with a published author kit.
+# AISTATS 2027 has NOT announced anything:
+# https://virtual.aistats.org/Conferences/2027/CallForPapers returns "Details
+# for AISTATS 2027 have not been announced yet", and
+# https://aistats.org/aistats2027/AISTATS2027PaperPack.zip 404s. Every number
+# here therefore comes from the 2026 kit and must be re-verified against the
+# 2027 CFP when it appears. The .sty lengths have been byte-identical for many
+# years (the year-to-year diff is only venue/year/volume), so carrying the
+# layout forward is low risk; the 8/9-page limits and the reproducibility
+# checklist policy are set by each year's chairs and are the parts most likely
+# to move.
+#
+# SOURCES:
+#   https://aistats.org/aistats2026/AISTATS2026PaperPack.zip
+#       (aistats2026.sty lines 93-98 and 462; sample_paper.tex; sample_paper.pdf)
+#   https://virtual.aistats.org/Conferences/2026/CallForPapers
+#   https://virtual.aistats.org/Conferences/2026/SubmissionFAQ
+#   https://virtual.aistats.org/Conferences/2026/CameraReadyInstructions
+#   https://virtual.aistats.org/Conferences/2027/CallForPapers  (nothing published)
+#
+# NOTE ON NUMBERS: geometry below is DERIVED from the .sty lengths and
+# cross-checked against the sample paper's stated 0.88in left margin and the
+# compiled sample_paper.pdf's 612x792 MediaBox. It was NOT verified by
+# measuring ink positions in a rendered PDF, and there is no official AISTATS
+# format checker to defer to — so `severity: {margins: warning}` below keeps an
+# unverified margin from producing a false desk rejection.
+
+conference:
+  key: aistats
+  name: AISTATS (main conference)
+  extends: base
+  default_track: main
+  style: "AISTATS (US Letter, two-column, 10pt Computer Modern)"
+
+# AISTATS has its own track set; do not inherit base's `long`.
+tracks_replace: true
+tracks:
+  main:
+    content_page_limit: 8
+    description: >-
+      Submission (double-blind, OpenReview) — 8 pages of content. "Check that the
+      content of your submission, excluding references and the reproducibility
+      checklist, is limited to 8 pages. The number of pages containing references,
+      the reproducibility checklist, and additional appendices (in that order) is
+      not limited." Order in the main PDF: paper, references, checklist, then
+      optional appendices.
+  camera_ready:
+    content_page_limit: 9
+    description: >-
+      Accepted-paper camera ready — one extra content page. "The camera-ready
+      versions of the accepted papers are 9 pages, plus any additional pages needed
+      for references, the reproducibility checklist, and appendices." Compile with
+      \usepackage[accepted]{aistats2026}; acknowledgements then become visible and
+      do not count against the 9-page limit.
+
+geometry:
+  # sample_paper.pdf reports MediaBox 612 x 792 pt, i.e. US Letter. The CFP is
+  # explicit: "Please use US Letter size paper instead of A4."
+  page_width_pt: 612.0     # 8.5in x 72pt/in
+  page_height_pt: 792.0    # 11in  x 72pt/in
+  paper_size_label: "US Letter (8.5 x 11 in)"
+  # aistats2026.sty lines 93-98: \oddsidemargin = \evensidemargin = -0.125in,
+  # \topmargin = -25pt, \textheight = 9.25in, \textwidth = 6.75in,
+  # \columnsep = 0.25in, \headheight = 10pt, \headsep = 15pt, \footskip = 0pt.
+  #
+  # LEFT   = 1in implicit offset + \oddsidemargin (-0.125in) = 0.875in = 63.0pt
+  #          (sample paper: "The left margin is 0.88 inches (5.28 picas)").
+  margin_left_pt: 63.0
+  # RIGHT  = 8.5in - 0.875in - \textwidth 6.75in = 0.875in = 63.0pt (block centred).
+  margin_right_pt: 63.0
+  # TOP    = 1in + \topmargin + \headheight + \headsep
+  #        = 1in - 25pt + 10pt + 15pt = 1in + 0pt = 1in = 72.0pt.
+  #          The three TeX-point terms cancel exactly, so the TeX-pt (72.27/in)
+  #          vs PDF-pt (72/in) distinction does not affect this figure. The
+  #          camera-ready running head legitimately sits ABOVE this, starting at
+  #          1in - 25pt(TeX) = 0.654in = 47.1pt from the top; it is exempted
+  #          through fonts.ignore_small_text_regex below.
+  margin_top_pt: 72.0
+  # BOTTOM = 11in - 1in - \textheight 9.25in = 0.75in = 54.0pt. \footskip is 0pt,
+  #          so nothing sits below the text block.
+  margin_bottom_pt: 54.0
+  # All conversions are exact at 72pt/in. Had the lengths been read as TeX points
+  # (72.27/in) they would read 63.24 / 487.82 pt instead, so a checker comparing
+  # against a rendered PDF must use the 72/in values above. The tolerances are
+  # widened past base's because these numbers are derived, not measured.
+  tolerance_left_pt: 4.0
+  tolerance_right_pt: 6.0
+  tolerance_top_pt: 4.0
+  # Footnotes and display maths routinely reach a couple of points past the block.
+  tolerance_bottom_pt: 4.0
+
+columns:
+  expected_columns: 2
+  # \columnsep = 0.25in = 18.0pt. Each column is \textwidth 6.75in minus the
+  # gutter, halved: (486.0 - 18.0) / 2 = 234.0pt = 3.25in, as the sample states.
+  column_gap_pt: 18.0
+
+fonts:
+  # aistats2026.sty line 462: \def\@normalsize{\@setsize\normalsize{11pt}\xpt\@xpt}
+  # — 10pt on 11pt leading. Sample paper: "Use 10 point type with a vertical
+  # spacing of 11 points."
+  body_size_pt: 10.0
+  # "Use 8 point type for footnotes" is the smallest sanctioned size. CAVEAT: no
+  # primary source states an enforceable minimum; the style still defines
+  # \small/\footnotesize = 9pt, \scriptsize = 7pt and \tiny = 6pt, so this floor
+  # is an inference from the sample paper's prose, not an explicit prohibition.
+  min_font_size_pt: 8.0
+  # CAVEAT: the typeface is INFERRED. aistats2026.sty loads no font package and
+  # sample_paper.tex loads neither times nor newtx, so the article class default
+  # (Computer Modern / Latin Modern Type 1) applies; no instruction names a
+  # typeface, so this list is permissive rather than prescriptive.
+  allowed_font_substrings:
+    - CMR
+    - CMMI
+    - CMSY
+    - CMEX
+    - CMTT
+    - LMRoman
+    - LMMath
+    - LMMono
+    - NimbusRomNo9L
+    - TeXGyreTermes
+    - TimesNewRoman
+    - Times-Roman
+  # Two things legitimately sit outside the text block: bare page numbers, and
+  # the fancyhdr running head that [accepted] turns on for the camera ready
+  # (it prints the paper title and the "Manuscript under review by AISTATS ..."
+  # line above the 1in text top). \footskip is 0pt, so there is no running foot.
+  ignore_small_text_regex: '^\s*\d{1,4}\s*$|^(Manuscript under review by AISTATS|Running heading)'
+
+structure:
+  # AISTATS mandates no Limitations section.
+  limitations_required: false
+  # "the main submission pdf should only contain the main paper, the references,
+  # and the checklist (in that order)"; appendices follow if not split off.
+  appendix_must_follow_references: true
+  # The main paper is two-column, but the supplement is explicitly single-column,
+  # so an appendix bound into the same file may legitimately be one column.
+  appendix_must_be_two_column: false
+  # The reproducibility checklist sits after the references and never counts
+  # against the page limit. It is wired in as an "ethics"-slot alias so the
+  # page-limit check treats it as unlimited material without new Python.
+  ethics_aliases:
+    [Reproducibility Checklist, AISTATS Reproducibility Checklist, Reproducibility,
+     Checklist, Ethics Statement, Ethical Considerations, Broader Impact, Broader Impacts]
+  # Acknowledgements are omitted at submission (the \acknowledgments macro is a
+  # no-op without [accepted]) and are exempt from the 9-page camera-ready limit.
+  unlimited_after: [limitations, references, acknowledgments, ethics, appendix]
+
+anonymity:
+  # aistats2026.sty typesets these literally while \statePaper=0 (lines ~319 and
+  # ~364): \aistatsauthor -> "Anonymous Author", \aistatsaddress -> "Anonymous
+  # Institution".
+  expected_author_line: "Anonymous Author"
+  # The title (16pt bold, centred between a 4pt top rule and a 1pt bottom rule)
+  # and the anonymous author/address block occupy the top of page 1; the
+  # "Abstract" heading (12pt bold, centred) follows below.
+  title_block_height_pt: 200.0
+
+structure_note: >-
+  AISTATS papers are two-column US Letter. The reproducibility checklist belongs in
+  the main PDF immediately after the references, and neither it nor the references
+  nor the appendices count toward the page limit. The camera-ready build
+  (\usepackage[accepted]{aistats2026}) adds a running head above the text block and
+  reveals the acknowledgements; both are exempt from the margin and page-limit
+  checks here. Supplementary material is a separate, unlimited, SINGLE-column PDF.
+
+severity:
+  # Documented desk-rejection conditions, and the only two promoted to error.
+  page_limit: error            # >8 pages of content (>9 camera ready)
+  anonymity_title_block: error # author names/affiliations break double-blind review
+  # Deliberately NOT an error: the margins are derived from the .sty lengths and
+  # cross-checked against prose, but never measured off rendered ink, and they
+  # are carried over from the 2026 kit because 2027 has published nothing. An
+  # unverified number must not be able to produce a false desk rejection.
+  margins: warning
+
+cfp:
+  page_limit: >-
+    "Submissions are limited to 8 pages excluding references. There will be an
+    additional page for camera-ready versions of the accepted papers." (sample_paper.tex,
+    AISTATS2026PaperPack) — and "Check that the content of your submission, excluding
+    references and the reproducibility checklist, is limited to 8 pages." The number of
+    pages containing references, the reproducibility checklist, and additional appendices
+    (in that order) is not limited.
+  paper_size: >-
+    "Papers are in 2 columns with the overall line width of 6.75 inches (41 picas). Each
+    column is 3.25 inches wide (19.5 picas). The space between the columns is .25 inches
+    wide (1.5 picas). The left margin is 0.88 inches (5.28 picas). Use 10 point type with
+    a vertical spacing of 11 points. Please use US Letter size paper instead of A4."
+  margins: >-
+    Margins come from aistats2026.sty. "Please, do not modify the style files as this might
+    result in a formatting violation" and "Please, do not change the layout given by the
+    above instructions and by the style file." NOTE: preflight's AISTATS margins are derived
+    from the 2026 style file's lengths rather than measured, so a margin report here is
+    advisory — check it against the official template before acting on it.
+  body_font_size: >-
+    "Use 10 point type with a vertical spacing of 11 points"; "Use 8 point type for
+    footnotes". Do not shrink type to fit the page limit.
+  anonymity_title_block: >-
+    "All submissions must be anonymized and may not contain any information that can violate
+    the double-blind reviewing policy, such as the author names or their affiliations,
+    acknowledgements, or links that can infer any author's identity or institution." Without
+    the [accepted] option the style file prints "Anonymous Author" and "Anonymous
+    Institution" for you — if real names appear, the option or the template was changed.
+  anonymity_urls: >-
+    Links that can infer an author's identity or institution are not allowed, in the paper or
+    the supplement, and no external (de-anonymizing) links may be posted during rebuttal.
+  anonymity_self_reference: >-
+    arXiv preprints are permitted, but self-citation is allowed only in the third person: the
+    paper must not identify a cited work as the authors' own. The submission must also not be
+    publicly identified as an AISTATS submission during review, and social-media promotion
+    while under review is strongly discouraged.
+  references_position: >-
+    "References follow the acknowledgements. Use an unnumbered third level heading for the
+    references section. Please use the same font size for references as for the body of the
+    paper—remember that references do not count against your page length total."
+  appendix_position: >-
+    "The number of pages containing references, the reproducibility checklist, and additional
+    appendices (in that order) is not limited." When the appendix is split into the
+    supplementary file, "the main submission pdf should only contain the main paper, the
+    references, and the checklist (in that order)". For the supplement: "You must use
+    aistats2026.sty as a style file for your supplementary pdf file and follow the same
+    formatting instructions as in the main paper. The only difference is that it must be in a
+    single-column format."
+
+unverifiable:
+  - id: cycle_year
+    title: Numbers are carried over from AISTATS 2026
+    message: >-
+      AISTATS 2027 has published nothing — the 2027 call for papers says details have not
+      been announced and there is no 2027 paper pack. Every geometry, font, page-limit and
+      policy value in this profile comes from the AISTATS 2026 kit (aistats2026.sty,
+      \ProvidesPackage dated 2026/08/29, PMLR vol. 300). The layout lengths have been stable
+      for many years, but the 8/9-page allowance and the checklist policy are set by each
+      year's chairs and MUST be re-verified against the 2027 CFP.
+  - id: margins_derived
+    title: Margins derived, not measured
+    message: >-
+      The margins here are computed from the style file's \oddsidemargin, \topmargin,
+      \textheight and \textwidth and cross-checked against the sample paper's stated 0.88in
+      left margin and the compiled PDF's 612x792 MediaBox — but no ink positions in a
+      rendered PDF were measured, and AISTATS publishes no official format checker. Margin
+      findings are reported as warnings for this reason.
+  - id: min_font_size
+    title: Minimum font size is an inference
+    message: >-
+      No primary source states an enforceable minimum font size. The 8pt floor is the
+      instruction for footnotes; the style file still defines \scriptsize = 7pt and
+      \tiny = 6pt, so smaller type is technically producible and a report below 8pt is
+      advice, not a documented violation.
+  - id: typeface
+    title: Typeface is inferred
+    message: >-
+      No AISTATS instruction names a typeface. Computer Modern is inferred from the absence
+      of any font package in aistats2026.sty and sample_paper.tex, so the accepted-font list
+      here is permissive and a font finding should not be read as a rule violation.
+  - id: reproducibility_checklist
+    title: Reproducibility checklist content
+    message: >-
+      The checklist belongs in the main PDF immediately after the references and never counts
+      toward the page limit. Per the Submission FAQ, omitting it at submission does not by
+      itself trigger desk rejection, though reviewers may request it during author feedback;
+      it IS required for the camera ready. The exact template and question list were not
+      retrieved from a primary source, so preflight cannot check the answers — only that the
+      section exists and sits after the references.
+  - id: journal_to_conference
+    title: Journal-to-conference (J2C) track
+    message: >-
+      The AISTATS 2026 J2C track accepts already-published journal papers through a Google
+      Form and states no AISTATS page or format limit of its own, so it is not modelled as a
+      formatting track here. If you are submitting to J2C, this profile's page limits do not
+      apply to you.
+  - id: abstract_deadline
+    title: Mandatory abstract deadline and post-deadline edits
+    message: >-
+      A full abstract must be registered roughly a week before the paper deadline; missing it
+      is a desk-rejection condition. So are major changes to the title or abstract, or
+      substantial changes in length or content, after that deadline. None of this is visible
+      in the PDF.
+  - id: dual_submission
+    title: Concurrent / dual submission
+    message: >-
+      Nothing in the PDF shows whether this work is under review or already published
+      elsewhere. Dual submission and prior publication are desk-rejection conditions, as is a
+      journal-track submission that has already appeared in a comparable track at another
+      venue.
+  - id: style_file_integrity
+    title: Unmodified style file
+    message: >-
+      "Please, do not modify the style files as this might result in a formatting violation."
+      preflight measures the rendered output, so a modified .sty that happens to reproduce the
+      right geometry is invisible here — check your source against the official paper pack.
+  - id: code_release_promise
+    title: Promised code or data release
+    message: >-
+      Promising to release code or datasets and then failing to do so by the camera-ready
+      deadline is a stated desk-rejection condition. Whether a linked repository exists, is
+      anonymized, and actually runs can only be established by opening it.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only substantial
+      contributors are listed on the OpenReview submission.
+  - id: supplement_anonymity
+    title: Supplementary material
+    message: >-
+      The supplement must be anonymized and formatted with aistats2026.sty in single-column
+      form. Whether the separately uploaded supplement or ZIP meets this cannot be judged
+      from the main PDF; run preflight on it with --track supplement.

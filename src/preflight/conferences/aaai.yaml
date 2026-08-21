@@ -1,0 +1,420 @@
+# AAAI Conference on Artificial Intelligence.
+#
+# ---------------------------------------------------------------------------
+# NOTE ON THE CYCLE: THIS PROFILE IS AAAI-27, NOT AAAI-28.
+#
+# AAAI-28 (the 42nd conference) did not exist when this file was written
+# (21 August 2026): aaai.org has no /aaai-28/ section and no /authorkit28/, and
+# AAAI-28 would normally be announced around mid-2027. Everything below is taken
+# from the most recent PUBLISHED official cycle, AAAI-27 (abstracts 21 July 2026,
+# full papers 28 July 2026, supplementary 31 July 2026, notification 30 Nov 2026,
+# camera ready 14 Dec 2026, conference 16-23 Feb 2027, Montreal).
+#
+# AAAI's page geometry has been stable for many years, so carrying it forward is
+# low risk. Carrying the PAGE LIMIT forward is not: the content/reference split
+# has moved between cycles. Both `page_limit` and `margins` are therefore
+# softened to warnings in `severity:` below, so an out-of-date number cannot
+# produce a false desk rejection. Re-derive this file when the AAAI-28 author kit
+# ships, and promote them back to errors then.
+#
+# NOTE ON NUMBERS: there is no official AAAI format checker (no aclpubcheck
+# equivalent) and AAAI publishes no numeric tolerance table. What is documented
+# is post-acceptance recompilation and manual return-for-correction ("All papers
+# submitted to AAAI for publication will be recompiled for standardization
+# purposes"; "If you do not follow these requirements, your paper will be
+# returned to you to correct the deficiencies"). Every geometry number below was
+# read out of aaai2027.sty (\ProvidesPackage{aaai2027}[2027/05/04], section
+# "PHYSICAL PAGE LAYOUT", lines 78-89) inside AuthorKit27.zip; the tolerances are
+# our own choice, not AAAI's.
+#
+# Sources:
+#   https://aaai.org/conference/aaai/aaai-27/submission-instructions/
+#   https://aaai.org/conference/aaai/aaai-27/main-technical-track-call/
+#   https://aaai.org/authorkit27/  ->  AuthorKit27.zip (aaai2027.sty,
+#       CameraReady2027.tex, AnonymousSubmission2027.tex, ReproducibilityChecklist.tex)
+#   https://aaai.org/conference/aaai/aaai-27/aia-call/           (AI Alignment)
+#   https://aaai.org/conference/aaai/aaai-27/aisi-call/          (AI for Social Impact)
+#   https://aaai.org/conference/aaai/aaai-27/demonstration-call/
+#   https://aaai.org/conference/aaai/aaai-27/student-abstract-and-poster-program-call-for-proposals/
+#   https://aaai.org/conference/aaai/aaai-27/senior-member-presentation-track-call-for-proposals/
+#   https://aaai.org/conference/aaai/aaai-27/thirty-second-aaai-sigai-doctoral-consortium-call-for-proposals/
+# ---------------------------------------------------------------------------
+
+conference:
+  key: aaai
+  name: AAAI (main technical track)
+  extends: base            # US Letter two-column 10pt; NOT the A4 ACL style
+  default_track: main
+  style: "AAAI (US Letter, two-column, 10pt newtxtext/Times)"
+
+# AAAI has its own track set; do not inherit base's `long`.
+tracks_replace: true
+tracks:
+  main:
+    content_page_limit: 7
+    description: >-
+      Main Technical Track — 7 pages of main content, 9 pages maximum in total,
+      with pages 8-9 reserved EXCLUSIVELY for references. Content appendices,
+      ethical statements and all figures count inside the 7. Acknowledgements are
+      omitted at review time. Double blind.
+  ai_alignment:
+    content_page_limit: 7
+    description: >-
+      Special Track on AI Alignment — the call restates the main-track rule
+      verbatim (7 content pages, 9 total, pages 8-9 references only). Logistics
+      mirror the main track; excluded from the 10-submission-per-author cap.
+  aisi:
+    content_page_limit: 7
+    description: >-
+      Special Track on AI for Social Impact — INFERRED, not quoted. The AISI call
+      describes only track focus and review criteria and defers everything else to
+      the main call, so 7 + 2 is applied by inheritance. Verify before relying on it.
+      Excluded from the 10-submission-per-author cap.
+  senior_member:
+    content_page_limit: 6
+    description: >-
+      Senior Member Presentation Track (blue sky / summary / bridge) — "no more than
+      3 pages for the talk outline plus CV and no more than 6 (+ references) pages"
+      for the paper. NOT anonymous. The number of permitted reference pages is not
+      stated, and AAAI's own page is partly garbled and partly stale AAAI-25 text,
+      so this track is lower confidence than the main track.
+  student_abstract:
+    content_page_limit: 2
+    description: >-
+      Student Abstract and Poster Program — "Abstracts must be no longer than 2
+      pages including references, and formatted in AAAI two-column, camera-ready
+      style." References count toward the 2 pages; there is no extra reference page.
+      "Papers exceeding the specified length and formatting requirements are subject
+      to rejection without review."
+  demo:
+    content_page_limit: 2
+    description: >-
+      Demonstration Program — "A two-page short paper describing their system, plus
+      one page of references only, formatted in AAAI two-column style." May be
+      single blind OR double blind at the authors' choice, and is the one track that
+      "does not require the authors to upload the reproducibility checklist."
+  doctoral_consortium:
+    content_page_limit: 2
+    description: >-
+      AAAI/SIGAI Doctoral Consortium thesis summary — "The thesis summary MUST be 2
+      pages, in AAAI 2-column format, including references." The other three
+      components of the 6-page package (1-page cover sheet, 2-page CV, 1-page
+      personal statement) may be single column in any format at 11pt minimum and are
+      not what this profile measures.
+
+# ---------------------------------------------------------------------------
+# Geometry. All lengths are read from aaai2027.sty, "PHYSICAL PAGE LAYOUT":
+#   \setlength\topmargin{-0.25in}   \setlength\oddsidemargin{-0.25in}
+#   \setlength\textheight{9.0in}    \setlength\textwidth{7.0in}
+#   \setlength\columnsep{0.375in}
+#   \setlength\headheight{0pt}      \setlength\headsep{0pt}
+#   \pdfpagewidth=8.5in             \pdfpageheight=11in
+# The style file specifies every length in INCHES, converted here at the
+# PDF/PostScript rate of 72 pt/in (not TeX's 72.27), because these numbers are
+# compared against a rendered PDF's MediaBox and content bounding boxes.
+# ---------------------------------------------------------------------------
+geometry:
+  page_width_pt: 612.0     # 8.5in x 72
+  page_height_pt: 792.0    # 11in x 72
+  paper_size_label: "US Letter (8.5in x 11in)"
+  # 1in implicit LaTeX origin offset + \oddsidemargin(-0.25in) = 0.75in
+  margin_left_pt: 54.0
+  # 8.5in - 0.75in left - \textwidth 7.0in = 0.75in
+  margin_right_pt: 54.0
+  # 1in implicit offset + \topmargin(-0.25in) + \headheight(0) + \headsep(0) = 0.75in
+  # This is the pages-2+ value. On page 1 the text block still starts at 0.75in,
+  # but \maketitle opens the 2.25in \titlebox with "\vskip 0.625in minus 0.125in",
+  # so the first ink on page 1 legitimately sits nearer 1.25-1.375in down. That is
+  # inside the block, so it is not a margin violation; do not check page 1 ink
+  # against a fixed first-page number, which is layout dependent (it grows with
+  # the title).
+  margin_top_pt: 54.0
+  # 11.0in - 0.75in top - \textheight 9.0in = 1.25in
+  margin_bottom_pt: 90.0
+  # Our own tolerances: AAAI publishes none. Kept modest because the kit is
+  # emphatic — "no content should overflow into the margins or gutter ... that
+  # means no overfull boxes in LaTeX".
+  tolerance_left_pt: 3.0
+  tolerance_right_pt: 4.5
+  tolerance_top_pt: 3.0
+  # Display maths and footnote rules in the AAAI template reach a point or two
+  # past the block.
+  tolerance_bottom_pt: 4.0
+
+columns:
+  expected_columns: 2
+  # \columnsep = 0.375in x 72 = 27pt; column width = (7.0 - 0.375)/2 = 3.3125in
+  # = 238.5pt, which matches the kit's prose: "Each column should be 3.3 inches
+  # wide (slightly more than 3.25 inches), with a .375 inch (.952 cm) gutter."
+  column_gap_pt: 27.0
+
+fonts:
+  # aaai2027.sty line 321: \@setfontsize\normalsize\@xpt{11} — 10pt on 11pt
+  # leading. The kit's PROSE says "ten-point with twelve-point leading"; the two
+  # primary sources disagree on the leading, so trust the style file for the
+  # measured size and do not flag on leading.
+  body_size_pt: 10.0
+  # 9pt is the floor, and only where explicitly permitted: references may drop to
+  # \small (9/10) — "Making it any smaller than 9 point with 10 point linespacing,
+  # however, is not allowed"; tables "may be altered to 9 point type"; text inside
+  # figure artwork "must be at least nine-point type". Figure CAPTIONS stay 10pt
+  # roman. \tiny is "not an acceptable font size", and \resizebox on whole tables
+  # is banned because it defeats this floor.
+  min_font_size_pt: 9.0
+  # aaai2027.sty loads newtxtext (Times-like serif) for body, helvet for sans and
+  # courier for mono, and forbids authors from loading times/helvet/courier
+  # themselves. Computer Modern / Symbol / Lucida are permitted for MATHEMATICS
+  # ONLY. Embedded-font naming varies by producer, so this list is generous; the
+  # check only warns.
+  allowed_font_substrings:
+    - NimbusRomNo9L
+    - NimbusRoman
+    - TeXGyreTermes
+    - TimesNewRoman
+    - Times-Roman
+    - Times New Roman
+    - ntxtext
+    - zptm
+    - CMR
+    - CMMI
+  # AAAI uses NO line-number ruler, and "Your source and PDF must not have any
+  # page numbers, footers, or headers (no pagestyle commands)" — the style file
+  # sets \pagestyle{empty}. Nothing legitimately sits outside the text block, so
+  # this keeps only the base digits-only guard against stray numerals.
+  ignore_small_text_regex: '^\s*\d{1,4}\s*$'
+
+structure:
+  # AAAI requires no Limitations section.
+  limitations_required: false
+  # NOTHING IS UNLIMITED AT AAAI — the key difference from NeurIPS/ICLR. The
+  # references allowance is CAPPED at 2 pages (the PDF may be 9 pages total, of
+  # which 8-9 are "reserved exclusively for references"), and everything else
+  # counts: "These appendices are considered part of the main paper, count
+  # towards page limits"; "any ethical statements or similar considerations, if
+  # included, must be included in the 7 content pages". So only `references`
+  # ends the counted region here.
+  unlimited_after: [references]
+  # Kit, "Section Headings": 1. main content; 2. Content Appendices (optional);
+  # 3. Ethical Statement (optional, unnumbered); 4. Acknowledgments (optional,
+  # unnumbered); 5. References (unnumbered); 6. Supplementary / Technical
+  # Appendices (only if permitted). Content appendices therefore come BEFORE the
+  # references at AAAI, so the ACL/ICLR ordering rule must be off.
+  appendix_must_follow_references: false
+  # Everything in the main PDF is two column; technical appendices go into the
+  # separately uploaded Supplementary Document, not into this file.
+  appendix_must_be_two_column: true
+  references_aliases: [References, Bibliography]
+  appendix_aliases:
+    [Appendix, Appendices, Content Appendix, Content Appendices,
+     Supplementary Material, Supplemental Material, Technical Appendix]
+  ethics_aliases:
+    [Ethical Statement, Ethics Statement, Ethical Considerations, Ethical Statements,
+     Broader Impact, Broader Impacts]
+  acknowledgments_aliases:
+    [Acknowledgments, Acknowledgements, Acknowledgment, Acknowledgement]
+
+anonymity:
+  # \usepackage[submission]{aaai2027} empties \showauthors@on, so \@maketitle
+  # prints the literal string below in place of \@author, drops \affiliations,
+  # disables \pdfinfo, and swaps the copyright slug for "This is an anonymized
+  # submission for review purposes only." Start from AnonymousSubmission2027.tex.
+  expected_author_line: "Anonymous submission"
+  # Text block starts 0.75in (54pt) down and \titlebox is 2.25in (162pt), so the
+  # title/author area ends around 216pt; 210 keeps the scan off the abstract,
+  # which begins just below it.
+  title_block_height_pt: 210.0
+
+structure_note: >-
+  AAAI-27 prints no line-number ruler, no page numbers and no running head
+  (\pagestyle{empty}); the only things near the edge of the block are the
+  copyright slug that \maketitle inserts in camera-ready mode and the
+  "This is an anonymized submission for review purposes only." disclaimer in
+  submission mode. Note also that nothing at AAAI is unlimited: references are
+  capped at two pages (8-9) and content appendices, ethical statements and
+  figures all count inside the 7 content pages. Technical appendices, proofs and
+  pseudocode belong in the separately uploaded Supplementary Document.
+
+severity:
+  # DELIBERATELY SOFTENED. Exceeding the page limit, and letting content intrude
+  # into the margin or gutter, are both documented desk-rejection conditions at
+  # AAAI-27 — but this profile encodes AAAI-27 numbers for a cycle (AAAI-28) whose
+  # kit has not been published, and AAAI publishes no tolerance table for a
+  # checker to defer to. A stale number must not produce a false desk rejection.
+  # Promote both back to `error` once the AAAI-28 author kit confirms them.
+  page_limit: warning
+  margins: warning
+  # Not softened: US Letter has been AAAI's paper size for many years and the kit
+  # is unconditional — "The paper size for final submission must be US letter
+  # without exception." Anonymity is likewise a stable, documented condition.
+  anonymity_title_block: error
+
+cfp:
+  page_limit: >-
+    "Submissions are limited to 7 pages of main content, with a maximum total length of
+    9 pages. Any pages beyond page 7 are reserved exclusively for references." (Main
+    Technical Track Call.) From the Submission Instructions: "The main submission PDF can
+    have up to 9 pages, with pages 8-9 reserved exclusively for references. That is, the
+    main paper can have up to 7 pages of non-references content. Acknowledgements should be
+    omitted from papers submitted for review, and any ethical statements or similar
+    considerations, if included, must be included in the 7 content pages."
+  paper_size: >-
+    "Papers must be in trouble-free, high-resolution PDF format, formatted for US Letter
+    (8.5" x 11") paper, using Type 1 or TrueType fonts." (Submission Instructions.) And
+    from the author kit: "Papers must be formatted to print in two-column format on 8.5 x 11
+    inch US letter-sized paper" ... "The paper size for final submission must be US letter
+    without exception." No type 3 fonts anywhere, "even in graphics"; PDF 1.5 or higher; all
+    fonts embedded.
+  margins: >-
+    "The margins must be exactly as follows: Top margin: 1.25 inches (first page), .75
+    inches (others); Left margin: .75 inches; Right margin: .75 inches; Bottom margin: 1.25
+    inches." And: "The document margins may not be exceeded (no content should overflow into
+    the margins or gutter) ... You must fix any overflow into the margin (that means no
+    overfull boxes in LaTeX). Nothing is permitted to intrude into the margin or gutter."
+    Commands that alter page layout (\columnsep, \topmargin, \textheight, \textwidth,
+    \oddsidemargin, \evensidemargin, ...) are forbidden: "If you alter page layout, you will
+    be required to pay the page fee." "Regardless of the above, if your paper is obviously
+    'squeezed' it is not going to be accepted."
+  body_font_size: >-
+    Ten-point body type set by the style file. "You may not reduce font size or the
+    linespacing. Commands that alter font size or line spacing (including, but not limited
+    to baselinestretch, baselineshift, linespread, and others) are expressly forbidden."
+    References may be reduced to \small — "Making it any smaller than 9 point with 10 point
+    linespacing, however, is not allowed" — and tables "may be altered to 9 point type", but
+    \tiny is "not an acceptable font size" and \resizebox on whole tables is banned.
+  min_font_size: >-
+    9pt floor, and only where permitted: references at \small, tables at 9 point, and text
+    inside figure artwork, which "must be at least nine-point type". Figure captions stay
+    10pt roman — "Do not make them smaller, bold, or italic."
+  font_family: >-
+    "We will not accept papers formatted using Computer Modern or Palatino or some other
+    text typeface." The style file loads newtxtext, helvet and courier itself; loading
+    times/helvet/courier yourself conflicts with it. Computer Modern, Symbol and Lucida are
+    permitted for mathematics only. The style file \RequirePDFTeX's — XeLaTeX and LuaLaTeX
+    hard-error — and sources must compile against a stock TeX Live 2020 as a single .tex
+    file (plus .bib), under 10 MB, matching the PDF exactly.
+  anonymity_title_block: >-
+    "AAAI submissions are anonymous and must conform to the instructions (detailed below) for
+    double-blind review. The authors must remove all author and affiliation information from
+    their submission for review, and may replace it with other information, such as paper
+    number and keywords." The submission-mode style file substitutes the literal line
+    "Anonymous submission" for the author block. EXCEPTIONS: the Senior Member Presentation
+    Track is not anonymous, and the Demonstration Program may be single or double blind at
+    the authors' option.
+  anonymity_self_reference: >-
+    Acknowledgements must be omitted from papers submitted for review. Preprints are allowed
+    — arXiv and non-archival workshops are explicitly permitted — but the kit warns "Make
+    sure that you do not de-anonymize yourself with these links if you are preparing an
+    anonymous submission."
+  references_position: >-
+    Kit, "Section Headings": "Sections must appear in the following order: 1. Main content
+    sections; 2. Content Appendices (optional) ... 3. Ethical Statement (optional,
+    unnumbered); 4. Acknowledgments (optional, unnumbered); 5. References (unnumbered);
+    6. Supplementary Material / Technical Appendices (only if permitted by the conference)."
+    References sit at the end of the main PDF, occupy at most pages 8-9, and are formatted
+    with aaai2027.bst. They are NOT unlimited.
+  appendix_position: >-
+    "Content Appendices (optional). These appendices are considered part of the main paper,
+    count towards page limits and are subject to the same formatting and review
+    requirements." ... "Content appendices must appear after the main content. If your main
+    sections are numbered, appendix sections must use letters instead of arabic numerals."
+    Separately: "Additional technical material such as proofs, assumptions, and algorithm
+    pseudocode, may be included in the Supplementary Document" — uploaded separately (due
+    31 July 2026 for AAAI-27) alongside a Code and Data Supplement.
+  structure_headings: >-
+    Titles use Title Case capitalization, not sentence case; the abstract contains no
+    references; the References section is unnumbered. Neither the PDF nor the source may
+    contain embedded links or bookmarks (no hyperref or navigator packages), page numbers,
+    headers or footers; no document may be password protected; the titlesec package is
+    banned; \parindent, \parskip and negative \vskip/\vspace around tables, figures,
+    captions, sections and references may cause rejection.
+
+unverifiable:
+  - id: cycle_is_aaai27
+    title: These rules are AAAI-27, not AAAI-28
+    message: >-
+      There is no AAAI-28 call for papers and no AAAI-28 author kit yet, so every number in
+      this profile comes from AAAI-27 (the most recent published cycle). The geometry has
+      been stable for years and is low risk to carry forward; the 7 + 2 page split is not.
+      Re-derive this profile from the AAAI-28 kit before trusting the page limit, and treat
+      the page-limit and margin findings as advisory until then.
+  - id: reproducibility_checklist
+    title: AAAI Reproducibility Checklist uploaded separately
+    message: >-
+      "Authors must complete the reproducibility checklist provided in the AAAI-27 Author
+      Kit and submit it at the time of paper submission ... uploaded separately from the
+      main paper in the designated field of the submission form." It is a separate artifact,
+      not a section of the paper, so it consumes no page budget and cannot be seen in this
+      PDF. Reviewers score reproducibility, and "Claims that such materials 'will be
+      released after acceptance or publication' must not be treated as evidence of
+      reproducibility." The Demonstration Program is exempt.
+  - id: supplementary_document
+    title: Supplementary Document and Code and Data Supplement
+    message: >-
+      Proofs, assumptions, pseudocode and extra experimental detail belong in a separate
+      Supplementary Document plus Code and Data Supplement uploaded after the paper
+      deadline. Whether they exist, and whether a linked repository holds runnable
+      anonymized code, cannot be established from this PDF.
+  - id: dual_submission
+    title: Concurrent / dual submission and overlap
+    message: >-
+      Nothing in the PDF shows whether this work is under review elsewhere. Dual or parallel
+      submission to another archival venue, overlapping or "thin-sliced" submissions,
+      plagiarism and self-plagiarism are all summary-rejection grounds under the AAAI
+      Publications Ethics and Malpractice Statement. arXiv preprints and non-archival
+      workshops are permitted.
+  - id: submission_cap
+    title: Per-author submission cap
+    message: >-
+      Authors may have at most 10 combined submissions to the AAAI-27 technical track (the
+      AI Alignment and AI for Social Impact special tracks are excluded from the count).
+      This is tracked on the submission site, not in the paper.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only substantial
+      contributors are listed. Authors may not be added after the full-paper deadline.
+  - id: abstract_deadline
+    title: Genuine abstract, submitted a week early and not substantially changed
+    message: >-
+      "Submissions that have 'placeholder' (e.g., test or xyz) titles or abstracts (or none
+      at all) will be deleted", and the Program Chairs "reserve the right to reject papers
+      without review if they change their abstracts substantially between the abstract and
+      final deadlines." Neither is visible in the PDF.
+  - id: source_recompiles
+    title: LaTeX source recompiles on AAAI's system
+    message: >-
+      "Your LaTeX source will be reviewed and recompiled on our system (if it does not
+      compile, your paper will be returned to you)", and "All papers submitted to AAAI for
+      publication will be recompiled for standardization purposes." The source must be a
+      single .tex file plus .bib, build against a stock TeX Live 2020 under pdfLaTeX, be
+      under 10 MB, contain no files unused by the paper, and match the PDF exactly. None of
+      this can be checked from the PDF alone.
+  - id: style_file_unmodified
+    title: Style file and layout unmodified
+    message: >-
+      "WARNING: IF YOU ARE USING THIS STYLE SHEET FOR AN AAAI PUBLICATION, YOU MAY NOT MODIFY
+      IT FOR ANY REASON. MODIFICATIONS (IN YOUR SOURCE OR IN THIS STYLE SHEET) WILL RESULT IN
+      REJECTION OF YOUR PAPER." Measured geometry can suggest tampering, but only the source
+      shows whether the style file or its layout commands were altered.
+  - id: total_page_cap
+    title: Two-page cap on references, and the 9-page total
+    message: >-
+      This checker counts content pages up to the References heading against the 7-page
+      limit. It does not enforce AAAI's second rule — that the whole PDF may be at most 9
+      pages and that pages 8-9 may contain nothing but references. Check the total page
+      count and the content of pages 8-9 by hand.
+  - id: camera_ready_allowance
+    title: Camera-ready limit and extra-page charges
+    message: >-
+      No camera-ready page limit or extra-page-charge schedule was published for AAAI-27.
+      The kit refers to "the extra page charge (if it is offered)" and "you will be required
+      to pay the page fee" without stating whether purchasable extra pages exist, their
+      price, or whether the camera-ready limit differs from the 7 + 2 review limit. Do not
+      assume an allowance.
+  - id: reviewer_conduct
+    title: Reviewing obligations and conduct
+    message: >-
+      Fabricated (non-existent) references, prompt-injection attacks against reviewers,
+      fabricated reviewer identities and coercive behaviour toward reviewers are all
+      summary-rejection grounds under the AAAI Code of Professional Conduct. Conduct is not
+      a property of the PDF.

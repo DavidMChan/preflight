@@ -1,0 +1,315 @@
+# ICML main conference and Position Paper Track.
+#
+# NOTE ON THE CYCLE: this profile describes **ICML 2026**, not 2027. As of
+# 21 August 2026 ICML has published no 2027 call for papers, author instructions
+# or style kit (icml.cc has no /Conferences/2027/ author pages), so the numbers
+# below come from the most recent cycle that ships an author kit. ICML's page
+# geometry has been stable across many cycles, but every number here should be
+# re-verified when icml2027.zip appears.
+#
+# NOTE ON NUMBERS: there is no official ICML format checker to defer to. The
+# geometry was read out of icml2026.sty in the official author kit and then
+# verified against the shipped example_paper.pdf with `pdftotext -bbox`.
+# Sources:
+#   https://icml.cc/Conferences/2026/CallForPapers
+#   https://icml.cc/Conferences/2026/AuthorInstructions
+#   https://icml.cc/Conferences/2026/CallForPositionPapers
+#   https://media.icml.cc/Conferences/ICML2026/Styles/icml2026.zip
+#   https://media.icml.cc/Conferences/ICML2026/Styles/example_paper.pdf
+#
+# CAVEATS carried from research, all of them visible in the settings below:
+#   * MINIMUM FONT SIZE: ICML states no absolute minimum. 9pt is the smallest
+#     size the instructions actually prescribe (footnotes, captions), so it is
+#     inferred, not quoted; `min_font_size` never errors in this tool anyway.
+#   * LEFT MARGIN PROSE MISMATCH: example_paper.tex prose says "The left margin
+#     should be 0.75 inches and the top margin 1.0 inch", but icml2026.sty sets
+#     \oddsidemargin=-0.23in, giving 0.77in (55.44pt) on the left and a text
+#     block top of 0.931in (67.06pt). The rendered PDF agrees with the style
+#     file, not the prose; the style file is what is encoded here.
+#   * TOP MARGIN DEFINITION: margin_top_pt is the paper edge to the top of the
+#     two-column *text block*. The running head legitimately prints above it and
+#     the submission-mode line-number rulers print in both side margins; both
+#     are whitelisted below or every conforming ICML submission would fail.
+#   * \topmargin is asserted rather than written literally in the style file
+#     (article default, then two \addtolength calls); the style's own assertion
+#     \ifdim\topmargin=-24.95781pt is the authoritative figure used here.
+#   * POSITION TRACK PAGE LIMIT is inferred: the Call for Position Papers says
+#     "All requirements and policies are identical to those of the main
+#     conference ... with the following exceptions", and the enumerated
+#     exceptions do not mention the page limit or the style file.
+#   * Workshop tracks and any 2026 track beyond main + position were not
+#     investigated.
+# Because the cycle itself is unverified, `margins` is softened to a warning:
+# an unverified geometry number must not produce a false desk rejection.
+
+conference:
+  key: icml
+  name: ICML (main conference and position track)
+  extends: base
+  default_track: main
+  style: "ICML (US Letter, two-column, 10pt Times)"
+
+# ICML has its own track set; do not inherit base's `long`.
+tracks_replace: true
+tracks:
+  main:
+    content_page_limit: 8
+    description: >-
+      Main conference track — main body of at most 8 pages, followed by unlimited
+      pages for acknowledgements, the Impact Statement, references and appendices
+      in a single PDF. "Any submission whose main body goes over the 8 page limit
+      will be automatically rejected." The Impact Statement is mandatory here.
+  position:
+    content_page_limit: 8
+    description: >-
+      Position Paper Track — identical to the main track except that the title
+      must start with "Position:" and an Impact Statement is not required (the
+      position paper itself should explain the impact). The 8-page body limit is
+      inferred from the "identical to the main conference" clause, since the
+      listed exceptions do not change it.
+  camera_ready:
+    content_page_limit: 9
+    description: >-
+      Camera ready — the body limit rises to 9 pages, "followed by any
+      acknowledgements, the impact statement (for main track papers), references,
+      and appendices". A Conflict of Interest Disclosure paragraph is also
+      required at the end of the introduction in this version only.
+
+geometry:
+  # icml2026.sty: \paperwidth=8.5in, \paperheight=11in. 8.5 x 72 = 612;
+  # 11 x 72 = 792. TeX-point assertions in the style file: 614.295pt / 794.97pt.
+  page_width_pt: 612.0
+  page_height_pt: 792.0
+  paper_size_label: "US Letter (8.5in x 11in)"
+  # LEFT: LaTeX's implicit 1in offset + \oddsidemargin (-0.23in, asserted
+  # -16.62178pt TeX) = 1in - 0.23in = 0.77in = 55.44pt.
+  margin_left_pt: 55.44
+  # RIGHT: 612 - 55.44 - \textwidth (6.75in = 486pt) = 70.56pt. ICML's text
+  # block is deliberately asymmetric; these two numbers are not equal.
+  margin_right_pt: 70.56
+  # TOP (to the top of the two-column text block): 1in + \topmargin
+  # + \headheight + \headsep = 72 - 24.8645 + 9.9627 + 9.9627 = 67.06pt.
+  # (TeX arithmetic: 72.27 - 24.95781 + 10 + 10 = 67.312pt TeX.)
+  margin_top_pt: 67.06
+  # BOTTOM: 792 - 67.06 - \textheight (9.0in = 648pt) = 76.94pt.
+  margin_bottom_pt: 76.94
+  tolerance_left_pt: 4.0
+  tolerance_right_pt: 6.0
+  # The running head legitimately sits ABOVE the text block, with its baseline at
+  # 1in + \topmargin = 47.14pt (measured ~47.9pt in example_paper.pdf), so its
+  # line box starts roughly 28pt above the 67.06pt text-block top. It is the
+  # paper's own title, so no regex can whitelist it; the tolerance does instead.
+  # This deliberately makes the top-margin test loose rather than wrong.
+  tolerance_top_pt: 28.0
+  # The page number prints \footskip=25pt below the text block (baseline ~740pt),
+  # but it is digits only and is exempted by fonts.ignore_small_text_regex, so
+  # the bottom tolerance only needs to cover footnote and display-maths overhang.
+  tolerance_bottom_pt: 4.0
+
+columns:
+  expected_columns: 2
+  column_gap_pt: 18.0      # \columnsep = 0.25in = 18pt
+
+fonts:
+  # \def\@normalsize{\@setsize\normalsize{11pt}\xpt\@xpt} — "The paper body
+  # should be set in 10 point type with a vertical spacing of 11 points."
+  body_size_pt: 10.0
+  # INFERRED, not stated: footnotes are 9pt and captions are 9pt (caption
+  # font=small), so 9pt is the smallest size the instructions prescribe. ICML
+  # publishes no absolute floor, and `min_font_size` only ever warns.
+  min_font_size_pt: 9.0
+  # icml2026.sty does \RequirePackage{times} (the 2025 newtx experiment was
+  # reverted to times on 2025.11.6 "for better compatibility").
+  allowed_font_substrings:
+    - NimbusRomNo9L
+    - TeXGyreTermes
+    - TimesNewRoman
+    - Times-Roman
+    - Times-Bold
+    - Times-Italic
+    - NimbusMonL
+    - CMR
+    - CMMI
+    - CMSY
+    - LMRoman
+  # Submission (non-accepted) mode prints line-number rulers in both side margins
+  # at x ~25.6pt and ~543pt, and the page-number footer sits 25pt below the text
+  # block. Both are bare digits, so this exempts them from the margin and
+  # font-size checks.
+  ignore_small_text_regex: '^\s*\d{1,4}\s*$'
+
+structure:
+  # ICML has no Limitations requirement. Its mandatory named section is the
+  # Impact Statement, so the "limitations" machinery is pointed at that heading
+  # rather than adding new Python: unnumbered, at the end of the paper,
+  # co-located with Acknowledgements and before the References.
+  limitations_heading: Impact Statement
+  limitations_aliases:
+    [Impact Statement, Impact Statements, Broader Impact, Broader Impacts,
+     Broader Impact Statement, Ethical Impact, Societal Impact]
+  # Mandatory for the main track ("Authors are required to include a statement of
+  # the potential broader impact of their work"). NOT required for position
+  # papers — the check is not track-aware, so on the position track treat a
+  # missing Impact Statement finding as inapplicable.
+  limitations_required: true
+  ethics_aliases:
+    [Impact Statement, Broader Impact, Broader Impacts, Ethics Statement,
+     Ethical Considerations]
+  # Acknowledgements, the Impact Statement, References and Appendices are all
+  # outside the limit: "8 pages for the main paper, with unlimited pages for
+  # references, the impact statement, and appendices."
+  unlimited_after: [limitations, references, acknowledgments, ethics, appendix]
+  # example_paper.tex ends with \newpage \appendix \onecolumn, i.e. the appendix
+  # follows the bibliography and is set single-column.
+  appendix_must_follow_references: true
+  appendix_must_be_two_column: false
+
+anonymity:
+  # Without the `accepted` option icml2026.sty substitutes this block and sets
+  # pdfauthor={Anonymous Authors}.
+  expected_author_line: "Anonymous Authors"
+  # Two-column US Letter template: title at ~67pt, the anonymous author and
+  # affiliation block below it, and the Abstract heading well under 200pt.
+  title_block_height_pt: 190.0
+
+structure_note: >-
+  ICML submissions legitimately print three things outside the two-column text
+  block: line-number rulers in both side margins, a running head above the block,
+  and the page number below it. The rulers and page number are exempted through
+  fonts.ignore_small_text_regex; the running head is covered by
+  geometry.tolerance_top_pt.
+
+severity:
+  # Documented desk-rejection conditions.
+  page_limit: error              # "will be automatically rejected"
+  anonymity_title_block: error   # "Submissions that include the author information will not be reviewed"
+  paper_size: error              # "must be in US letter size (i.e., not A4 or other sizes)"
+  # SOFTENED: the margins are read from icml2026.sty and match the rendered
+  # example PDF, but this profile is the 2026 cycle standing in for an
+  # unpublished 2027 kit, and the template prose itself disagrees with the style
+  # file about the left margin. An unverified number must not desk-reject.
+  margins: warning
+  # The Impact Statement is mandatory for main-track papers but exempt for
+  # position papers, and this check cannot see the track; a warning keeps it from
+  # firing as a desk rejection on a conforming position paper.
+  limitations_present: warning
+
+cfp:
+  page_limit: >-
+    "8 pages for the main paper, with unlimited pages for references, the impact statement,
+    and appendices." (Call for Papers) — "Submitted papers are composed of a main body, which
+    can be up to eight pages long, followed by any number of pages for references and
+    appendices... Any submission whose main body goes over the 8 page limit will be
+    automatically rejected." (Author Instructions) Camera ready: "the length limit of the
+    paper body is 9 pages, followed by any acknowledgements, the impact statement (for main
+    track papers), references, and appendices."
+  paper_size: >-
+    "Your paper must be in US letter size (i.e., not A4 or other sizes)." The text is set in
+    two columns "with an overall width of 6.75 inches, height of 9.0 inches, and 0.25 inches
+    between the columns... Do not write anything on the margins."
+  margins: >-
+    The margins come from icml2026.sty and must not be altered. The style file detects changes
+    to \oddsidemargin, \textwidth, \textheight, \topmargin, \headheight, \headsep, \footskip,
+    \hoffset, \voffset, \marginparsep, \marginparpush, \paperwidth or \paperheight — and the
+    loading of geometry, savetrees or fullpage — and prints "The page layout violates the ICML
+    style". "Submitted papers that do not conform to these policies will be rejected without
+    review."
+  body_font_size: >-
+    "The paper body should be set in 10 point type with a vertical spacing of 11 points."
+    Do not compress the format by reducing vertical spacing, and make sure the PDF only uses
+    Type-1 fonts.
+  min_font_size: >-
+    ICML prescribes 9pt for footnotes and for figure and table captions, and states no absolute
+    minimum. Text below 9pt (usually a shrunken table or figure) is a legibility warning here,
+    not a stated violation.
+  limitations_present: >-
+    "Authors are required to include a statement of the potential broader impact of their work,
+    including its ethical aspects and future societal consequences. This statement should be in
+    an unnumbered section at the end of the paper (co-located with Acknowledgements — the two
+    may appear in either order, but both must be before References), and does not count toward
+    the paper page limit." Position papers are exempt: "The following are not required for
+    position papers: Impact Statements (the position paper itself should explain the impact)."
+    A paper with no notable ethical dimension may use ICML's boilerplate verbatim.
+  limitations_position: >-
+    The Impact Statement is unnumbered, sits at the end of the paper co-located with the
+    Acknowledgements (either order), and must come before the References.
+  references_position: >-
+    "Use an unnumbered first-level section heading for the references, and use a hanging indent
+    style, with the first line of the reference flush against the left margin and subsequent
+    lines indented by 10 points." References follow the Impact Statement and Acknowledgements
+    and do not count toward the page limit.
+  appendix_position: >-
+    The appendix follows the bibliography (\newpage \appendix \onecolumn in example_paper.tex)
+    and is unlimited: "You can have as much text here as you want. The main body must be at
+    most 8 pages long."
+  anonymity_title_block: >-
+    "Reviewing for ICML 2026 is double-blind: reviewers will not know the authors' identities
+    and vice versa." "All submissions must be anonymized and may not contain any information
+    with the intention or consequence of violating the double-blind reviewing policy."
+    Submissions that include author information — usually because the `accepted` style option
+    was left on — will not be reviewed.
+  anonymity_urls: >-
+    Omit acknowledgements, grant numbers, and links to public code repositories or any URL that
+    reveals your institution. Use an anonymous URL or the OpenReview supplementary material
+    instead.
+  anonymity_self_reference: >-
+    Refer to your own prior work in the third person. Do not anonymize the reference list
+    itself; the only exception is a not-yet-published manuscript.
+  hidden_prompt_injection: >-
+    "Any attempts at prompt injection are strictly forbidden and will result in desk rejection."
+    LLMs may assist with writing and research but may not be listed as authors.
+
+unverifiable:
+  - id: dual_submission
+    title: Concurrent / dual submission
+    message: >-
+      Nothing in the PDF shows whether this work is identical or substantially similar to a
+      previously published paper or one concurrently under review elsewhere. Dual submission is
+      a desk-rejection condition at ICML.
+  - id: originality
+    title: Originality and prior publication
+    message: >-
+      Establishing that the work is unpublished with limited text reuse needs cross-paper
+      matching against the authors' other work, which the PDF cannot answer.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only substantial
+      contributors are listed on the submission form. LLMs are not eligible for authorship.
+  - id: reciprocal_reviewing
+    title: Reciprocal reviewing requirement
+    message: >-
+      ICML enforces a reciprocal reviewing obligation per submission and per author. It is
+      tracked in OpenReview, not in the PDF, and failing it is a desk-rejection condition.
+  - id: impact_statement_track
+    title: Impact Statement applicability
+    message: >-
+      The Impact Statement is mandatory for main-track papers and explicitly not required for
+      Position Paper Track submissions. The PDF does not say which track it was submitted to,
+      so an Impact Statement finding on a position paper (whose title should start with
+      "Position:") can be ignored.
+  - id: promotion_during_review
+    title: Not advertised as an ICML submission
+    message: >-
+      Preprints and talks are allowed, but "under no circumstances should the work be advertised
+      as an ICML submission at any time during the review period". Whether that happened is not
+      a property of the PDF.
+  - id: style_file_integrity
+    title: Unmodified official style files
+    message: >-
+      This checker measures the rendered page, not the sources. Whether icml2026.sty was used
+      unmodified — and whether geometry, savetrees or fullpage were loaded to reclaim space —
+      can only be confirmed from the LaTeX source; papers that do not conform are rejected
+      without review.
+  - id: conflict_of_interest
+    title: Conflict of Interest Disclosure (camera ready)
+    message: >-
+      The camera-ready version must carry a Conflict of Interest Disclosure as the last
+      paragraph of the introduction, and conflicts must also be declared in OpenReview. Whether
+      the declared conflicts are complete is not visible here.
+  - id: cycle_currency
+    title: Profile cycle (ICML 2026 numbers)
+    message: >-
+      ICML 2027 had published no call for papers, author instructions or style kit when this
+      profile was written, so every number here comes from the ICML 2026 author kit. Re-verify
+      the page limit and geometry against icml2027.zip once it is released.
