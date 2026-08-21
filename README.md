@@ -91,7 +91,7 @@ uv run preflight paper.pdf --offline                # deterministic checks only,
 uv run preflight tui paper.pdf                      # interactive interface
 ```
 
-A bare PDF path is equivalent to `preflight check <path>`.
+A PDF path supplied without a subcommand is equivalent to `preflight check <path>`.
 
 No default venue is assumed. Without `-c`, preflight presents a selection list of the bundled
 profiles, positioned on the most recently used one; in a non-interactive context it exits with a
@@ -258,8 +258,8 @@ Measured on a 62-entry bibliography from a submission:
 | False negatives | none |
 
 `refcheck.mailto` should be set to a contact address. CrossRef and OpenAlex serve identified
-clients from a higher-throughput pool; without it, requests are throttled and lookups fall through
-to more expensive tiers. The check reports when this occurs.
+clients from a higher-throughput pool; without it, requests are throttled and lookups
+are passed to more expensive tiers. The check reports when this occurs.
 
 An unresolved reference is reported as unverified rather than fabricated, since bibliographic
 indexes are incomplete. It is a warning by default and never an error.
