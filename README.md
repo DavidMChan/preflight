@@ -487,14 +487,6 @@ establishes.
 
 ---
 
-## Credits
-
-Formatting tolerances are taken from [aclpubcheck](https://github.com/acl-org/aclpubcheck) (ACL).
-Reference verification is served by [CrossRef](https://www.crossref.org/),
-[OpenAlex](https://openalex.org/), [DBLP](https://dblp.org/),
-[Semantic Scholar](https://www.semanticscholar.org/) and [arXiv](https://arxiv.org/);
-`refcheck.mailto` should be configured so that these services can identify the client.
-
 ## License
 
 MIT. See [LICENSE](LICENSE).
