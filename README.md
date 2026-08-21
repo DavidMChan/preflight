@@ -2,14 +2,22 @@
 
 **Catch the things that get papers desk-rejected, before a chair does.**
 
+[![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](#license)
+[![Checks: 104](https://img.shields.io/badge/checks-104-blue)](#what-it-checks)
+[![Venues: 4](https://img.shields.io/badge/venues-ARR%20%C2%B7%20NeurIPS%20%C2%B7%20ICLR%20%C2%B7%20BayLearn-blueviolet)](#conferences)
+[![Tests: 161](https://img.shields.io/badge/tests-161%20passing-brightgreen)](#development)
+[![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
+[![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
+
 `preflight` reads a submission PDF and checks it against a conference's rules: page limits,
 required sections, margins, fonts, anonymity, appendix placement, hidden text aimed at automated
 reviewers, reference validity, and the venue's responsible-research checklist. It tells you exactly
 what is wrong and exactly where — `page 5, x=34.0pt, expected >= 69.0pt` — rather than
 "formatting may be wrong".
 
-It ships with a profile for **ACL Rolling Review (ARR)** and one for **NeurIPS**, and conferences
-are YAML files, so adding your own venue does not mean touching the code.
+It ships with profiles for **ACL Rolling Review**, **NeurIPS**, **ICLR** and **BayLearn**, and
+conferences are YAML files, so adding your own venue does not mean touching the code.
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────╮
@@ -58,11 +66,11 @@ the model only half saw is worse than no verdict.
 ## Install
 
 ```bash
-git clone <this repo> && cd preflight
-uv sync --extra hallucinator     # drop the extra to skip reference validation
+git clone https://github.com/DavidMChan/preflight.git && cd preflight
+uv sync
 ```
 
-Python 3.12 (the `hallucinator` wheels are 3.12-only). Then create a `.env`:
+Python 3.12 (the project pins `>=3.12,<3.13`). Then create a `.env`:
 
 ```bash
 cp .env.example .env
@@ -70,27 +78,30 @@ cp .env.example .env
 # PREFLIGHT_LLM_MODEL=gpt-5.6-luna
 ```
 
+The API key is optional. Without one, the model-backed checks skip themselves and say so; the
+deterministic report is unaffected.
+
 ---
 
 ## Use
 
 ```bash
-uv run preflight paper.pdf                      # pick a conference interactively
-uv run preflight paper.pdf -c arr -t short      # short paper limits
-uv run preflight paper.pdf -c neurips           # a different venue
+uv run preflight paper.pdf                          # pick a conference interactively
+uv run preflight paper.pdf -c arr -t short          # ARR short-paper limits
+uv run preflight paper.pdf -c neurips               # a different venue
 uv run preflight paper.pdf -c iclr -t camera_ready  # ICLR, 10-page camera-ready limit
-uv run preflight paper.pdf --offline            # deterministic checks only, no network
-uv run preflight tui paper.pdf                  # interactive
+uv run preflight paper.pdf --offline                # deterministic checks only, no network
+uv run preflight tui paper.pdf                      # interactive
 ```
+
+A bare PDF path is shorthand for `preflight check <path>`.
 
 There is no default venue. Without `-c`, preflight opens a picker (arrow keys, or a number)
 listing the bundled profiles and starting on the one you chose last; in a script or a pipe it
 exits with a usage error instead of guessing.
 
 Model-backed checks and reference verification are **on by default**. Turn them off individually
-with `--no-llm` / `--no-refcheck` / `--no-scores`, or all at once with `--offline`. Without an API
-key the model checks skip themselves and say so; the deterministic report is unaffected.
-`--hallucinator` additionally runs the deprecated third-party backend.
+with `--no-llm` / `--no-refcheck` / `--no-scores`, or all at once with `--offline`.
 
 Every run is cached, so you never pay twice for detail:
 
@@ -107,17 +118,42 @@ uv run preflight paper.pdf --json report.json --markdown report.md
 uv run preflight *.pdf --quiet --strict         # batch; non-zero exit on warnings too
 ```
 
+Useful options: `-m/--model` picks the model, `--concurrency` caps simultaneous model calls
+(default 8), `--verbose` shows all evidence and CFP references, `--quiet` shows only errors and
+warnings, and `--strict` turns warnings into a non-zero exit.
+
 Exit codes: `0` clean · `1` errors · `2` warnings under `--strict`, or a bad file/profile.
 
 ### The TUI
 
 `preflight tui paper.pdf` gives findings on the left, full evidence on the right.
-`r` re-runs · `l` LLM · `s` scores · `b` reference validation · `v` verbose · `n` next PDF ·
-`e` export Markdown · `q` quit.
+`r` re-runs · `l` LLM · `s` scores · `v` verbose · `n` next PDF · `e` export Markdown · `q` quit.
+
+---
+
+## Conferences
+
+Four bundled profiles, each selectable with `-c`:
+
+| Key | Venue | Tracks (content page limit) | Format |
+|---|---|---|---|
+| `arr` | ACL Rolling Review | `long` 8p · `short` 4p · `demo` 6p | A4, two-column, 11pt; Limitations mandatory; ARR checklist |
+| `neurips` | NeurIPS (main track) | `main` 9p | US Letter, single-column, 10pt; NeurIPS checklist mandatory |
+| `iclr` | ICLR (main conference) | `main` 9p · `camera_ready` 10p | US Letter, single-column, 10pt |
+| `baylearn` | BayLearn Symposium (abstracts) | `abstract` 2p | NeurIPS format, no checklist |
+
+`acl.yaml` and `base.yaml` are inheritance bases rather than venues you submit to — see
+[Conferences are configuration](#conferences-are-configuration) for how to build on them.
+
+```bash
+uv run preflight conferences        # the same table, from the tool
+```
 
 ---
 
 ## What it checks
+
+104 checks across 25 modules; a given venue runs the subset its profile enables (ARR runs 103).
 
 ### Deterministic — `core.geometry`, `core.fonts`, `core.structure`
 
@@ -218,18 +254,14 @@ than requested.
 are different real papers with identical bags of words, so an accept also requires the authors to
 agree; a close-but-not-certain match goes to the web-search tier rather than being reported.
 
-On the same 62-entry bibliography from a real submission:
+On a 62-entry bibliography from a real submission:
 
-| | hallucinator | `refcheck` |
-|---|---|---|
-| Wall clock, cold | 24 refs in 301s — 62 never finishes inside a sane budget | **62 refs in 39s** |
-| Wall clock, warm | — | **1.7s**, identical verdicts |
-| False "not found" | blog posts, model cards, vendor announcements | **none** |
-| Flagged | 6 of 12, mostly wrongly | 3 of 62, all genuine author-order questions |
-
-Entries resolved as: 47 verified in a database, 12 resolved to a live source (repositories, model
-cards, announcements), 3 with an author mismatch worth a look. Parsing the bibliography with a
-model adds about 16s on top of the cold number and is what makes the type routing possible.
+| | |
+|---|---|
+| Wall clock, cold | **62 references in 39s** (plus ~16s to parse the bibliography with a model, which is what makes the type routing possible) |
+| Wall clock, warm | **1.7s**, identical verdicts |
+| Resolved | 47 verified in a database · 12 resolved to a live source (repositories, model cards, announcements) · 3 author-order questions worth a look |
+| False "not found" | none |
 
 **Set `refcheck.mailto` to your email address.** CrossRef and OpenAlex both serve identified
 clients from a faster pool; without it they throttle, lookups fall through to the expensive tiers,
@@ -237,17 +269,6 @@ and the run is both slower and less accurate. The check tells you when this has 
 
 A miss is still reported as **suspicion, not proof** — indexes are incomplete, and "not found"
 never means "fabricated". It is a warning by default and never an error.
-
-### Reference validation — `integrations.hallucinator` (deprecated)
-
-The original third-party [hallucinator](https://github.com/gianlucasb/hallucinator) backend, kept
-for a second opinion and opt-in behind `--hallucinator`. It is superseded by `refcheck` above: it
-queries databases in a fallthrough with global rate limits, so unmatched references cost ~45s
-each, and it has no notion of what is being cited, so repositories and blog posts get reported as
-missing papers.
-
-Its framing is worth preserving and is carried through into the replacement: what a reference
-checker produces is a lead to check, not a verdict.
 
 ### File and manuscript integrity — `core.markup`, `core.pdf`, `core.citations`, `core.statistics`, `core.abbreviations`, `core.crossrefs`, `core.headings`, `core.figure_quality`
 
@@ -296,8 +317,6 @@ presentation, not measurements of a documented rule.
 | `security_ethics` | Data rights, PII, dual use, and claim words like "secure" and "anonymous". |
 | `systems_performance` | Latency, throughput, speedup and cost claims, when the paper makes any. |
 
-
-
 Each is a YAML file in [`src/preflight/conferences/audits/`](src/preflight/conferences/audits/):
 a prompt, a choice of structured context (captions, equations, measured prose statistics, or the
 triage surface), and one shared response shape. Adding a lens is a data change.
@@ -318,9 +337,17 @@ These exist because the style advice they encode is measurable, and measuring be
 
 ### Reviewer-style scores — `llm.semantic`
 
-A rehearsal review: soundness, excitement, clarity and reproducibility scored out of 5 with
-justifications, plus strengths, weaknesses and concrete desk-reject risks. Built from the title,
-abstract, introduction and Limitations, and labelled as an estimate from a partial read.
+A rehearsal review over the **whole paper**: soundness, excitement, clarity and reproducibility
+scored 1–5, plus strengths, weaknesses and concrete desk-reject risks.
+
+Each dimension is scored against written anchors — what a 2 looks like versus a 4 — and the prompt
+says outright that 3 is not a neutral default. A rubric that only defines the endpoints gets a
+column of 3s and a paragraph of hedging back, which tells an author nothing. Every justification
+has to name the section, table or number behind the score and, for anything short of 5, what would
+move it up one point. `overall` is a prediction of the outcome, not an average.
+
+It is labelled an estimate, and it never blocks a run. Venue rules are the deterministic checks'
+job — a missing Limitations section is caught by `limitations_present`, not by the score.
 
 ---
 
@@ -395,9 +422,8 @@ eighteen checklist items and the scoring pass — from **82 seconds to 20**. Tun
 `--concurrency` (default 8). Reference validation runs alongside it and is usually what the run
 ends up waiting on.
 
-A full run of 104 checks — every checklist item, all thirteen audits, the counted prose
-diagnostics, the semantic checks and scoring — takes about 40 seconds once the reference lookup
-is excluded or cached.
+A full run — every checklist item, all thirteen audits, the counted prose diagnostics, the semantic
+checks and scoring — takes about 40 seconds once the reference lookup is excluded or cached.
 
 Because checks overlap, progress reports what is **still running** rather than what last finished,
 and a long check can publish its own sub-status:
@@ -447,12 +473,13 @@ Rules the existing checks follow:
 ## Development
 
 ```bash
-uv run pytest                                  # 152 tests, no network needed
+uv run pytest                                  # 161 tests, no network needed
 uv run ruff check src tests
 uv run python scripts/try_question.py A1 paper.pdf    # one checklist item
 ```
 
-Tests build their own synthetic PDFs, so nothing depends on a file outside the repo. `uv run preflight checks -c arr` lists all 104 checks and which module each belongs to.
+Tests build their own synthetic PDFs, so nothing depends on a file outside the repo.
+`uv run preflight checks -c arr` lists every check and which module each belongs to.
 
 ---
 
@@ -470,5 +497,11 @@ a green report imply more than it earned.
 ## Credits
 
 Formatting tolerances from [aclpubcheck](https://github.com/acl-org/aclpubcheck) (ACL).
-Reference validation by [hallucinator](https://github.com/gianlucasb/hallucinator), whose
-"suspicion, not proof" framing is carried through into this tool's output.
+Reference verification is served by [CrossRef](https://www.crossref.org/),
+[OpenAlex](https://openalex.org/), [DBLP](https://dblp.org/),
+[Semantic Scholar](https://www.semanticscholar.org/) and [arXiv](https://arxiv.org/) — please set
+`refcheck.mailto` so they can identify the client.
+
+## License
+
+MIT.
