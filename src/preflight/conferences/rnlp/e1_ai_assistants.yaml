@@ -1,0 +1,54 @@
+# ARR Responsible NLP Research checklist — section E, item E1.
+id: e1
+code: E1
+section: E
+order: 1
+title: Use of AI assistants
+applies_when: always
+question: |
+  If you used any AI assistants (e.g., ChatGPT, Copilot) in your research, coding, or writing, did
+  you include information about your use?
+evidence_hint: >-
+  the section or statement disclosing AI assistant use (e.g. an "AI Use" or "AI Assistants"
+  section, or an acknowledgment/disclosure statement)
+guidance: |
+  - For yes, provide a section number, or include your elaboration directly in the checklist
+    response. For no, justify why not.
+  - Any use of AI assistants has to conform with the ACL publications ethics policy, especially
+    with respect to authorship criteria.
+prompt: |
+  This item only bites if the paper actually used an AI assistant somewhere in the research,
+  coding, or writing process. If the paper gives no indication that AI assistants (ChatGPT,
+  Copilot, or similar tools used to help draft text, write code, or generate ideas) were used
+  by the authors themselves, answer `not_applicable` — do not penalize a paper for silence on a
+  question that may genuinely not apply to it. Do not confuse this with the paper's *subject
+  matter*: a paper that evaluates, benchmarks, or studies LLMs (including ones like GPT-5-mini or
+  Gemini used as experimental subjects, baselines, or components of the proposed method/pipeline)
+  is not thereby a paper that "used an AI assistant" in the sense this item means. The distinction
+  is role: an LLM invoked programmatically as part of the experiments, the method, or the
+  evaluation is a research artifact/system component (covered elsewhere in the checklist, e.g.
+  section B), not an "AI assistant" helping the authors think, write, or code. Only count it here
+  if the paper discloses that the authors personally used a conversational or coding assistant to
+  help produce the paper's writing, code, ideation, or analysis.
+
+  If the paper does contain such a disclosure, `yes` requires that it say what the assistant was
+  used for (e.g. "for editing and polishing writing", "to help debug analysis scripts") — a bare
+  mention that "AI tools were used" with no indication of scope is `partial`. A disclosure that
+  covers writing help but is silent on whether AI was used for coding or research ideation is
+  still `yes` if the paper's own claims of AI use are fully addressed; do not require the paper to
+  preemptively rule out uses it doesn't claim. Treat a boilerplate LaTeX-template disclaimer
+  ("no AI tools were used to write this paper") as a valid `yes` answer of "no use, so nothing to
+  disclose" only if it appears in the paper as an actual disclosure statement, not if you are
+  inferring it because the checklist item exists.
+
+  Watch for the common near-miss on papers about LLMs: authors sometimes write an "AI Use
+  Disclosure" section that describes how AI models are used as *experimental subjects or
+  components of the proposed system* (e.g. "we use GPT-5-mini as a judge", "our method queries an
+  LLM to rewrite content") without ever saying whether the authors personally used an assistant
+  to write the paper or code. That is not evidence for this item — score based only on the
+  authors'-own-use question, and if the disclosure only covers the former, note in `missing` that
+  it does not address whether AI assistants helped with the writing or coding of the paper itself.
+
+  In `missing`, name what remains unaddressed: for example "no statement on whether AI tools were
+  used to draft or edit the paper's text" or "no statement on whether AI coding assistants were
+  used to write the experiment code."

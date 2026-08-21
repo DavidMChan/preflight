@@ -1,0 +1,62 @@
+# ARR Responsible NLP Research checklist — section A, item A2.
+id: a2
+code: A2
+section: A
+order: 2
+title: Potential risks of the work
+applies_when: always
+question: Did you discuss any potential risks of your work?
+evidence_hint: the section where potential risks are discussed (e.g. Limitations, Ethics/Impact
+  Statement, or a dedicated Risks paragraph)
+guidance: |
+  - Examples of risks include malicious or unintended harmful effects and uses (e.g.,
+    disinformation, generating fake profiles, surveillance), environmental impact (e.g., training
+    huge models), fairness considerations (e.g., deployment disadvantaging or excluding historically
+    disadvantaged groups), privacy considerations (e.g., model or data stealing), and security
+    considerations (e.g., adversarial attacks). See Leins et al. (2020) for examples.
+  - Does the research contribute to overgeneralization, bias confirmation, or under/overexposure of
+    specific languages, topics, or applications at the expense of others? See Hovy and Spruit (2016).
+  - Foundational research not tied to a particular application is expected; authors are still
+    encouraged to discuss potential risks if they see a path to positive or negative applications —
+    for example, how the system is intended to be used, how it can be safeguarded against misuse, or
+    future research directions that would mitigate risk.
+  - Consider the different stakeholders who could be impacted, whether the work could benefit some
+    while harming others, and whether it pays attention to (or excludes) vulnerable or marginalized
+    communities. See Dev et al. (2021).
+  - Consider dual use: possible benefits or harms when the technology works as intended, when it is
+    used as intended but produces incorrect results, and under intentional or unintentional misuse.
+  - Consider citing prior work on mitigation strategies (e.g., gated model release, providing
+    defenses alongside attacks, mechanisms for monitoring misuse or how a system learns from
+    feedback over time, improving efficiency and accessibility of NLP).
+prompt: |
+  Judge whether the paper names a plausible risk or potential negative use of its own work — not
+  merely whether it lists limitations of accuracy or coverage. A1 (limitations) covers "the method
+  doesn't always work"; A2 covers "if it does work, here is who or what could be harmed by it." A
+  paper that only says "our system may fail on out-of-domain inputs" has answered A1, not A2, and
+  should not be credited here unless it also connects that failure mode to a downstream harm (e.g.,
+  who is affected if the failure goes unnoticed).
+
+  This paper's own subject matter is directly risk-relevant: it studies rewriting content to
+  manipulate which sources LLM agents select, i.e. an attack on retrieval/agent pipelines. A
+  substantive dual-use discussion — that the same manipulation techniques could be used to promote
+  disinformation, spam, or biased sources, and/or a statement of intent (red-teaming, defense
+  motivation, responsible disclosure, gated release) — is `yes`. A single hedge sentence like "this
+  work could be misused" with no elaboration of who is harmed or how is `partial`. No mention at all
+  of misuse potential, despite the paper being explicitly about manipulating agent selection, is
+  `no` and should be treated as a notable gap given the subject matter.
+
+  Do not require the risk discussion to sit in a section titled "Risks" or "Ethics Statement" — ARR
+  does not mandate that heading for A2 the way it does for Limitations in A1, so credit a genuine
+  discussion found in Limitations, an Ethics Statement, an Impact Statement, or an appendix. Do not
+  treat a "Broader Impact" section that only discusses benefits (e.g., improving search quality,
+  helping content creators) as covering A2 unless it also names potential harms; benefits-only
+  framing is `partial` at best. Do not penalize the paper for using public, already-released datasets
+  (MIND, EB-NeRD, SciRepEval) as if that alone were a privacy risk needing separate disclosure — data
+  licensing is covered by other checklist items, not this one.
+
+  `not_applicable` is essentially never correct for this item on an empirical NLP paper; reserve it
+  only for work with no conceivable downstream application or misuse (e.g., a purely theoretical
+  proof with no system, dataset, or deployment implication). In `missing`, name the concrete risk
+  dimensions absent from the discussion (for example, "no discussion of disinformation or SEO-spam
+  misuse of the rewriting technique", "no mention of who is harmed if manipulated content is not
+  detected", "no discussion of mitigation such as detection or gated release").

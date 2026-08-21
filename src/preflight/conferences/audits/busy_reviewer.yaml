@@ -1,0 +1,43 @@
+# Reference audit spec. Copy this structure.
+id: busy_reviewer
+title: Busy-reviewer triage
+module: llm.review
+category: review
+order: 1
+context: surface
+description: Would an overloaded area chair spend a slot on this paper?
+guidance: |
+  An area chair with 80 papers to decide reads only the abstract, introduction, main
+  figures and tables, and the conclusion. They will not verify the maths or rerun the
+  experiments. They decide whether the paper is strong enough to occupy a slot. This is
+  a scarcity decision: a paper can be correct, competent and still lose its slot.
+prompt: |
+  Answer the six triage questions, then decide.
+
+  1. What is the contribution? Restate it in ONE sentence from the abstract and
+     introduction alone. If you cannot extract it, that is the single most important
+     finding — say so.
+  2. Is it clear? Could a tired reader state the contribution after the first paragraph?
+     Flag a buried thesis, a jargon wall, or a contribution that only arrives on page 3.
+  3. Does it seem important? The so-what test: does the venue's audience care about this
+     problem, and is the gain non-trivial?
+  4. Do the experiments look sufficient? From the captions and headline numbers only: are
+     the right baselines named, is there more than one dataset or setting, do the headline
+     numbers appear backed by a figure or table rather than asserted? You are judging
+     apparent sufficiency, not correctness.
+  5. Any obvious red flags? Over-claiming; an abstract promising more than the conclusion
+     delivers; a title that over-promises; a missing obvious baseline; single-dataset or
+     single-seed results; no code or data.
+  6. Would you spend a slot on it?
+
+  Put the one-sentence contribution restatement first in `summary`, then your reasoning.
+  Put "Accept", "Borderline" or "Reject" in `verdict`, and make the FIRST issue the single
+  cheapest change that would most move the verdict up.
+
+  You are judging perception under scarcity. Never assert that the maths is right or wrong
+  — you did not check it. Distinguish "looks thin" from "is wrong". Do not hedge into a
+  non-answer: say what a real overloaded reviewer would conclude in five minutes.
+
+  Two cheap, high-signal checks to run explicitly and report if they fail: do the abstract
+  and the conclusion promise the same contribution and the same headline result, and can
+  the main result be grasped from one figure plus its caption alone?

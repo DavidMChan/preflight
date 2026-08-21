@@ -1,0 +1,65 @@
+id: formula_audit
+title: Equations and notation
+module: llm.audit
+category: formulas
+order: 1
+context: equations
+description: Do the paper's equations hold together — shapes, indices, signs, and symbol use?
+guidance: |
+  A reviewer who actually checks the maths reads each display equation against the
+  surrounding prose: does a matrix product's inner dimension match, does the claimed
+  output shape follow, are summation and index bounds right at the edges, is every
+  symbol defined before or at its first use and used the same way everywhere after,
+  and does the equation compute what the text says it computes? This is a check on
+  internal consistency and consistency with prose, not a re-derivation from first
+  principles.
+prompt: |
+  You are given lines extracted from the PDF that look like display maths, plus the
+  paper's body text. For each equation you can actually read well enough to reason about,
+  check:
+
+  - Do dimensions and shapes line up? Matrix/tensor products need matching inner
+    dimensions; a claimed output shape (e.g. "a scalar", "one score per candidate", "a
+    vector in R^d") should follow from the equation that produces it.
+  - Are indices, summation ranges and bounds right, including off-by-one errors at
+    sequence, grid or window edges?
+  - Are sign conventions consistent through a derivation, and is a sign genuinely load-
+    bearing (not, say, irrelevant inside an absolute value or squared term)?
+  - Is every symbol defined before or at the point it is used, and used with the same
+    meaning everywhere it recurs? Flag a genuine notation collision (the same symbol
+    doing two different jobs) or a symbol used but never defined anywhere in the paper.
+  - Does the equation match what the surrounding prose claims it does — the same
+    inputs, the same operation, the same thing being optimized or measured?
+
+  Rule out ABSOLUTELY, before reporting anything: PDF text extraction routinely mangles
+  display maths. Superscripts and subscripts get dropped or flattened onto the baseline,
+  Greek letters get replaced or lost, fractions collapse into a single line, hats, bars,
+  and accents disappear, matrix/vector delimiters vanish, and operators get reordered or
+  merged with neighboring symbols. NONE of that is a defect in the paper — never report
+  missing symbols, odd spacing, a collapsed fraction, a dropped accent, or reordered
+  tokens as an issue. Only report a problem you can establish independently from the
+  PROSE around the equation and the logical structure of the argument (for example: the
+  text explicitly states one shape and a nearby sentence states an incompatible one; the
+  text defines a symbol one way in Section 3 and uses it a different way in Section 5;
+  the text says a sum runs "over all N items" but also separately says indexing starts
+  at 1 and ends at N-1). If the only thing you have to go on is the mangled equation
+  text itself, you cannot judge it — do not guess at what it "probably" says, and do not
+  flag it.
+
+  If you cannot read the extracted maths well enough to reason about a given equation,
+  skip that equation silently — do not report an issue about extraction quality itself.
+  If this leaves you with nothing you can establish, return an empty issues list and say
+  in the summary that the extracted maths did not support a confident check; that is the
+  correct and expected outcome for most papers, including papers with real, correct
+  equations. If the paper has no display equations at all, also return no issues.
+
+  Never propose a "fixed" version of a formula unless you are certain what the intended
+  maths is — a correction offered without that certainty is worse than no comment, so
+  flag the inconsistency and let the authors resolve it rather than guessing the fix.
+
+  Leave `verdict` null; this audit is diagnostic, not a scoring judgement. If you do
+  find a genuine issue, make the FIRST one the highest-confidence, most clearly-
+  established inconsistency — not the most severe-sounding one if you're unsure of it.
+  Quote verbatim from the equation lines or prose provided; if you cannot quote the
+  exact text that grounds an issue, do not report it.
+max_issues: 5

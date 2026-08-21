@@ -1,0 +1,59 @@
+# ARR Responsible NLP Research checklist — section C, item C3.
+id: c3
+code: C3
+section: C
+order: 3
+title: Descriptive statistics and error bars
+applies_when: experiments
+question: |
+  Did you report descriptive statistics about your results (e.g., error bars around results,
+  summary statistics from sets of experiments), and is it transparent whether you are reporting
+  the max, mean, etc. or just a single run?
+evidence_hint: the section or table where result statistics (or the single-run disclosure) appear
+guidance: |
+  - Error bars can be computed by running experiments with different random seeds, by placing
+    Clopper-Pearson confidence intervals around results (e.g., accuracy), or by reporting expected
+    validation performance.
+  - Whenever a result is reported, it should be clear whether it is from a single run, the max
+    across N random seeds, the average, etc.
+  - When reporting a result on a test set, also report the same model's result on the validation
+    set (if available), so others reproducing the work don't need to evaluate on the test set to
+    confirm a reproduction.
+prompt: |
+  Judge this on transparency, not on statistical rigor: the question is whether a reader can tell
+  what a reported number represents, not whether error bars are the best possible methodology. A
+  paper that reports a single number per configuration but explicitly says so ("all results are
+  from a single run" or similar) satisfies the transparency half of this item even with no
+  variance information; that alone is `partial` if there truly is no spread information anywhere
+  (single run only, nowhere disclosed as such, would be `no`; single run explicitly disclosed as
+  single run is closer to `partial` since the disclosure obligation is met but no descriptive
+  statistics are given). Reserve `yes` for papers that both report some measure of spread or
+  central tendency across repeated runs (seeds, folds, bootstrap, confidence intervals) AND make
+  clear what the reported headline numbers are (single run vs. mean vs. max vs. best-of-N).
+
+  The most common near-miss: a paper reports one table of results with no seeds or repeats
+  mentioned anywhere, and the reader is left to assume it is a single run. Silence is `no`, not
+  `partial` — the guideline explicitly requires that it be "transparent" whether the number is a
+  single run or an aggregate, so omitting any mention of run count is itself the failure, distinct
+  from the failure of not computing error bars at all. Do not let a rich table of many metrics
+  (accuracy, F1, precision, recall, multiple benchmarks) substitute for statistics across
+  repeats — reporting many different metrics from one run is still a single run, not descriptive
+  statistics.
+
+  Rule out false positives: reporting results across multiple datasets, model sizes, or benchmark
+  splits is not the same as descriptive statistics across repeated runs of the same
+  configuration — do not credit `yes` just because the paper has a large results table with many
+  rows. Standard deviation or confidence intervals reported for only some experiments (e.g., the
+  main table has them but ablations do not) is `partial`. A validation/test split being reported
+  together satisfies the reproducibility half of the guidance but is not itself the object of this
+  item and cannot alone earn `yes`.
+
+  `not_applicable` is appropriate when the paper reports no comparable quantitative
+  results at all (e.g., a purely qualitative or theoretical paper), but not merely because
+  experiments are expensive or a single large-scale run is standard practice for the paper's
+  compute budget — in that case the correct answer is `no` or `partial` plus a justification on
+  the form, not `not_applicable`.
+
+  In `missing`, name concretely what is absent: for example "no mention of number of random seeds
+  or runs per configuration", "no standard deviation or confidence interval reported for Table 3",
+  or "does not state whether reported numbers are best-of-N or a single run".

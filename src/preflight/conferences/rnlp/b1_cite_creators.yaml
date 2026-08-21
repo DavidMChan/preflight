@@ -1,0 +1,48 @@
+# ARR Responsible NLP Research checklist — section B, item B1.
+id: b1
+code: B1
+section: B
+order: 1
+title: Citation of artifact creators
+applies_when: artifacts
+question: Did you cite the creators of artifacts you used?
+evidence_hint: |
+  where the artifacts used or created in this paper (datasets, code packages, models, tools) are
+  cited, and which artifacts (if any) lack a citation
+guidance: |
+  - For composite artifacts like the GLUE benchmark, this means citing all of the constituent
+    creators, not just the benchmark paper.
+  - Cite the original paper that produced the code package or dataset, not just a URL or a
+    secondary paper that used it.
+  - State which version of the asset is being used.
+  - Include a URL where possible.
+prompt: |
+  Check every artifact the paper reports using or building on — datasets, pretrained models,
+  libraries, toolkits, evaluation suites — and judge whether each is attributed to a citation
+  (a reference to the paper, technical report, or documentation that produced it), not just named
+  in prose. `yes` requires that the artifacts doing real work in the paper (the datasets it trains
+  or evaluates on, the models it builds on or compares against, any non-trivial library the method
+  depends on) are each traceable to a citation somewhere in the paper or its references. `partial`
+  is the right call when some artifacts are cited and others are only named — for example a
+  benchmark dataset is cited but a helper toolkit or an LLM used as an evaluator is only mentioned
+  by name with no reference. `no` is for a paper that names artifacts throughout but supplies
+  essentially no citations for them.
+
+  Do not require a citation for the API-served proprietary models the paper merely calls out over
+  an API (e.g. "GPT-5-mini", "Gemini 3 Flash", "Haiku 4.5") to run as subjects of evaluation —
+  citing the model name plus its provider or a system card/announcement is sufficient; do not
+  penalize the absence of an academic paper for a model that has none. Do not flag standard,
+  ambient tooling (a deep learning framework, a plotting library) that is not itself an object of
+  study. A composite benchmark cited only by its own paper, when it packages several
+  independently-published datasets, is `partial`, not `yes` — note in `missing` which constituent
+  sources appear uncited. Version numbers and URLs are secondary: their absence should surface in
+  `missing` but should not by itself drag a paper with real citations for its artifacts down to
+  `partial`.
+
+  This item does not apply, and `not_applicable` is correct, only when the scope gate already
+  determined the paper uses no scientific artifacts at all; if any dataset, model, or code package
+  appears, judge citation coverage rather than returning not_applicable.
+
+  In `missing`, name the specific uncited artifact by the name the paper uses for it (for example
+  "MiniCheck factuality metric is named but not cited", "no citation for the SciRepEval benchmark's
+  constituent datasets"), not a generic instruction to "add citations."

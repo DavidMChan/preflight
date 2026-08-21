@@ -1,0 +1,49 @@
+# ARR Responsible NLP Research checklist — section B, item B6.
+id: b6
+code: B6
+section: B
+order: 6
+title: Dataset statistics and splits
+applies_when: artifacts
+question: >-
+  Did you report relevant statistics like the number of examples, details of train / test /
+  dev splits, etc. for the data that you used / created?
+evidence_hint: >-
+  the section, table, or appendix that reports dataset sizes and/or split counts
+guidance: |
+  - Even for commonly-used benchmark datasets, include the number of examples in train /
+    validation / test splits, as these provide necessary context for a reader to understand
+    experimental results.
+  - For example, small differences in accuracy on large test sets may be significant, while on
+    small test sets they may not be.
+prompt: |
+  Judge whether a reader could learn, for each dataset the paper uses or creates, how large it is
+  and (where the paper trains a model or reports a train/dev/test split) how many examples fall
+  in each split. `yes` requires actual numbers — example counts, a table of split sizes, or
+  precise per-split percentages of a stated total — not just the dataset's name or a citation to
+  where it was originally introduced. Numbers can appear anywhere: the main text, a table, or an
+  appendix data-statistics section, and it is fine if they are reported once and referenced
+  elsewhere in the paper.
+
+  The most common near-miss: a paper names its benchmarks (e.g. "we evaluate on MIND and
+  SciRepEval") and cites the dataset papers, but never states how many examples, articles, or
+  queries it actually draws from each one, or how many were used at train vs. test time. That is
+  `no`, not `yes` — citing the source paper is not the same as reporting statistics for the data
+  as used here. If the paper reports the total size of each dataset but not the train/dev/test
+  breakdown for datasets it trains or fine-tunes on, that is `partial`. If it reports the split
+  sizes only for some of the datasets it uses and not others, that is also `partial` — say which
+  datasets are missing counts in `missing`.
+
+  Do not penalize a paper for not reporting a "train split" when it does not train a model at
+  all: a purely evaluation-only paper (e.g. prompting closed-source models with no fine-tuning)
+  only needs the size of the evaluation set(s) it draws from, and reporting only that is `yes`
+  for such a paper, not `partial`. Do not require the paper to reproduce statistics that are
+  wholly identical to a well-known benchmark's published numbers if it clearly states it uses the
+  benchmark's standard split unchanged and gives that split's size — a bare "we use the standard
+  split" with no number attached is still `partial`. `not_applicable` is appropriate only if the
+  paper is purely theoretical or analytical and touches no dataset at all — which should be rare
+  given this item is already gated on the paper using artifacts.
+
+  In `missing`, name the specific datasets or splits for which no size is given (for example,
+  "no example count for the SciRepEval subset used" or "no train/test split sizes for the GRPO
+  training data").

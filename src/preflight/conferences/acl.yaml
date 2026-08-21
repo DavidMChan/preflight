@@ -1,0 +1,55 @@
+# ACL style layer — shared by every *ACL venue. Abstract: not selectable directly.
+#
+# The numeric tolerances below come from the official ACL formatting
+# specification as encoded in acl-org/aclpubcheck, NOT from any one CFP: A4 at
+# 72ppi is 595 x 842 pt, text must not start above y=57, must begin at x>=71,
+# must end at least 71pt from the right edge, and the bottom 62pt strip is
+# reserved for page numbers added at proceedings time. The offsets are
+# aclpubcheck's own tolerances, which absorb glyph overhang and hyphenation.
+
+conference:
+  key: acl
+  name: ACL style venue
+  abstract: true
+  extends: base
+  style: "ACL (A4, two-column, 11pt Times)"
+
+geometry:
+  paper_size_label: A4
+
+fonts:
+  body_size_pt: 11.0
+  min_font_size_pt: 9.0
+  allowed_font_substrings:
+    - NimbusRomNo9L
+    - TeXGyreTermes
+    - TimesNewRoman
+    - Times-Roman
+    - STIXGeneral
+    - Inconsolatazi4
+    - CMR
+    - NimbusMonL
+    - LMRoman
+
+structure:
+  limitations_required: true
+  appendix_must_be_two_column: true
+  limitations_aliases: [Limitations, Limitation, "Limitations and Risks"]
+
+anonymity:
+  expected_author_line: "Anonymous ACL submission"
+
+structure_note: >-
+  ACL templates print line numbers in the margin of anonymous submissions; the
+  margin and font checks exempt them via fonts.ignore_small_text_regex.
+
+cfp:
+  paper_size: >-
+    Submissions must use the official ACL style; paper-size violations can be rejected
+    without review.
+  margins: Margin violations can be rejected without review.
+  font_size: Font-size violations can be rejected without review.
+  appendix_position: Appendices must appear after the references.
+  appendix_columns: >-
+    Appendix formatting must be double-column except for approved exceptions; incorrect
+    appendix formatting is a desk-rejection condition.

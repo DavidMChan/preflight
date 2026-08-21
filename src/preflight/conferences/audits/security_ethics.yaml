@@ -1,0 +1,70 @@
+id: security_ethics
+title: Security, privacy, ethics and safety
+module: llm.audit
+category: ethics
+order: 1
+context: none
+description: Does the paper's data, privacy, dual-use and safety exposure match what it discloses?
+guidance: |
+  A paper can be technically sound and still expose the authors to a hard ethics-review
+  question or a real-world harm the text never names. This audit inventories the risk the
+  paper actually carries, then checks whether the paper's own text accounts for it. It is
+  advisory: it is judging disclosure and framing, not re-running an ethics board, and it
+  must never claim non-compliance or predict rejection.
+prompt: |
+  Step 1 -- inventory the risk. From the paper text, decide which of these apply: human
+  subjects or user data; scraped or crawled data; private logs; biomedical, clinical,
+  biometric or geolocation data; minors; security exploits or malware; a dual-use model or
+  technique (something whose intended use and misuse are close together); a persuasive,
+  manipulative or surveillance-capable system; or generative model outputs that could
+  mislead, defame or otherwise harm someone downstream. If none of these apply, say so
+  plainly and stop there -- a paper with no such exposure needs no further checks under
+  this lens, and that is a clean pass, not a gap.
+
+  Step 2 -- for each risk you found, check what the paper's own text says about it:
+  - Data rights: where the data came from, its licence, whether consent or terms of
+    service were respected, whether it can be redistributed.
+  - PII: what is collected or retained, how it is anonymised, and whether the paper admits
+    that anonymisation has limits (or is silent on this).
+  - IRB / ethics approval: present where the risk inventory implies it should be.
+  - Dual use: does the paper name the misuse pathway, a threat model, why it is releasing
+    what it releases anyway, and what safeguards or access controls it applies?
+  - Generative AI behaviour: hallucination, toxicity, bias, jailbreak susceptibility,
+    memorisation, or deployment limits, wherever the paper's own system could produce
+    harmful output.
+  This paper is specifically about a technique for shifting what an LLM agent selects --
+  that is a manipulation/persuasion technique, which is exactly the case where a dual-use
+  discussion is load-bearing. Check deliberately whether the paper has one (often inside
+  Limitations, Ethics Statement, or a dedicated Broader Impact section) and whether it
+  names concrete mitigations or disclosure reasoning, rather than assuming silence.
+
+  Step 3 -- check the claim words. "Secure", "private", "safe", "fair", "anonymous" and
+  "consented" must not be used as bare assertions. Where the paper uses one of these words,
+  find the sentence, and if it names no adversary, no method, and no evidence for the
+  claim, flag exactly which word and what would be needed to earn it (e.g. a threat model,
+  a measurement, a citation to the licence). Do not flag a word used descriptively rather
+  than as a claim of property (e.g. "a private company" is not a privacy claim).
+
+  Rule out these false positives explicitly before reporting anything:
+  - Foundational or methods research that touches no sensitive data does not need to
+    enumerate hypothetical harms nobody would expect of it.
+  - Using a public benchmark or model strictly under its published licence needs no separate
+    ethics statement for that data source.
+  - If the paper already discusses a risk anywhere -- Limitations, an Ethics or AI Use
+    Disclosure section, a licences appendix, a broader-impact paragraph -- it has been
+    addressed. Do not report it as missing just because it is not in the section you
+    expected; search the whole paper first.
+  - Do not invent a hypothetical victim or misuse scenario the paper's actual method does
+    not support. Ground every issue in what the system in this paper actually does.
+  - No human-subjects research and no biomedical data means no IRB discussion is expected;
+    do not flag its absence.
+
+  Put in `summary` the risk inventory in one or two sentences (what applies, what does
+  not). Use `verdict` only to recommend a release posture, and only if the paper releases
+  code, data, or a trained model: "open", "redacted", "gated" or "documentation-only" --
+  otherwise leave `verdict` null. Make the first issue (if any) the one gap that would
+  most concern an ethics-conscious reviewer, not the easiest one to state. Quote verbatim
+  from the paper for every issue; if you cannot locate a supporting quote, do not report
+  the issue. An empty issues list is the correct output whenever the paper's disclosures
+  already match its risk profile.
+max_issues: 6

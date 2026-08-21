@@ -1,0 +1,59 @@
+# ARR Responsible NLP Research checklist — section C, item C2.
+id: c2
+code: C2
+section: C
+order: 2
+title: Experimental setup and hyperparameters
+applies_when: experiments
+question: >-
+  Did you discuss the experimental setup, including hyperparameter search and best-found
+  hyperparameter values?
+evidence_hint: >-
+  the section (main body or appendix) where the experimental setup and hyperparameter values
+  are given
+guidance: |
+  - The experimental setup should include information about exactly how experiments were set up,
+    like how model selection was done (e.g., early stopping on validation data, the single model
+    with the lowest loss, etc.), how data was preprocessed, etc.
+  - Many research projects involve manually tuning hyperparameters until some "good" values are
+    found, and then running a final experiment which is reported in the paper. Other projects
+    involve using random search or grid search. In all cases, report the results of such
+    experiments, even if they were stopped early or didn't lead to your best results.
+  - Be sure to include the best-found hyperparameter values (e.g., learning rate, regularization,
+    etc.) as these are critically important for others to build on your work.
+  - The experimental setup should likely be described in the main body of the paper, as that is
+    important for reviewers to understand the results, but large tables of hyperparameters or the
+    results of hyperparameter searches could be presented in the main paper or appendix.
+  - Report which dataset was used to determine the hyperparameters. Unless under special
+    circumstances, hyperparameters should not be tuned on the evaluation (held-out) dataset.
+prompt: |
+  Look for two things separately: (1) the best-found hyperparameter values actually used to
+  produce the reported results (learning rate, batch size, number of steps/epochs, optimizer,
+  regularization, decoding parameters, etc., as relevant to this paper's methods), and (2) some
+  account of how those values were arrived at — even a brief statement that they were chosen
+  manually, taken from a prior paper, or fixed without search counts, as long as it is explicit.
+  Score `yes` only if concrete hyperparameter values are stated AND the paper says something about
+  how they were selected or on what data. Score `partial` if only one of the two is present: for
+  example, a methods or appendix table gives learning rate and batch size but never says how they
+  were chosen or whether a search was run, or the paper claims "we tuned hyperparameters on the
+  validation set" without ever stating the resulting values. A methods section that names an
+  algorithm (e.g. "we use GRPO") without any numeric training configuration is `no`, not `partial`.
+
+  The most common near-miss: a paper that only calls closed third-party APIs (e.g. prompting
+  GPT-5-mini or Gemini as evaluators, with no model of its own being trained) has no hyperparameter
+  search to report, but "temperature", "max tokens", or API version are still worth checking for if
+  a fixed model is being called repeatedly for evaluation — treat stated decoding settings for the
+  inference-only calls as satisfying this item at `yes` if that is the paper's only computation, and
+  do not penalize the absence of a "search" when the paper openly used default or off-the-shelf
+  settings for an external API. Do not require a formal grid/random search description — a
+  one-sentence "we tried values in {a, b, c} and selected a for validation performance" is
+  sufficient for the search half; do not demand a table of every value tried. Do not treat citing a
+  baseline paper's hyperparameters ("we use the settings of X") as `no`, provided the actual values
+  or the citation naming them are given; that still counts toward `yes` if the resulting values are
+  discernible from the cite plus any deltas. `not_applicable` is appropriate only if the paper runs
+  no trainable or tunable computational experiments at all (e.g. a purely theoretical or dataset
+  paper), which is rare given this item is already gated on `experiments` scope being true.
+
+  In `missing`, name exactly what is absent: e.g. "no learning rate or batch size stated for GRPO
+  training", "no statement of which dataset (train/val) hyperparameters were chosen on", "no mention
+  of how the number of training steps was determined".

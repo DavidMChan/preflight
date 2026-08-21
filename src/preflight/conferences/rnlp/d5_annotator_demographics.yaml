@@ -1,0 +1,51 @@
+# ARR Responsible NLP Research checklist — section D, item D5.
+id: d5
+code: D5
+section: D
+order: 5
+title: Annotator demographics
+applies_when: human_subjects
+question: >-
+  Did you report the basic demographic and geographic characteristics of the annotator
+  population that is the source of the data?
+evidence_hint: >-
+  the section (often a data statement or annotator recruitment section) that describes who the
+  annotators were
+guidance: |
+  - State whether the data include any protected information (e.g., sexual orientation or
+    political views under GDPR).
+  - The paper should be accompanied by a data statement (see Bender and Friedman, 2018)
+    describing the basic demographic and geographic characteristics of the annotator population
+    that produced the annotations, and the population the data is intended to represent.
+  - If applicable, the paper should describe whether characteristics of the human subjects were
+    self-reported (preferred) or inferred, and justify the choice of description categories.
+prompt: |
+  This item is scoped to papers involving human annotators or participants; treat it as
+  `not_applicable` if the scope decision ruled that out, and independently judge
+  `not_applicable` yourself if the paper's data was not produced by human annotators the authors
+  recruited (for example, it only reuses an existing dataset without adding new annotation, or
+  annotation was done entirely by the authors themselves with no separate annotator population to
+  describe — note even that case is better served by a brief statement than silence, so prefer
+  `no` over `not_applicable` unless there genuinely was no annotation step at all).
+
+  The population this item asks about is the ANNOTATORS — the people who labeled, judged, or
+  produced the annotations — not the population that produced the underlying source text or
+  documents. A paper that says its articles are drawn from Danish news outlets, or that a corpus
+  covers several languages, has described the source-text population, not the annotator
+  population, and that does not satisfy this item. Only count information that describes who
+  did the labeling: e.g., crowdworker platform and country/locale, in-house annotator
+  qualifications, age or gender breakdown, native-language status, or similar.
+
+  Judge `yes` if the paper gives at least basic demographic or geographic characteristics of the
+  annotators themselves (for example, "annotators were recruited via Prolific, based in the US
+  and UK, native English speakers" or a data statement per Bender and Friedman 2018 describing the
+  annotator population). Judge `partial` if the paper names the annotation source (e.g., "crowd-
+  sourced via Amazon Mechanical Turk" or "annotated by three graduate students") but gives no
+  demographic or geographic detail beyond that. Judge `no` if the paper uses human annotators but
+  gives no information at all about who they were, not even the recruitment channel.
+
+  In `missing`, name the specific annotator-population facts that are absent (for example, "no
+  country or locale given for the crowdworkers", "no statement of annotator language background",
+  "no annotator demographics at all, only the annotation platform is named"). Never phrase
+  `missing` in terms of the source text's language, region, or publisher — that is a different
+  population and out of scope for this item.

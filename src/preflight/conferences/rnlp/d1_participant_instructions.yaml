@@ -1,0 +1,49 @@
+# ARR Responsible NLP Research checklist — section D, item D1.
+id: d1
+code: D1
+section: D
+order: 1
+title: Instructions given to participants
+applies_when: human_subjects
+question: |
+  Did you report the full text of instructions given to participants, including e.g.,
+  screenshots, disclaimers of any risks to participants or annotators, etc.?
+evidence_hint: >-
+  the section or appendix where the instructions or interface shown to annotators or
+  participants are reproduced
+guidance: |
+  - Examples of risks include a crowdsourcing experiment which might show offensive content or
+    collect personal identifying information (PII). Ideally, the participants should be warned.
+  - Including this information in the supplemental material is fine, but if the main
+    contribution of your paper involves human subjects, then we strongly encourage you to
+    include as much detail as possible in the main paper.
+prompt: |
+  This item is only reached when the paper involves human annotators, crowdworkers, or other
+  human participants, so it is never `not_applicable` once the check runs — treat a paper with
+  no human subjects at all as out of scope for this item rather than reasoning about it here.
+
+  Judge `yes` only if the paper reproduces something close to the actual text or interface shown
+  to participants: verbatim task instructions, a screenshot of the annotation interface, or a
+  quoted prompt/HIT description, AND, where the content or task carried any risk (offensive or
+  disturbing material, collection of PII, sensitive topics), a disclaimer or warning given to
+  participants is also present or explicitly stated as unnecessary. A paper that merely states
+  "annotators were shown the article and asked to rate its clickbaitiness" without reproducing
+  the actual wording, form, or screenshot is `partial` — that is the most common near-miss: a
+  paraphrased summary of the task is not the "full text of instructions" the item asks for.
+  `no` applies when the paper describes that annotation happened at all but gives no instruction
+  text, interface description, or risk disclaimer whatsoever.
+
+  Do not penalize a paper for putting the instructions in an appendix rather than the main body —
+  ARR explicitly allows supplemental placement, though it encourages more detail in the main
+  paper when human subjects are the paper's central contribution. Do not treat a citation to a
+  prior paper's annotation protocol as sufficient by itself; if the current paper reuses an
+  existing dataset's annotations without running its own annotation process, this item is about
+  whatever instructions (if any) the current paper's own authors gave to participants, not about
+  the cited dataset's original documentation. If the annotation task plainly involved no
+  offensive, sensitive, or PII-bearing content and the paper says so, do not require a
+  disclaimer — mark `yes` on the instructions coverage alone and do not fault the paper for the
+  disclaimer's absence.
+
+  In `missing`, name concretely what is absent, e.g. "no verbatim instruction text or screenshot
+  of the annotation interface is reproduced" or "annotators rated potentially offensive
+  clickbait content but no content warning or disclaimer is mentioned."

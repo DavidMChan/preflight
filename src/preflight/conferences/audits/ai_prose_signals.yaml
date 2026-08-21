@@ -1,0 +1,71 @@
+id: ai_prose_signals
+title: Generic / AI-sounding prose
+module: llm.prose
+category: prose
+order: 1
+context: prose_stats
+description: Does the prose read like a domain expert wrote it, or like generic filler?
+guidance: |
+  A reviewer forms an impression of the authors' expertise from HOW the paper is written,
+  not just what it claims. Uniform sentence rhythm, stock connectives, hollow wrap-up
+  sentences, and adjectives standing in for numbers all read as generic or AI-smoothed
+  prose, even when the underlying science is sound. This audit is a style lens: it says how
+  to make the prose sound like a domain expert wrote it, without touching the science.
+prompt: |
+  You are given MEASURED prose statistics: a sentence-length histogram, counts of stock
+  connectives ("furthermore", "moreover", "notably", "consequently", "it is worth noting",
+  etc.), the most common sentence openers, and any runs of 3+ consecutive sentences sharing
+  an opener. Reason from these counts, not from a vague impression of "sounds AI-written."
+  A count of 1-2 for any connective is unremarkable; do not flag it. Only flag a tic when the
+  measured count is high enough that a reviewer would notice a pattern (roughly 6+ uses of
+  one connective, or a clear repeated-opener run) or the sentence-length histogram shows the
+  paper stuck in one narrow band throughout with no variation at all.
+
+  Also look, in the paper text itself, for:
+  - Hollow wrap-up sentences that restate a finding without adding information ("Together,
+    these observations suggest...", "These results highlight the effectiveness of our
+    approach.") — flag these when they close a section without a specific number, mechanism,
+    or comparison attached.
+  - An adjective doing the work a number should do: "high accuracy", "competitive
+    performance", "a significant improvement" used where the actual value is available
+    elsewhere in the paper (or in the same sentence's neighborhood). Recommend swapping in
+    the number.
+  - Marketing or grant-proposal tone: mission-statement openers ("In today's rapidly
+    evolving landscape of...", "As X continues to grow in importance..."), or claims that
+    the method "may generalize to broader classes of X" with no experiment behind it.
+  - Negation-first framing ("We do not claim X, but rather Y") where a positive-first
+    assertion ("Our contribution is Y; it does not require X.") would read more confident
+    and less defensive. Flag this only where it recurs, not for one instance.
+
+  Rule out hard, and do not flag:
+  - Formal technical writing is legitimately uniform and hedged. A narrow sentence-length
+    band or heavy use of "we" is not itself a defect.
+  - A Related Work or Limitations section is legitimately dense with connectives
+    ("however", "in contrast", "additionally") because it is doing real comparative work —
+    judge those sections against the paper's connective counts as a whole, not in isolation.
+  - Domain terminology and method names are not marketing tone, however unfamiliar they
+    sound.
+  - A hedge that reflects genuine uncertainty ("this may not hold for languages with
+    different morphology") is good scientific writing, not an AI tell — only flag hedging
+    that is vague, unfalsifiable, and attached to no specific claim.
+  - Passive constructions standard to the field, and standard section-opener conventions
+    ("We evaluate...", "We propose...") used once or twice per section.
+
+  It is a fully acceptable, common outcome for this audit to return no issues: a paper with
+  moderate, varied connective use and no runaway repeated tic is simply fine, and there is
+  nothing to instruct in that case.
+
+  Put a one-line style read in `verdict` (e.g. "Clean, varied prose" or "Readable but leans
+  on a few stock connectives") — never a claim about authorship or AI generation. In
+  `summary`, state plainly that AI-detector-style judgments are unreliable on formal
+  technical writing, and that everything here is a style signal about what a reader notices,
+  not evidence about who or what wrote the paper. Never suggest or imply the authors used AI
+  to write the paper.
+
+  If there is a first issue, make it the single tic with the strongest measured count (the
+  connective used most or the longest repeated-opener run), and always recommend cutting it
+  down to a normal level (e.g. "25 -> 11"), never to zero — these are ordinary academic
+  words that a paper should still use sometimes. For every issue, quote the paper verbatim
+  (a wrap-up sentence, an adjective-laden clause, a mission-statement opener) and skip
+  anything you cannot point at with an exact quote.
+max_issues: 6

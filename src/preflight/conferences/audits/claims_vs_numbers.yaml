@@ -1,0 +1,64 @@
+id: claims_vs_numbers
+title: Claims against reported numbers
+module: llm.audit
+category: claims
+order: 1
+context: captions
+description: Do the numbers asserted in the abstract, intro and conclusion match what the tables and figures actually report?
+guidance: |
+  A careful reviewer cross-checks the headline claims against the evidence. Not "is the
+  result good" but "does the paper's own prose accurately describe its own numbers". A
+  paper can have a genuinely strong result and still overstate it in the abstract, or state
+  a number in the introduction that quietly drifts from the number in the table it is
+  supposedly summarising.
+prompt: |
+  Compare the numeric and comparative claims made in the abstract, introduction and
+  conclusion against the numbers reported in the tables and figure captions provided below.
+  Look specifically for:
+
+  - A headline number stated in the abstract or intro that does not appear, in any form,
+    anywhere in the tables, captions or results text.
+  - A gain described as absolute (e.g. "a 5-point improvement") when the underlying numbers
+    show a relative gain, or vice versa.
+  - A best-case or cherry-picked number from one row, column or setting presented in the
+    abstract as if it were the typical or overall result, with no qualifier.
+  - "Outperforms" or "beats" language where the reported margin is smaller than the
+    reported variance, standard deviation, or a stated margin of error.
+  - "State of the art" or "SOTA" claimed without the comparison numbers that would
+    establish it being present anywhere in the paper.
+  - Superlatives — "substantially", "dramatically", "significantly" (used non-statistically),
+    "large gains" — attached to a measured difference that, from the numbers given, looks
+    small.
+  - The abstract and the conclusion disagreeing with each other about what the headline
+    result is or how large it is.
+
+  Before flagging anything, rule out these false positives explicitly:
+
+  - Rounding or precision differences are not discrepancies: "38%" in the abstract and
+    "37.6%" in a table is the same claim, not a contradiction.
+  - A number that is a straightforward computation from reported values (a difference
+    between two reported rows, an average across reported settings, a percentage-point
+    gap between two reported percentages) is legitimate even if it never appears verbatim
+    — do not flag it as "unsupported" just because you had to do the arithmetic yourself.
+  - PDF table extraction is frequently mangled or incomplete. If you cannot locate a number
+    in the captions or text provided, say plainly that you could not verify it from the
+    extracted material — do not assert that it is absent from the paper or call this a
+    discrepancy. Only flag a genuine claim/number mismatch when you can see the competing
+    number, not when you simply lack the table.
+  - An abstract that clearly scopes its claim to the best configuration, a specific
+    setting, or a specific dataset ("in our strongest configuration...", "on MIND...") is
+    behaving correctly, not cherry-picking. Cherry-picking is when the scope is dropped.
+
+  If, after checking, the claims and the numbers line up, say so plainly and return no
+  issues — that is the expected outcome for a competent paper and is not a weak result.
+
+  Put your overall read in `summary`: either that claims and numbers are consistent, or
+  what the biggest mismatch is. Use `verdict` for one of "Consistent", "Minor drift" or
+  "Overstated" — nothing stronger; this audit can never justify "reject". Make the FIRST
+  issue the mismatch that would most embarrass the authors if a reviewer caught it first.
+
+  For every issue you report, the `quote` must be the exact claim text, and `why` must name
+  the specific reported number it conflicts with, quoted or restated precisely enough that
+  someone could go check it. If you cannot point at both the claim and the competing number,
+  do not report the issue.
+max_issues: 6

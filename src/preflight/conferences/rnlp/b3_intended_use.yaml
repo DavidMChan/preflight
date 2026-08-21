@@ -1,0 +1,62 @@
+# ARR Responsible NLP Research checklist — section B, item B3.
+id: b3
+code: B3
+section: B
+order: 3
+title: Consistency with intended use
+applies_when: artifacts
+question: |
+  Did you discuss if your use of existing artifact(s) was consistent with their intended use,
+  provided that it was specified? For the artifacts you create, do you specify intended use and
+  whether that is compatible with the original access conditions (in particular, derivatives of
+  data accessed for research purposes should not be used outside of research contexts)?
+evidence_hint: >-
+  the section discussing intended use / license compatibility for the artifacts used or created
+guidance: |
+  - Data and/or pretrained models are released under a specified license that is compatible with
+    the conditions under which access to data was granted (in particular, derivatives of data
+    accessed for research purposes should not be deployed in the real world as anything other
+    than a research prototype, especially commercially).
+  - The paper specifies the efforts to limit the potential use to circumstances in which the
+    data/models could be used safely (such as an accompanying data/model statement).
+  - The data is sufficiently anonymized to make identification of individuals impossible without
+    significant effort. If this is not possible due to the research type, please state so
+    explicitly and explain why.
+  - The paper discusses the harms that may ensue from the limitations of the data collection
+    methodology, especially concerning marginalized/vulnerable populations, and specifies the
+    scope within which the data can be used safely.
+prompt: |
+  This item has two halves and a paper can satisfy either one to count as `yes`: (a) for existing
+  artifacts it reuses (datasets, pretrained models, tools), did the authors note that their use was
+  consistent with the artifact's stated intended use or license (e.g. "we use the X dataset under
+  its research-only license, consistent with its terms"); and (b) for any new artifact the paper
+  releases (code, data, fine-tuned model), did it state the intended use and confirm that use is
+  compatible with the license/terms of whatever it was derived from. A paper that only created new
+  artifacts should be judged on (b) alone; a paper that only reused existing artifacts should be
+  judged on (a) alone. If the paper does both, weigh both — satisfying one half well while being
+  silent on the other is `partial`.
+
+  Do not require an explicit sentence like "this use is consistent with intended use" — treat it
+  as satisfied if the paper's license/access-terms discussion (often in a data statement, ethics
+  section, or licensing appendix) makes the compatibility clear by implication, e.g. stating that a
+  released dataset is for "research purposes only" or that all source datasets were used under
+  licenses permitting the paper's kind of use. The common near-miss is a paper that lists dataset
+  names and citations but says nothing at all about license terms or permitted use for any of
+  them — that is `no`, not `partial`, since there is nothing to point a reviewer at. A paper that
+  names licenses (e.g. "MIT", "CC-BY", "research-only") for the artifacts it uses but never
+  connects that to what the paper itself does with them is `partial`.
+
+  Do not flag as missing: a paper that only evaluates proprietary, API-gated models (e.g. calling
+  GPT-5-mini or Gemini via API) without redistributing them or their outputs as an artifact — using
+  a commercial API under its terms of service does not require the kind of intended-use discussion
+  this item targets, though if the paper releases model outputs or a distilled model, that release
+  is again in scope. Similarly, do not require a discussion of anonymization or vulnerable
+  populations here if the paper's data contains no personal or identifying information (e.g.
+  scraped news/article text, benchmark QA pairs) — that guidance bullet applies only when the data
+  plausibly could contain such information; its absence is not evidence against `yes`.
+
+  `not_applicable` is appropriate only if the paper truly creates and uses no scientific artifacts
+  of any kind (this should be rare given the B-section gate). In `missing`, name concretely what is
+  absent: e.g. "no statement that the released fine-tuned model's use is restricted to research
+  contexts", "no mention of the license terms under which the MIND dataset was accessed", or "code
+  release has no stated license or usage restriction".

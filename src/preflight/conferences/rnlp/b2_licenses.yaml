@@ -1,0 +1,54 @@
+# ARR Responsible NLP Research checklist — section B, item B2.
+id: b2
+code: B2
+section: B
+order: 2
+title: Licenses and terms of use
+applies_when: artifacts
+question: Did you discuss the license or terms for use and / or distribution of any artifacts?
+evidence_hint: the section stating the license or terms of use for each artifact used or released
+guidance: |
+  - State the name of the license (e.g., CC-BY 4.0) for each asset.
+  - If you scraped or collected data from a particular source (e.g., website or social media API),
+    state the copyright and terms of service of that source. Note that some sources do not allow
+    inference of protected categories like gender, sexual orientation, health status, etc.
+  - The data might be in the public domain and licensed for research purposes.
+  - The data might be used with the consent of its creators or copyright holders.
+  - If the data is used without consent, the paper should make the case to justify its legal basis
+    (e.g., research performed in the public interest under GDPR).
+  - If you are releasing assets, include a license, copyright information, and terms of use in the
+    released package.
+  - If you are repackaging an existing dataset, state the original license as well as the one for
+    the derived asset, if it has changed.
+  - If you cannot find this information online, you are encouraged to reach out to the asset's
+    creators.
+prompt: |
+  Judge whether the paper names a license or terms of use for the artifacts it actually uses
+  or releases — the datasets, models, and code, not just citing them. `yes` requires naming
+  a specific license (e.g. "CC-BY 4.0", "MIT", "Apache 2.0") or explicitly state the terms of use
+  (e.g. "released under the original dataset's non-commercial research license") for the artifacts
+  that matter to reproducing or auditing the work. Merely citing a dataset's paper with no mention
+  of its license or usage terms anywhere is `no`. If the paper names licenses for some artifacts
+  (say, a released code repository) but is silent on others it depends on (say, a scraped or
+  third-party dataset it built on), that is `partial`.
+
+  The most common near-miss: a paper that lists its datasets and models by name, with citations,
+  but never states under what terms they may be used or redistributed — treat that as `no`, not
+  `yes`, even though the reader can in principle look the license up themselves; the checklist
+  asks the paper to state it. Conversely, do not require every single artifact to be covered
+  for `yes` — if the paper discusses licensing for its main datasets, models, and any released
+  code, and the remainder are well-known standard resources (e.g. a widely used public benchmark)
+  mentioned only in passing, minor omissions of that kind do not by themselves force `partial`.
+
+  A common legitimate case: a paper that only evaluates existing public models via API access (no
+  released artifacts, only publicly documented datasets used strictly within their stated research
+  terms) may reasonably discuss this briefly rather than exhaustively; still count that as `yes` if
+  it does state the terms, and as `no` if it says nothing about them at all. Use `not_applicable`
+  only if the scope call has already determined the paper uses no artifacts at all — if the paper
+  discusses artifacts anywhere but never states any license or usage term, that is `no`, not
+  `not_applicable`.
+
+  In `missing`, name the specific artifacts left unaddressed and what is absent for each (for
+  example, "no license stated for the scraped review dataset", "no mention of the terms of use for
+  the third-party API responses collected", "code release mentioned but no license file or license
+  name given").

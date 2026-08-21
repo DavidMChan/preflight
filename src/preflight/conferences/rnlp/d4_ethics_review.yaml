@@ -1,0 +1,51 @@
+# ARR Responsible NLP Research checklist — section D, item D4.
+id: d4
+code: D4
+section: D
+order: 4
+title: Ethics review board approval
+applies_when: human_subjects
+question: >-
+  Was the data collection protocol approved (or determined exempt) by an ethics review
+  board?
+evidence_hint: >-
+  the section or statement that says whether ethics review was obtained or was not required
+guidance: |
+  - Depending on the country in which research is conducted, ethics review (e.g., from an IRB
+    board in the US context) may be required for any human subjects research. If an ethics
+    review board was involved, the paper should clearly state it.
+  - Stating that approval was obtained from an ethics review board does not remove the need to
+    also discuss the work's societal impact elsewhere in the paper.
+  - For initial (anonymous) submissions, do not include any information that would break
+    anonymity, such as the name or location of the institution conducting the review.
+  - Procedures vary significantly between institutions and locations. Authors are expected to
+    adhere to the ACL Code of Ethics and their own institution's guidelines.
+prompt: |
+  This item is scoped to papers involving human annotators or human participants; treat it as
+  `not_applicable` if the scope decision already ruled this out, and independently judge
+  `not_applicable` yourself if, on closer reading, the paper's data collection involved no live
+  human subjects (e.g. it only reuses existing public datasets with no new annotation or study).
+
+  Judge `yes` if the paper states that the data collection protocol was reviewed and approved, or
+  determined exempt, by an ethics review board or equivalent institutional process — this includes
+  a plain statement like "approved by our institution's IRB" or "this study was approved by [our
+  institution]'s ethics review board" with the institution left anonymized. A statement of exemption
+  ("determined exempt from IRB review") also counts as `yes`. Do NOT treat the absence of a named
+  institution as a defect: for an anonymous submission, omitting the reviewing body's name is
+  correct practice, not missing information, and your prompt must never suggest the author add it.
+
+  Judge `partial` if the paper describes informed consent, participant compensation, or other
+  ethical safeguards without ever stating that a review board was involved or that review was
+  determined unnecessary — care for participants is not the same as review-board sign-off. Judge
+  `no` if the paper collects data from human annotators or participants and says nothing at all
+  about ethics review or exemption.
+
+  The most common false positive: a general "Ethics" or "Ethical Considerations" section that
+  discusses broader societal impact, bias, or dual use, but never mentions institutional review, is
+  NOT sufficient for `yes` — that content answers other checklist items, not this one. Likewise,
+  compliance with a data license or terms of service is not an ethics review and should not be
+  counted.
+
+  In `missing`, state plainly that no statement of ethics review, or of exemption from it, was
+  found — do not suggest the author disclose institution names, IRB numbers, or other
+  anonymity-breaking specifics.

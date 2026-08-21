@@ -1,0 +1,64 @@
+# Reviewer lens: does the evidence actually support what is being claimed.
+id: experiment_claims
+title: Claim-to-evidence mapping
+module: llm.audit
+category: experiments
+order: 1
+context: none
+description: Does each main claim have an experiment that could actually support it?
+guidance: |
+  A reviewer who has been burned before does not ask "are the numbers good?" — they ask
+  "could this experiment, as designed, actually demonstrate the claim being made?" A paper
+  can report strong numbers and still fail this test if the comparator is weak, the metric
+  doesn't match the claim, or an ablation changes three things at once and calls it one
+  finding. This audit is about the shape of the evidence, not its magnitude.
+prompt: |
+  Find the paper's MAIN claims — the ones stated in the abstract or introduction as
+  contributions, not every incidental observation in a results table. For each one, work
+  out: what endpoint is being measured, on what dataset, against what comparator, with what
+  metric, and (if applicable) what statistical or repeated-run test. State explicitly where
+  any of these five links is missing or weak, e.g. "the claim is about generalization but
+  every experiment uses one dataset" or "the claim is about efficiency but no baseline
+  latency or cost is reported."
+
+  Check three things specifically:
+  1. Baselines: are the strongest CURRENT baselines for this exact problem present, and is
+     there a sane sanity baseline or negative control (a trivial method, a random/majority
+     baseline, an ablated-to-nothing variant) where the claim would be hollow without one?
+  2. Ablations: for each ablation, does it isolate ONE mechanism? If an ablation changes
+     several components, settings, or data sources at once, say so plainly and call it a
+     variant study rather than causal evidence — do not describe it as isolating anything it
+     doesn't.
+  3. External validity: does the paper state the regime its results are claimed to hold in
+     (data type, model scale/family, language, domain, or failure envelope), or does it
+     imply a claim broader than what was tested?
+
+  Rule out the following before writing an issue, because these are NOT gaps:
+  - A paper need not run every baseline that exists in the literature — only the ones a
+    reviewer would consider load-bearing for the SPECIFIC claim being made. Do not ask for
+    a baseline from an unrelated subfield or an unrelated task formulation.
+  - Evidence in an appendix counts as evidence. Do not flag a claim as unsupported in the
+    main text if the appendix supplies the missing piece; note it as appendix-only support
+    instead if that placement itself is worth flagging (e.g. a load-bearing result buried
+    where a reviewer skimming main text would miss it), but do not call it absent.
+  - If the Limitations section (or main text) already states "we do not evaluate X" or "we
+    do not test X regime" openly, that is a scoped claim, not a missing experiment. Do not
+    report it — UNLESS a main claim elsewhere contradicts that concession by asserting the
+    broader scope anyway, in which case the contradiction itself is the issue, not the gap.
+  - Do not comment on whether numbers are large enough, whether gains are impressive, or
+    whether you would have picked a different metric for taste reasons. That is a different
+    lens.
+
+  If every main claim has a clean line to an endpoint, dataset, comparator, metric, and
+  appropriately scoped regime, say so and return no issues — that is a legitimate, useful
+  result. Do not manufacture an ablation-purity nitpick just to have something to report.
+
+  Make the FIRST issue the single missing or mismatched piece of evidence with the highest
+  ratio of reviewer impact to cost-to-fix (e.g. a cheap sanity baseline that is absent, or
+  an ablation that conflates two mechanisms) — not simply the first one you noticed reading
+  top to bottom. Put a one-clause overall read in `verdict`, in the voice of "evidence
+  supports the main claim; the transfer claim is thinly supported" — naming which claims are
+  solid and which are weak, not a bare accept/reject.
+
+  Quote verbatim from the claim or the experimental description when you cite one. If you
+  cannot point to specific text for an issue, drop it rather than describe it vaguely.

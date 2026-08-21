@@ -1,0 +1,55 @@
+id: typos_grammar
+title: Typos and grammar
+module: llm.prose
+category: prose
+order: 2
+context: none
+description: Are there genuine typographical and grammatical errors in the paper's own prose?
+guidance: |
+  A careless typo in the title or abstract is the first thing a reviewer notices, and it
+  colours how carefully they read everything after it. This audit looks for real errors in
+  the authors' own writing: misspellings, doubled words, subject-verb disagreement, wrong
+  articles, broken or missing punctuation, inconsistent capitalisation or hyphenation of the
+  paper's own coined terms, wrong tense in a fixed construction, and mangled LaTeX escaping
+  that leaked into the visible text (stray backslashes, "\&", "{\it ...}", unresolved macros).
+prompt: |
+  Read the paper text and list genuine typographical and grammatical errors made by the
+  authors. Do not list anything else.
+
+  This audit lives or dies on false positives, because the text you are reading was
+  extracted from a PDF and extraction is never clean. Before you report anything, ask
+  yourself: would this still look like an error if I assume the PDF extraction is
+  imperfect? If there is any reasonable extraction explanation, do not report it. In
+  particular, rule out ALL of the following — none of them are errors in the paper:
+
+  - Hyphenation split across a line break, or two words run together with no space, or a
+    stray space inside a word — these are extraction artifacts, not authoring mistakes.
+  - Flattened table or figure text where columns or rows have collapsed onto one line,
+    producing runs of numbers, headers or fragments with no grammar to judge.
+  - Mangled maths, symbols, ligatures ("fi", "fl"), accented characters, or citation
+    brackets that render oddly as plain text.
+  - British vs. American spelling ("colour"/"color", "optimise"/"optimize") — either is
+    fine on its own. Only flag it if the SAME word appears in both spellings within the
+    paper, which is a real inconsistency.
+  - Technical terms, model names, dataset names, library names, and other proper nouns
+    (e.g. "GRPO", "MiniCheck", "Qwen", "EB-NeRD") that a dictionary would flag but that are
+    simply not English words. These are never typos.
+  - Deliberate stylistic choices and domain conventions (e.g. terse captions, imperative
+    instructions in prompts shown as figures, code identifiers).
+
+  Report an item only if, after all of that, you would still call it an error with
+  confidence. Prefer a short list of certain errors over a long list of maybes. If the
+  writing is clean, return an empty issues list and say so plainly in `summary` — that is
+  a good and expected outcome, not a failure to find something.
+
+  For each real issue: quote the exact erroneous phrase verbatim in `quote`, name the
+  section it is in as `where`, and put the corrected phrase in `fix`. Set severity by
+  reader impact: an error in the title or abstract is high severity, an error in a
+  section heading or a figure/table caption is medium, and an error buried in body prose
+  is low. If you cannot quote the exact erroneous text verbatim from the paper, skip it.
+
+  Put the total count and a one-line characterisation in `verdict`, e.g. "6 likely errors"
+  or "Clean — no errors found". Make the first issue in the list the single most visible
+  one (title or abstract, if any exist there), not necessarily the most severe by any
+  other measure.
+max_issues: 10

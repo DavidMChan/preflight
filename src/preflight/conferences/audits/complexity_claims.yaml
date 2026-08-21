@@ -1,0 +1,62 @@
+# Reviewer lens: asymptotic / computational-complexity claims.
+id: complexity_claims
+title: Asymptotic and complexity claims
+module: llm.audit
+category: formulas
+order: 2
+context: equations
+description: Does every Big-O / runtime claim name its governing variable and hold the rest fixed?
+guidance: |
+  A theory reviewer reads complexity claims literally. The classic trap: a paper compares its
+  proposed method's O(N*M) cost against a baseline's O(N log N) and calls the baseline
+  "asymptotically favourable as N grows". If M is a fixed architectural constant, O(N*M) is
+  linear in N and the comparison is backwards as N to infinity; the baseline only wins in the
+  practical regime where M > log2(N). A correct claim names the governing variable, states
+  which quantities are held fixed, and — if it leans on a crossover — says at what regime the
+  crossover happens. This audit exists to catch complexity language that is wrong or
+  unsupported, not to demand a formal analysis from papers that never claimed one.
+prompt: |
+  Read every place the paper states or implies a computational cost, runtime, memory footprint,
+  or asymptotic comparison (Big-O notation, phrases like "scales linearly", "quadratic in the
+  sequence length", "more efficient than", "asymptotically", or a claim that one method is
+  cheaper/faster than another). For each such claim:
+
+  1. Identify which variable is actually said to grow (N, sequence length, number of items,
+     vocabulary size, etc.) and which quantities the claim implicitly treats as constant.
+  2. Check internal consistency: does the stated complexity match the algorithm as the paper
+     describes it a few paragraphs earlier or later? A mismatch between the described procedure
+     (e.g., a nested loop or an extra multiplicative factor) and the claimed order is a real
+     defect.
+  3. If the paper claims one method is asymptotically favourable over another, check whether it
+     is comparing apples to apples — same growing variable, same fixed quantities — or whether a
+     term it calls a constant actually grows with the same variable, which would flip which
+     method wins as that variable goes to infinity. If the paper never states the regime in which
+     its ordering holds, that omission is the issue: name the missing inequality (e.g. "this only
+     holds when the constant M exceeds log N") in your `fix`.
+  4. If the paper backs an asymptotic claim with a single empirical timing/memory number at one
+     operating point, note that one data point supports that operating point, not the asymptotic
+     trend, unless the paper also shows the trend across scale.
+
+  Rule out these false positives explicitly, and do not raise them:
+  - An informal, accurate statement like "cost grows with the number of tokens" in an empirical
+    paper that never invokes O-notation or claims an asymptotic advantage. Papers are not
+    required to give a formal complexity analysis unless they make a comparative or asymptotic
+    claim.
+  - Dropping constants and lower-order terms inside legitimate O-notation — that is correct
+    Big-O usage, not sloppiness. Only flag a dropped term if it is described elsewhere as
+    growing with the same variable, or if the paper leans on the claim to argue practical
+    superiority without acknowledging the constant's size.
+  - A complexity statement given only as background about a cited prior method, not as a claim
+    about this paper's own contribution, unless the paper visibly misstates it.
+  - Rough, hedged efficiency language ("roughly linear", "in practice scales well") that is not
+    dressed up as a formal guarantee.
+
+  The defect is almost always in the PROSE around the equation or the comparative sentence, not
+  in the equation itself — the maths can be correct while the claim built on top of it is not.
+  Your `fix` for each issue must be the corrected sentence: name the governing variable and the
+  regime (or the missing inequality) explicitly, not just "clarify this".
+
+  If the paper makes no asymptotic or complexity claims at all — most empirical papers do not —
+  say so plainly in `summary`, leave `verdict` null, and return an empty `issues` list. That is
+  the correct and expected outcome for such a paper, not a failure of the audit.
+max_issues: 5

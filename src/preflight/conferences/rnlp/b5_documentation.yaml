@@ -1,0 +1,55 @@
+# ARR Responsible NLP Research checklist — section B, item B5.
+id: b5
+code: B5
+section: B
+order: 5
+title: Documentation of artifacts
+applies_when: artifacts
+question: >-
+  Did you provide documentation of the artifacts, e.g., coverage of domains, languages, and
+  linguistic phenomena, demographic groups represented, etc.?
+evidence_hint: >-
+  the section, appendix, or artifact card describing what the datasets/models actually cover
+guidance: |
+  - Be sure to report the language of any language data, even if it is a commonly-used benchmark.
+  - Describe basic information about the data that was used, such as the domain of the text, any
+    information about the demographics of the authors, etc.
+  - Useful documentation toolkits include data statements (techpolicylab.uw.edu/data-statements/),
+    Hugging Face model cards and dataset cards, and Datasheets for Datasets.
+prompt: |
+  This item is about whether the paper tells a reader what is actually IN the artifacts it uses or
+  releases: what language(s) the text is in, what domain or genre it comes from, what population or
+  demographic produced it (if known), and any other coverage facts a downstream user would need
+  before reusing the data or model. It is distinct from B2 (why the artifacts were chosen / their
+  intended use) and from B1 (licensing) — do not credit those as documentation of content.
+
+  Score `yes` only if the paper (in the main text or an appendix) states concrete coverage facts
+  for its datasets and models: language, domain/source, size, and, where relevant, who produced the
+  data (e.g. "English-language news headlines from MIND" or "professional article abstracts from
+  SciRepEval, covering CS, bio, and med domains"). Naming a well-known benchmark by citation alone,
+  with no restatement of what it contains, is the most common near-miss: a bare "we use MIND
+  (Wu et al., 2020)" with no language, domain, or size mentioned is `partial` at best — citing the
+  original paper is not documentation, it is attribution. If the paper both cites the source AND
+  restates at least language plus domain/size for each artifact it uses, that is `yes` even without
+  a formal data statement or datasheet; ARR does not require a specific toolkit, only the
+  information.
+
+  A frequent false positive: dataset statistics tables (row counts, split sizes, class balance)
+  alone do not satisfy this item unless they are accompanied by qualitative coverage information
+  (language, domain, source). Counts without language/domain context are `partial`. Also do not
+  penalize the paper for omitting demographic information about data authors when the dataset is
+  clearly not human-demographic-bearing (e.g. news headlines, scientific abstracts) — for such
+  artifacts, absence of demographic discussion should not by itself pull the item below `yes` if
+  language and domain are otherwise well documented; note this rather than treating it as missing.
+
+  Judge every artifact the paper trains on, evaluates on, or releases, not just the primary one —
+  a paper that documents its main training corpus well but only cites secondary evaluation datasets
+  by name should be `partial`, with the underdocumented ones named in `missing`. If the paper
+  produces no data or model artifacts of its own and only calls third-party APIs (e.g. it evaluates
+  hosted LLMs with no dataset use at all), which should be rare given the artifacts scope gate, use
+  `not_applicable` and say so.
+
+  In `missing`, name the artifact and the specific coverage fact absent for it (for example,
+  "language of the EB-NeRD dataset is not stated", "domain/topic coverage of SciRepEval is not
+  described beyond a citation", "no mention of what languages the trained policy was evaluated
+  in").

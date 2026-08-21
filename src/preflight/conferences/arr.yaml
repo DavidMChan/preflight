@@ -1,0 +1,111 @@
+# ACL Rolling Review (ARR).
+#
+# Inherits ACL style geometry and typography from acl.yaml -> base.yaml, and
+# adds the ARR CFP's own policy: page limits, the mandatory Limitations
+# section, anonymity, and the machine-manipulation rule.
+
+conference:
+  key: arr
+  name: ACL Rolling Review
+  extends: acl
+  default_track: long
+
+# ARR does not require the NeurIPS checklist, but authors routinely cross-submit
+# between the two, so the module is included in "optional" mode: absence is not
+# reported at all, while a checklist that IS present gets fully validated, with
+# every finding softened to a warning.
+modules:
+  - neurips.checklist
+  - arr.responsible_nlp   # LLM-backed; inert unless --llm is passed
+
+responsible_nlp:
+  # The checklist is filled in on the OpenReview submission form, not in the PDF,
+  # so these checks look for the material each item asks you to point at.
+  max_context_chars: 60000
+  # "Submissions that systematically fail to provide either specific relevant
+  # sections or justification will be desk-rejected." Below this share of
+  # applicable items being addressed, the summary check reports an error.
+  systematic_failure_ratio: 0.5
+
+disabled_checks:
+  - neurips_checklist_present   # ARR neither requires nor forbids one
+
+severity:
+  neurips_checklist_position: warning
+  neurips_checklist_complete: warning
+  neurips_checklist_justifications: warning
+  neurips_checklist_consistency: warning
+
+tracks_replace: true
+tracks:
+  long:
+    content_page_limit: 8
+    description: >-
+      Long paper — 8 pages of content, with unlimited space afterwards for
+      Limitations, references and appendices.
+  short:
+    content_page_limit: 4
+    description: >-
+      Short paper — 4 pages of content, with unlimited space afterwards for
+      Limitations, references and appendices.
+  demo:
+    content_page_limit: 6
+    description: "Demo paper — verify the limit against the current demo track CFP."
+
+cfp:
+  page_limit: >-
+    Long papers allow 8 pages of content and short papers 4; the space after the conclusion
+    for the Limitations section and the references is unlimited. Exceeding the limit is
+    explicitly a desk-rejection condition.
+  limitations_present: >-
+    A section titled "Limitations" is mandatory; omitting it is explicitly grounds for desk
+    rejection.
+  limitations_position: >-
+    The Limitations section must appear at the end of the paper, before the references.
+  limitations_scope: >-
+    The Limitations section may not be used to introduce new methods, analyses, or results.
+  anonymity: >-
+    Author names, affiliations, and identity-revealing self-references are forbidden;
+    supplementary links must be anonymized, and tracking services such as Dropbox are not
+    permitted.
+  hidden_text: >-
+    The paper must be directed at human readers and be clearly visible; attempts to
+    manipulate machine readers via prompt injection may result in desk rejection.
+
+unverifiable:
+  - id: originality
+    title: Originality and prior publication
+    message: >-
+      ARR requires unpublished work with limited text reuse. Establishing this needs
+      cross-paper matching against your other work, which the PDF cannot answer.
+  - id: dual_submission
+    title: Concurrent / dual submission
+    message: Nothing in the PDF shows whether this work is currently under review elsewhere.
+  - id: citation_coverage
+    title: Coverage of relevant prior work
+    message: >-
+      Whether all relevant work is cited requires literature retrieval and judgement, not
+      PDF inspection.
+  - id: authorship
+    title: Correct authorship in OpenReview
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only substantial
+      contributors are listed on the submission.
+  - id: resubmission
+    title: Resubmission metadata
+    message: >-
+      The previous-submission link, revision summary, author-change justification and prior
+      meta-review scores all live in OpenReview form fields.
+  - id: checklist
+    title: Responsible NLP Checklist
+    message: >-
+      The checklist is a submission-form artifact; incomplete or inaccurate answers are
+      themselves desk-rejectable.
+  - id: ai_disclosure
+    title: AI-use disclosure accuracy
+    message: >-
+      We can see whether a disclosure exists, but not whether AI was actually used or
+      whether disclosure was required.
+  - id: reviewer_registration
+    title: Reviewer registration obligations
+    message: Every author's reviewing commitment is tracked outside the PDF.

@@ -1,0 +1,388 @@
+# Venue-agnostic defaults. Abstract: not selectable on the command line.
+#
+# Every concrete profile inherits from this (directly or through an
+# intermediate style profile such as acl.yaml) and overrides only what differs.
+# Mappings merge recursively; lists and scalars are replaced wholesale.
+
+conference:
+  key: base
+  name: Generic venue
+  abstract: true
+  default_track: long
+
+# Modules compose: a child profile's `modules:` is appended to its parent's.
+# Set `modules_replace: true` in a child to start from an empty set instead.
+modules:
+  # Deterministic: measured off the PDF, and the only tier that reports errors.
+  - core.geometry
+  - core.fonts
+  - core.structure
+  - core.anonymity
+  - core.hidden
+  - core.prose                  # counted prose diagnostics, no model involved
+  - core.figures
+  - core.surface
+  - core.markup                 # editing markup left in the submitted file
+  - core.pdf                    # blank pages, font embedding, file health
+  - core.citations              # in-text citations against the bibliography
+  - core.statistics             # p-values and stated arithmetic
+  - core.abbreviations
+  - core.crossrefs              # figure/table callouts, panels, supplements
+  - core.headings               # numbered heading hierarchy
+  - core.figure_quality         # resolution, greyscale and colour-vision legibility
+  - core.unverifiable
+  # Network-backed, and inert unless the corresponding flag is on.
+  - integrations.refcheck       # --refcheck (on by default)
+  - integrations.hallucinator   # --hallucinator (opt-in, superseded by refcheck)
+  - llm.semantic                # --llm
+  - llm.prose                   # --llm: reads-like-AI, typos and grammar
+  - llm.review                  # --llm: triage and the first-page surface
+  - llm.audit                   # --llm: experiments, figures, maths, ethics, systems
+
+tracks:
+  long:
+    content_page_limit: 8
+    description: "Long paper."
+
+geometry:
+  page_width_pt: 595.0
+  page_height_pt: 842.0
+  page_size_tolerance_pt: 3.0
+  paper_size_label: A4
+  margin_left_pt: 71.0
+  margin_right_pt: 71.0
+  margin_top_pt: 57.0
+  margin_bottom_pt: 62.0
+  tolerance_left_pt: 2.0
+  tolerance_right_pt: 4.5
+  tolerance_top_pt: 1.0
+  tolerance_bottom_pt: 1.0
+  min_violation_pt: 1.0
+  max_reported_violations: 12
+
+columns:
+  expected_columns: 2
+  column_gap_pt: 14.4
+  min_gap_pt: 8.0
+  two_column_confidence: 0.6
+
+fonts:
+  body_size_pt: 11.0
+  body_size_tolerance_pt: 0.6
+  min_font_size_pt: 9.0
+  hidden_font_size_pt: 4.0
+  dominant_font_min_share: 0.35
+  allowed_font_substrings: []
+  # Line numbers in anonymous templates are legitimately tiny and sit in the margin.
+  ignore_small_text_regex: '^\s*\d{1,4}\s*$'
+
+structure:
+  limitations_heading: Limitations
+  limitations_aliases: [Limitations, Limitation]
+  limitations_required: false
+  references_aliases: [References, Bibliography]
+  appendix_aliases: [Appendix, Appendices, Supplementary Material, Supplemental Material]
+  acknowledgments_aliases: [Acknowledgments, Acknowledgements, Acknowledgment, Acknowledgement]
+  ethics_aliases: [Ethics Statement, Ethical Considerations, Ethical Statement, Broader Impact, Broader Impacts]
+  unlimited_after: [limitations, references, acknowledgments, ethics, appendix]
+  appendix_must_follow_references: true
+  appendix_must_be_two_column: false
+  limitations_new_content_patterns:
+    - "we propose"
+    - "we introduce"
+    - "we present a new"
+    - "we further improve"
+    - "our new method"
+    - "we additionally train"
+    - "we also propose"
+
+anonymity:
+  enabled: true
+  # The ACL A4 template starts the abstract at y~222pt, so 200 keeps the scan on
+  # the title/author area and out of the abstract.
+  title_block_height_pt: 200.0
+  expected_author_line: null
+  name_max_words: 5
+  affiliation_keywords:
+    [university, institute, college, "school of", laboratory, labs, academy,
+     "department of", "dept.", "faculty of", "research center", "research centre",
+     "inc.", "corp.", corporation, gmbh, "ltd.", llc, "s.r.l.", "co., ltd"]
+
+  # URLs cited in the bibliography are other people's links, not the authors'.
+  ignore_urls_in_references: true
+  references_heading_aliases: [references, bibliography]
+  email_ignore_regexes: ['@example\.(com|org)$']
+
+  # Tracking and link-shortening services are not permitted: they let an author
+  # see who opened the link, which breaks blind review.
+  forbidden_url_domains:
+    [dropbox.com, www.dropbox.com, db.tt, bit.ly, tinyurl.com, goo.gl, "t.co/",
+     ow.ly, rebrand.ly, shorturl.at, is.gd, cutt.ly]
+  identity_url_domains:
+    [github.com, gitlab.com, bitbucket.org, huggingface.co, drive.google.com,
+     docs.google.com, sites.google.com, colab.research.google.com, zenodo.org,
+     figshare.com, kaggle.com, linkedin.com, twitter.com, x.com, researchgate.net,
+     notion.site, wandb.ai]
+  anonymous_url_domains: [anonymous.4open.science, anonymous.science, osf.io/anonymous]
+
+  # Regexes. Deliberately narrow: "our work" alone is not a self-reference.
+  self_reference_patterns:
+    - "in our (previous|prior|earlier) (work|paper|study)"
+    - "our (previous|prior|earlier) (work|paper|study) \\("
+    - "we (have )?(previously|earlier) (showed|shown|proposed|introduced|released)"
+    - "as (we|i) (showed|argued|proposed) in \\("
+    - "our (group|lab|team)'s (previous|prior|earlier)"
+    - "building on our own"
+  self_reference_context_chars: 120
+  max_reported_self_references: 8
+
+  metadata_fields: [author, title, subject, keywords, creator, producer]
+  # Producers that name the tool, not the human, are not leaks.
+  metadata_producer_allowlist:
+    [pdftex, pdflatex, xetex, luatex, "latex with hyperref", "tex live", miktex,
+     ghostscript, dvips, dvipdfm, "acrobat distiller", quartz, libreoffice,
+     "microsoft word", "word for", "skia/pdf", chromium]
+  metadata_filename_regex: '(?i)\.(?:tex|pdf|docx?|dvi)$|microsoft word -|[\\/]'
+
+hidden:
+  enabled: true
+  hidden_font_size_pt: 4.0
+  white_text_luminance_delta: 0.06
+  page_background_luminance: 1.0
+  outside_crop_slack_pt: 3.0
+  invisible_text_error_chars: 40
+  low_contrast_error_chars: 40
+  offpage_error_chars: 40
+  ocr_image_coverage: 0.6        # a page this covered by one image is a scan
+  injection_context_chars: 160
+  max_reported_spans: 10
+  max_reported_matches: 10
+
+  # These match text that ADDRESSES an automated reviewer, not text that
+  # discusses one. Topic words such as "system prompt" or "as a language model"
+  # were deliberately left out: they fire on every paper about prompt injection,
+  # and a checker that cries wolf on legitimate subject matter is worse than no
+  # checker. Visible matches warn; only concealed matches escalate to an error.
+  prompt_injection_patterns:
+    - "ignore (all )?(the )?previous instructions"
+    - "ignore (all )?(the )?above instructions"
+    - "disregard (all )?(the )?(previous|prior|above) instructions"
+    - "if you are an? (ai|llm|language model|automated reviewer)"
+    - "as an ai (language )?model,? you (must|should)"
+    - "this paper (must|should) be accepted"
+    - "(recommend|give) (this paper )?(a )?(strong )?accept"
+    - "give (this paper|it) (the )?(highest|a high|a perfect) (score|rating)"
+    - "do not (mention|reveal|disclose) (this|these instructions)"
+    - "only (highlight|mention|discuss) the strengths"
+
+# ---------------------------------------------------------------------------
+# Counted prose diagnostics. These encode measurable style advice, so the
+# thresholds are the whole argument -- tune them per venue rather than arguing
+# with the checks. Keys not listed here keep the defaults in the check modules.
+# ---------------------------------------------------------------------------
+prose:
+  sentence_hard_max_words: 46     # must be broken
+  sentence_soft_max_words: 36     # break at a natural ':' ';' or em dash
+  max_reported_sentences: 8
+  repeated_opener_run: 3          # 3+ consecutive sentences opening alike
+  max_reported_runs: 6
+  # Openers so structurally common that a short run of them is not a tic.
+  repeated_opener_ignore: [the, this, we, it, in, for, to, a, as]
+  # Flagged only above this rate per 1000 words: the goal is to cut them down,
+  # never to zero -- they are ordinary academic words.
+  connective_min_count: 3.0
+  demonstrative_max_report: 8
+  hollow_wrapup_max_report: 6
+
+figures:
+  caption_min_words: 8            # below this a caption is probably too terse
+  caption_max_reported: 8
+  numbering_max_reported: 6
+  decimal_precision_max_reported_pages: 4
+
+surface:
+  abstract_min_words: 80
+  abstract_max_words: 300
+  title_min_occurrences: 2        # a title term should recur in the body
+  title_min_term_length: 4
+  # Function words, plus the verbs and contractions that show up in a
+  # deliberately catchy title and say nothing about the paper's content.
+  title_stopwords:
+    [a, an, and, are, as, at, be, but, by, can, do, does, for, from, how, in, into,
+     is, it, its, of, on, or, that, the, their, this, to, via, was, we, what, when,
+     which, why, will, with, you, your, don, dont, won, wont, cant, isnt, arent,
+     believe, think, know, see, look, make, makes, get, gets, need, needs, want]
+
+# ---------------------------------------------------------------------------
+# Reference verification. Four tiers, and a reference leaves as soon as one
+# answers: cache, then every applicable database concurrently, then a verifier
+# matched to what the citation actually is, then live web search.
+# ---------------------------------------------------------------------------
+refcheck:
+  max_references: 0             # 0 = all
+  concurrency: 16               # references in flight
+  search_concurrency: 6         # live web searches in flight
+  timeout_secs: 6.0             # per HTTP request
+  total_timeout_secs: 120.0     # wall clock for the whole bibliography
+  llm_parse: true               # parse entries with a model rather than regexes
+  web_search: true              # the tier that clears real-but-unindexed citations
+  not_found_is_error: false     # a miss is suspicion, never proof
+  max_evidence: 15
+  cache_path: ~/.cache/preflight/refcheck.db
+  # Joining CrossRef's polite pool measurably improves latency. Set to your email.
+  mailto: null
+  semantic_scholar_key: null    # optional; the API throttles hard without one
+  github_token: null            # optional; raises the unauthenticated 60/hour limit
+  # Empty means every non-optional source. Names: crossref_doi, openalex,
+  # crossref, dblp, arxiv_id, semantic_scholar.
+  sources: []
+  # Match thresholds. A title alone is not enough: same-bag-of-words titles are
+  # real ("Attention Is All You Need" vs "Is Attention All You Need?"), so an
+  # accept also needs the authors to agree.
+  accept_title: 0.90
+  review_title: 0.72
+  accept_author: 0.34
+  year_slack: 2
+
+# DEPRECATED: the third-party hallucinator backend, kept for comparison. It is
+# superseded by `refcheck` above, which is concurrent, type-aware, and does not
+# report blog posts and repositories as missing papers. Opt in with
+# --hallucinator if you want a second opinion.
+# ---------------------------------------------------------------------------
+# Deterministic checks over the rendered file. None of these is a documented
+# desk-rejection condition, so they all report warnings; a venue that wants one
+# harder should promote it in its own `severity:` map rather than here.
+# ---------------------------------------------------------------------------
+markup:
+  # Highlighted text is inferred from a coloured rectangle behind a text line,
+  # which is also what table shading and diagram nodes look like. These bound
+  # the shape of what counts, and the module additionally discards a colour that
+  # recurs across a page (systematic shading, not an ad-hoc highlight).
+  highlight_min_area_pt2: 20.0
+  max_reported_comments: 10
+  max_reported_highlights: 10
+  max_reported_revisions: 10
+
+pdf:
+  # The base-14 fonts are legitimately never embedded. pdfTeX also emits Type3
+  # fonts whose glyphs live in the content stream rather than a font program;
+  # the module exempts those separately, or nearly every LaTeX paper would fail.
+  base14_fonts:
+    [Helvetica, Helvetica-Bold, Helvetica-Oblique, Helvetica-BoldOblique,
+     Courier, Courier-Bold, Courier-Oblique, Courier-BoldOblique,
+     Times-Roman, Times-Bold, Times-Italic, Times-BoldItalic, Symbol, ZapfDingbats]
+  required_permission_bits: 60      # print|modify|copy|annotate, only if encrypted
+
+citations:
+  max_reported: 15
+
+statistics:
+  # Slack when recomputing "N of M (X%)". Half a point covers any legitimate
+  # rounding of a percentage reported to one decimal place.
+  percentage_tolerance: 0.55
+  format_min_occurrences: 4         # before judging p-value style inconsistent
+
+abbreviations:
+  max_reported: 5
+  min_uses_to_flag: 2               # a term used once is not an abbreviation habit
+
+crossrefs:
+  figure_keywords: [Figures, Figure, "Fig."]
+  table_keywords: [Tables, Table, "Tab."]
+  section_keywords: [Section, "Sec."]
+  appendix_keywords: [Appendix, Appendices]
+  context_window_chars: 100
+  range_max_span: 20                # "Figures 2-40" is a typo, not a range
+  panel_min_defined: 2
+  max_reported: 15
+
+headings:
+  empty_section_min_words: 3
+
+figure_quality:
+  min_dpi: 150.0
+  min_icon_area_pt2: 1600.0         # 40x40pt: below this it is an icon, not a figure
+  max_repeat_occurrences: 3         # a repeated image is a glyph, not a figure
+  render_dpi: 72.0
+  max_figures: 12                   # rendering is the only expensive part
+  min_color_share: 0.04
+  # Two colours 30 degrees apart are shades of one another, not distinct series;
+  # flagging them for sharing a luminance is noise. A real greyscale failure is a
+  # pair a reader is meant to tell apart, which means clearly different hues.
+  min_hue_separation_deg: 60.0
+  min_gray_separation: 0.10         # luminance apart, once greyscaled
+  min_cvd_distance: 0.12            # apart after a deuteranopia transform
+  min_pretransform_distance: 0.25   # ...but clearly distinct before it
+  max_reported_violations: 10
+
+hallucinator:
+  enabled: false
+  max_references: 0
+  not_found_is_error: false
+  disabled_dbs: []
+  num_workers: 8
+  max_rate_limit_retries: 2
+  timeout_secs: 10
+  total_timeout_secs: 300
+  cache_path: ~/.cache/preflight/hallucinator.db
+  crossref_mailto: null
+  suspicious_statuses: [not_found, author_mismatch, retracted]
+  max_evidence: 15
+  min_expected_references: 10
+  min_layout_entries: 5
+  entry_indent_tolerance_pt: 2.5
+  line_number_regex: '^\s*\d{1,4}\s*$'
+  reference_headings: [References, Bibliography, Works Cited]
+  after_reference_headings: [Appendix, Appendices, Supplementary Material]
+
+llm:
+  enabled: false          # opt in with --llm
+  scoring: true
+  # Characters of paper text sent with every model-backed call. A long paper is
+  # well under this, so the whole document normally goes in one piece; if a
+  # paper does exceed it, the run reports the truncation rather than hiding it.
+  max_context_chars: 600000
+  checks: [limitations_semantics, anonymity_semantics, injection_semantics]
+
+neurips:
+  expected_question_count: 16
+  min_answer_markers: 4
+  checklist_title_aliases:
+    ["NeurIPS Paper Checklist", "NeurIPS paper checklist", "NeurIPS Checklist", "Paper Checklist"]
+  answer_regex: 'Answer\s*:\s*\[\s*([^\]\[]{0,12}?)\s*\]'
+  question_regex: 'Question\s*:'
+  justification_regex: 'Justification\s*:'
+  guidelines_regex: 'Guidelines\s*:'
+  placeholder_regex: '(?i)\b(TODO|answerTODO|answerYes|answerNo|answerNA|FILL IN|XXX+)\b|\\answer'
+  justification_required_answers: [no, na]
+  min_justification_chars: 15
+  compute_keywords: [GPU, CPU, TPU, A100, V100, H100, compute, GPU-hours, cluster, runtime]
+  # The 16 checklist questions, in template order.
+  question_keys:
+    [claims, limitations, theory_assumptions_proofs, experimental_result_reproducibility,
+     open_access_data_code, experimental_setting_details, experiment_statistical_significance,
+     experiments_compute_resources, code_of_ethics, broader_impacts, safeguards, licenses,
+     assets, crowdsourcing_human_subjects, irb_approvals, llm_usage_declaration]
+
+disabled_checks: []
+severity: {}
+
+unverifiable:
+  - id: originality
+    title: Originality and prior publication
+    message: >-
+      Establishing that the work is unpublished with limited text reuse needs cross-paper
+      matching against the authors' other work, which the PDF cannot answer.
+  - id: dual_submission
+    title: Concurrent / dual submission
+    message: Nothing in the PDF shows whether this work is currently under review elsewhere.
+  - id: citation_coverage
+    title: Coverage of relevant prior work
+    message: >-
+      Whether all relevant work is cited requires literature retrieval and judgement, not
+      PDF inspection.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only substantial
+      contributors are listed on the submission form.

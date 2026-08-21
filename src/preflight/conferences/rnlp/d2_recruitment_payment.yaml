@@ -1,0 +1,58 @@
+# ARR Responsible NLP Research checklist — section D, item D2.
+id: d2
+code: D2
+section: D
+order: 2
+title: Recruitment and payment of participants
+applies_when: human_subjects
+question: |
+  Did you report information about how you recruited (e.g., crowdsourcing platform, students)
+  and paid participants, and discuss if such payment is adequate given the participants'
+  demographic (e.g., country of residence)?
+evidence_hint: the section describing participant recruitment or compensation
+guidance: |
+  - Be explicit about how participants were recruited. Name the specific crowdsourcing platform
+    used (e.g. Amazon Mechanical Turk, Prolific). If participants are students, describe the
+    population (e.g. graduate/undergraduate, from a specific field) and how they were compensated
+    (e.g. for course credit or through payment).
+  - In case of payment, report the amount paid per task, including any bonuses, and discuss how
+    the time a task would take was estimated.
+  - Discuss how the wage was determined and how the authors judged it to be a fair wage, ideally
+    with reference to the participants' likely demographic (e.g. country of residence, local
+    minimum or living wage).
+prompt: |
+  This item applies only to papers that used human annotators, crowdworkers, or ran a study with
+  human participants; it was already gated on that basis, so treat the recruitment channel as a
+  given and look for the specifics. `yes` requires both halves: (1) a named recruitment channel or
+  population (a specific platform such as Mechanical Turk or Prolific, or a described participant
+  pool such as "graduate students in linguistics"), and (2) for paid participants, a concrete
+  payment figure (per task, per hour, or per annotation) together with some reasoning about why
+  that amount is fair — a reference to minimum wage, an estimated completion time used to back into
+  an hourly rate, or a comparison to local cost of living. A paper that names the platform and the
+  pay rate but never discusses whether that rate is adequate is `partial`, not `yes` — the fairness
+  discussion is not optional filler here, it is the second half of the question. Likewise, a paper
+  that says only "we paid annotators a fair wage" with no dollar figure is `partial` at best.
+
+  Do not flag as missing what the paper does not need: if participants were unpaid volunteers, or
+  were the paper's own authors, that is a legitimate answer to the payment half, but the paper
+  should still say so explicitly rather than being silent — silence about payment is `partial` or
+  `no`, an explicit "no compensation was provided" is not automatically a gap. If the paper recruited
+  participants through an institution (e.g. course credit) rather than a market-rate platform, the
+  fairness question can be satisfied by explaining the institutional basis for compensation (credit
+  is standard practice, IRB-approved rate, etc.) rather than a wage-per-hour calculation.
+
+  Common false positive: a "Data Statement" or "Annotation" section that names annotators' expertise
+  or number of annotators but never says how they were found or paid is not evidence for this item —
+  do not credit demographic or qualification details (e.g. "annotators were native speakers") as
+  recruitment or payment information unless recruitment channel or pay is also stated. Also do not
+  conflate this with dataset licensing or IRB approval discussions elsewhere in the paper; those
+  belong to other checklist items.
+
+  Use `not_applicable` only if, despite the human_subjects gate, the paper's only human involvement
+  turns out to be secondary use of an existing dataset with no new recruitment by these authors (for
+  example, reusing a pre-existing crowdsourced corpus without collecting any new annotations) — in
+  that case recruitment and payment were never the authors' to report.
+
+  In `missing`, name exactly what is absent: e.g. "no recruitment platform or participant population
+  named", "pay rate given but no discussion of whether it is fair for the annotators' likely
+  location", or "no payment amount reported at all".

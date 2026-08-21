@@ -1,0 +1,180 @@
+# ICLR main conference (2026 cycle).
+#
+# NOTE ON NUMBERS: unlike the ACL profile, whose tolerances come from the
+# official aclpubcheck implementation, the geometry below was measured off the
+# PDF that ships inside the official template
+# (https://github.com/ICLR/Master-Template/raw/master/iclr2026.zip) and
+# cross-checked against iclr2026_conference.sty: US Letter, \oddsidemargin
+# 0.5in (so a 1.5in left margin), \textwidth 5.5in, \textheight 9in, 10pt
+# Times, single column. There is no official ICLR format checker to defer to.
+#
+# The page limit moves year to year: 9 content pages at submission, 10 during
+# the rebuttal and for the camera ready. Set the track accordingly.
+
+conference:
+  key: iclr
+  name: ICLR (main conference)
+  extends: base
+  default_track: main
+  style: "ICLR (US Letter, single-column, 10pt Times)"
+
+# ICLR has its own track set; do not inherit base's.
+tracks_replace: true
+tracks:
+  main:
+    content_page_limit: 9
+    description: >-
+      Submission — 9 pages of main text; references, ethics and reproducibility
+      statements, the LLM-usage section and appendices do not count toward the
+      limit. Papers with main text beyond the limit are desk-rejected.
+  camera_ready:
+    content_page_limit: 10
+    description: >-
+      Rebuttal revision and camera ready — the limit rises to 10 pages to allow
+      for new results and discussion, and is strictly enforced.
+
+geometry:
+  page_width_pt: 612.0     # US Letter
+  page_height_pt: 792.0
+  paper_size_label: "US Letter"
+  margin_left_pt: 108.0    # 1in + \oddsidemargin 0.5in
+  margin_right_pt: 108.0   # 612 - 108 - \textwidth 5.5in
+  # \textheight 9in starts at y=82pt; the running head sits above it at y=28pt
+  # and is exempted through fonts.ignore_small_text_regex below.
+  margin_top_pt: 82.0
+  margin_bottom_pt: 62.0
+  tolerance_left_pt: 4.0
+  tolerance_right_pt: 6.0
+  tolerance_top_pt: 4.0
+  # Footnotes and display maths in the template reach ~2pt past the text block.
+  tolerance_bottom_pt: 4.0
+
+columns:
+  expected_columns: 1
+
+fonts:
+  body_size_pt: 10.0
+  min_font_size_pt: 8.0
+  allowed_font_substrings:
+    - NimbusRomNo9L
+    - TeXGyreTermes
+    - TimesNewRoman
+    - Times-Roman
+    - NimbusMonL
+    - Inconsolatazi4
+    - CMR
+    - CMMI
+    - LMRoman
+  # Two things legitimately sit outside the text block in the ICLR template:
+  # the 8pt line-number ruler in the left margin, and the running head above it.
+  ignore_small_text_regex: '^\s*\d{1,4}\s*$|^(Under review as|Published as) a conference paper at ICLR'
+
+structure:
+  # ICLR does not require a Limitations section; the guide recommends ethics and
+  # reproducibility statements instead, so absence is not reportable here.
+  limitations_required: false
+  appendix_must_follow_references: true
+  appendix_must_be_two_column: false
+  # Both optional statements go at the end of the main text, before the
+  # references, and neither counts toward the page limit — so treating the
+  # earlier of them as the start of unlimited material is correct.
+  ethics_aliases:
+    [Ethics Statement, Ethical Considerations, Ethics, Reproducibility Statement,
+     Reproducibility, Broader Impact, Broader Impacts]
+  unlimited_after: [limitations, references, acknowledgments, ethics, appendix]
+
+anonymity:
+  expected_author_line: "Anonymous authors"
+  # The title block runs from the title at y=80 to the double-blind line at
+  # y=158; the ABSTRACT heading starts at y=188.
+  title_block_height_pt: 185.0
+
+structure_note: >-
+  ICLR templates print a line-number ruler in the margin and a "Under review as
+  a conference paper at ICLR" running head above the text block; the margin and
+  font checks exempt both via fonts.ignore_small_text_regex.
+
+severity:
+  # Both are stated desk-rejection conditions in the author guide.
+  page_limit: error
+  anonymity_title_block: error
+
+cfp:
+  page_limit: >-
+    Main text is 9 pages or fewer at submission, rising to 10 pages for the rebuttal
+    revision and camera ready. The limit is strictly enforced and papers whose main text
+    exceeds it are desk-rejected. References are unlimited, and unlimited appendices may
+    follow the bibliography.
+  paper_size: >-
+    Submissions must use the official ICLR style files (iclr2026.zip): US Letter,
+    single column, 10pt Times.
+  margins: >-
+    Margins come from the ICLR style file and should not be altered to fit content.
+  body_font_size: >-
+    The template sets 10pt body type with 11pt leading; do not shrink it to fit the page
+    limit.
+  anonymity_title_block: >-
+    ICLR is double blind. Any paper revealing author identity in the main text or the
+    supplementary material will be desk-rejected. The title block should read
+    "Anonymous authors / Paper under double-blind review".
+  anonymity_urls: >-
+    Code and demo links must be anonymous, and the host must not track visitors — a
+    tracking host can reveal reviewer identity and puts the submission at risk of
+    rejection. Use an anonymous repository, or share the link in a comment to reviewers
+    and ACs after the forums open.
+  anonymity_self_reference: >-
+    Related arXiv papers by the same authors do not break anonymity, but they must be
+    cited in the third person.
+  appendix_position: >-
+    Supplementary text should appear after the references and be clearly marked as an
+    appendix. Reviewers are not required to read it.
+  references_position: >-
+    The bibliography does not count toward the page limit and unlimited additional pages
+    are allowed for it.
+
+unverifiable:
+  - id: originality
+    title: Originality and prior publication
+    message: >-
+      Establishing that the work is unpublished needs cross-paper matching against the
+      authors' other work, which the PDF cannot answer.
+  - id: dual_submission
+    title: Concurrent / dual submission
+    message: >-
+      Nothing in the PDF shows whether this work is under review elsewhere. Papers on
+      arXiv or presented at non-archival workshops do not violate ICLR's dual-submission
+      policy; parallel submission to another conference or journal does.
+  - id: llm_disclosure
+    title: LLM usage disclosure
+    message: >-
+      If an LLM played a significant role in ideation or writing, a separate LLM-usage
+      section is required (it may go in the appendix and does not count toward the page
+      limit). Whether the disclosure matches how the model was actually used is not a
+      property of the PDF, and undisclosed significant use can lead to desk rejection.
+  - id: reciprocal_reviewing
+    title: Reciprocal reviewing requirement
+    message: >-
+      Every submission needs at least one author registered to review at least 3 papers,
+      and authors on 3+ papers must review 6. This is tracked in OpenReview, not the PDF,
+      and failing it is a desk-rejection condition.
+  - id: abstract_deadline
+    title: Abstract submitted by the earlier deadline
+    message: >-
+      Abstracts are due five days before the full paper, must be genuine rather than
+      placeholders, and no authors can be added afterwards. None of this is visible here.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only substantial
+      contributors are listed on the submission form. Authors cannot be changed after the
+      abstract deadline, and LLMs are not eligible for authorship.
+  - id: code_of_ethics
+    title: Conformance to the ICLR Code of Ethics
+    message: >-
+      All authors must read and acknowledge the ICLR Code of Ethics at submission time.
+      Whether the research conforms to it is a judgement about the work, not the PDF.
+  - id: supplementary
+    title: Supplementary material and code release
+    message: >-
+      Whether a linked repository actually contains runnable, anonymized code can only be
+      established by opening it.

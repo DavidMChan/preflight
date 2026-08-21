@@ -1,0 +1,31 @@
+# ARR Responsible NLP Research checklist — section A, item A1.
+id: a1
+code: A1
+section: A
+order: 1
+title: Limitations of the work
+applies_when: always
+question: Did you describe the limitations of your work?
+evidence_hint: the section where the limitations are discussed (ARR requires a section titled "Limitations")
+guidance: |
+  - Point out any strong assumptions and how robust the results are to violations of them
+    (independence assumptions, noiseless settings, model well-specification, asymptotic
+    approximations only holding locally), and reflect on how they might be violated in practice
+    and what the implications would be.
+  - Reflect on the scope of the claims: whether the approach was tested on only a few datasets,
+    languages, or runs, and what implicit assumptions the empirical results depend on.
+  - Reflect on the factors that influence the performance of the approach (for example, a
+    speech-to-text system that cannot handle technical jargon).
+  - If model biases are analysed: which definition of bias is used, and is the motivation and
+    definition stated explicitly?
+  - Reviewers are instructed not to penalise honesty about limitations.
+prompt: |
+  Judge whether the paper genuinely discusses its own limitations, not merely whether a section
+  with that title exists. A "Limitations" heading followed by a single sentence of boilerplate is
+  `partial`, not `yes`. Conversely, a paper that discusses its limitations substantively inside the
+  conclusion still counts as `yes` — ARR allows the information to live elsewhere, though ARR
+  separately requires a section titled "Limitations".
+
+  In `missing`, name the specific dimensions of limitation the paper does not touch (for example
+  "no discussion of which languages the approach was tested on", "no discussion of the assumptions
+  behind the reward model").

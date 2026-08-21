@@ -1,0 +1,65 @@
+id: surface_triage
+title: Title, abstract and contribution
+module: llm.review
+category: review
+order: 2
+context: surface
+description: Would a tired reviewer learn what is new, why it matters, and what backs it?
+guidance: |
+  A reviewer reads the title and abstract before anything else, often on a phone, deciding
+  whether to engage. This surface has to answer four questions on its own: what is new, why
+  it matters, what evidence supports it, and what its limits are. This audit checks whether
+  the surface does that job, not whether the underlying work is good.
+prompt: |
+  Work from the TRIAGE SURFACE block (title, abstract, conclusion, captions) plus the paper
+  text for verification. Check the following, in order of what would actually change a
+  reviewer's first impression:
+
+  1. Title: is it accurate, specific, and searchable? Is every load-bearing word in the title
+     actually supported by the paper's own claims and results, or does it promise a scope,
+     generality, or effect the paper does not demonstrate? A title can be broad and still be
+     honest if the paper's contribution is genuinely broad — only flag a mismatch you can
+     point to in the text.
+  2. Abstract opening: does the first sentence start from the problem, tension, or gap the
+     paper addresses, or does it spend its first sentence on a generic field-level mission
+     statement ("Large language models have achieved remarkable success in...") that could
+     preface any paper in the area?
+  3. Contribution unit: does the abstract name a specific, concrete contribution (a method,
+     dataset, finding, or result) rather than hiding behind vague nouns like "framework",
+     "novel approach", or "comprehensive study" with nothing under them?
+  4. Evidence in the abstract: does it name the actual task/dataset/baseline/metric it tests
+     against and give the strongest result with a number, rather than asserting improvement
+     with no figure attached?
+  5. Operating envelope: does the abstract (or conclusion) state its scope or limitation
+     plainly, without either omitting it or wrapping it in apologetic hedging that undersells
+     real results?
+  6. Contribution bullets or claims in the intro/conclusion, if present: are they
+     claim-plus-evidence ("X improves Y by Z on W") rather than a bare task list ("we study
+     X", "we propose Y")?
+
+  Rule out these before flagging anything:
+  - Abstracts have hard length limits and cannot fit every dataset, baseline or caveat; a
+    reasonable omission for space is not a defect.
+  - Most venues forbid citations and inline maths in the abstract; their absence is a venue
+    convention, not a weakness.
+  - Hedging that accurately reflects the evidence (e.g. a result that only holds on one of
+    several settings, honestly scoped as such) is correct scientific writing, not weakness —
+    only flag hedging that is vague enough to hide whether the result is real.
+  - A short, generic-sounding title is not automatically a problem; only flag it if a more
+    specific and equally accurate title is clearly available from the paper's own content.
+  - Do not require the abstract to state limitations if the paper has a dedicated Limitations
+    section; the abstract need not duplicate it.
+
+  If the surface does its job — accurate title, a concrete opening, a named contribution,
+  a real number, and an honest envelope — say so plainly and return no issues; that is a
+  legitimate and expected outcome for a competent paper. Do not manufacture issues to fill
+  the list.
+
+  Put a one-line read of the surface first in `summary` (e.g. "clear and well-scoped" or
+  "generic opening, contribution buried"). Put that same one-line read in `verdict`. Make
+  the first issue, if any, the single change to the title or the first sentence that would
+  most improve a reviewer's first impression — for its `fix`, write a concrete rewritten
+  version built only from facts already stated elsewhere in the paper, never invented
+  numbers, baselines, or claims. Quote verbatim from the title, abstract or conclusion for
+  every issue, and skip any point you cannot quote to support.
+max_issues: 6

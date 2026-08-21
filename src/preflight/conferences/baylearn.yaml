@@ -1,0 +1,115 @@
+# BayLearn — the Bay Area Machine Learning Symposium.
+#
+# BayLearn is an abstract track, not a paper track: submissions are a 2-page PDF
+# in NeurIPS format, reviewed double-blind through Microsoft CMT, with no
+# proceedings. The geometry and typography therefore come straight from
+# neurips.yaml (BayLearn 2026 asks for the NeurIPS 2023 template); everything
+# below is BayLearn's own policy on top of it.
+#
+# The CFP names exactly three desk-rejection conditions: formatting/template
+# violations, exceeding the 2-page limit (explicitly including hyperlinks used
+# to smuggle in extended content), and a non-anonymized submission.
+#
+# Key dates for 2026: abstracts Thu 6 Aug 2026 (11:59pm PDT), notifications
+# Mon 14 Sep 2026, registration lottery Tue 15 Sep 2026, symposium Thu 15 Oct
+# 2026 at Santa Clara University. Verify against https://baylearn.org/ — this
+# profile is pinned to the 2026 call.
+
+conference:
+  key: baylearn
+  name: BayLearn Symposium (abstracts)
+  extends: neurips
+  default_track: abstract
+  style: "NeurIPS 2023 (US Letter, single-column, 10pt Times)"
+
+# BayLearn wants a bare NeurIPS-formatted abstract; the paper checklist is a
+# NeurIPS submission artifact and has no place here, so the module inherited
+# from neurips.yaml is switched off check by check rather than being reported
+# as missing.
+# Everything else base.yaml offers is left on. The deterministic modules that
+# look for a bibliography, supplement identifiers or figure rasters skip cleanly
+# when the feature is absent, and none of them is dead weight here: the extra
+# page exists precisely to carry references, and figure legibility is exactly
+# what suffers when a result is squeezed into two pages.
+disabled_checks:
+  - neurips_checklist_present
+  - neurips_checklist_position
+  - neurips_checklist_complete
+  - neurips_checklist_justifications
+  - neurips_checklist_consistency
+
+tracks_replace: true
+tracks:
+  abstract:
+    content_page_limit: 2
+    description: >-
+      Abstract — 2 pages of content, plus at most one extra page for
+      acknowledgements and references. Exceeding the limit is a desk rejection.
+
+structure:
+  # A two-page abstract is not expected to carry a Limitations section, and
+  # NeurIPS's encouragement of one does not carry over.
+  limitations_required: false
+  # The extra page buys acknowledgements and references only — there is no
+  # appendix or supplementary section at BayLearn, so anything under those
+  # headings still counts toward the two pages.
+  unlimited_after: [references, acknowledgments]
+
+cfp:
+  page_limit: >-
+    Abstracts are a 2-page PDF, with one extra page allowed for acknowledgements and
+    references. Exceeding the 2-page limit is a desk-rejection condition, and that
+    explicitly includes using hyperlinks to point at extended content. Note that preflight
+    counts content pages up to the first references/acknowledgements heading; it does not
+    enforce the one-page cap on the material after it, so check the total page count too.
+  paper_size: >-
+    Submissions must use the NeurIPS LaTeX template (BayLearn 2026 specifies the NeurIPS
+    2023 format). Not following the formatting guidelines or template is a desk-rejection
+    condition.
+  margins: >-
+    Margins come from the NeurIPS template; formatting violations are desk-rejectable.
+  font_size: >-
+    Font sizes come from the NeurIPS template; formatting violations are desk-rejectable.
+  anonymity: >-
+    Review is double-blind. Submissions must be anonymized and must not include anything
+    that could compromise the process. Posting a preprint on arXiv is explicitly allowed.
+  hidden_text: >-
+    The abstract is read by human reviewers; hidden or machine-directed text has no
+    legitimate place in a two-page submission.
+
+unverifiable:
+  - id: originality_of_text
+    title: Original, self-contained abstract text
+    message: >-
+      Abstracts may describe work published elsewhere, but the text itself must be original
+      and self-contained rather than copy-pasted from a previous paper. Establishing that
+      needs the other paper, not this PDF.
+  - id: hyperlinked_content
+    title: Extended content behind links
+    message: >-
+      Using hyperlinks to carry content beyond the 2-page limit is a desk-rejection
+      condition. We can list the links, but not judge what sits behind them.
+  - id: submission_venue
+    title: Submission through Microsoft CMT
+    message: >-
+      Abstracts must reach CMT (https://cmt3.research.microsoft.com/BAYLEARN2026) before the
+      deadline. Nothing in the PDF shows whether that happened.
+  - id: in_person_attendance
+    title: In-person presentation
+    message: >-
+      BayLearn 2026 is in-person only and is not live-streamed; at least one author of each
+      accepted abstract is expected to attend and present. That is a commitment, not a
+      property of the file.
+  - id: review_criteria
+    title: Reviewer criteria for a strong abstract
+    message: >-
+      Reviewers weigh motivation and problem framing, novelty of the idea, clarity and
+      organisation, evidence (preliminary results are welcome), conclusions worth
+      discussing, and broad applicability to the ML community. Those are judgements about
+      the work.
+  - id: topic_fit
+    title: Topic fit
+    message: >-
+      BayLearn invites abstracts across the full NeurIPS topic range, theoretical through
+      applied and positional. Whether a given contribution lands for this audience is an
+      editorial call.

@@ -1,0 +1,68 @@
+# Reviewer lens: does the statistical evidence actually support the headline claims?
+id: experiment_statistics
+title: Statistical evidence
+module: llm.audit
+category: experiments
+order: 2
+context: none
+description: Does dispersion, seed count and test choice actually support the headline numbers?
+guidance: |
+  A skeptical statistics-minded reviewer reads the results section looking for numbers
+  presented with more confidence than the underlying evidence warrants. The question is
+  never "is there a p-value" — it is "does the reader know whether this number is a single
+  run, a mean, or a cherry-picked max, and is the uncertainty around it visible wherever a
+  headline claim leans on it."
+prompt: |
+  Focus only on the numbers that carry the paper's main claims — the results that the
+  abstract, introduction or conclusion point to as evidence the method works. For each such
+  number or table, check:
+
+  1. Seeds and runs: is it stated whether the number is a single run, or an average over
+     multiple seeds/runs? If multiple runs were used, is dispersion reported — std, CI,
+     error bars, min-max — anywhere near the number, or does the paper just print a bare
+     mean (or worse, a number with no run count stated at all)?
+  2. Ambiguity: can a reader tell whether a reported figure is a mean, a single run, or the
+     best of several attempts? A table that reports one number per cell with no legend for
+     what that number represents is the thing to flag.
+  3. Test appropriateness: where the paper claims a difference is real (or claims "no
+     difference" / "comparable" / "on par with"), is the statistical framing appropriate —
+     paired tests for paired runs, an equivalence/non-inferiority framing for a "not worse"
+     claim rather than silence or a naive null-hypothesis test, and does any p-value make
+     sense given how many points it is computed over (a p-value from 3-5 benchmark scores is
+     close to meaningless and should not be leaned on as proof)?
+  4. Multiplicity: across many datasets, metrics, or model/prompt variants, is there any
+     acknowledgement of multiple comparisons, or does the paper pick out the metrics/datasets
+     where the method wins without noting the ones where it does not? Was a best-of-N
+     selection (best prompt, best checkpoint, best seed) reported as if it were a single
+     trial's result?
+
+  Rule out the following before flagging anything — these are NOT issues:
+  - Not every number in the paper needs error bars, only the ones a headline claim actually
+    rests on. Ignore ablations, appendix diagnostics, or minor secondary numbers.
+  - Large-scale LLM experiments (training runs, API-based evaluation against commercial
+    models) are frequently and legitimately single-run because repeating them is expensive.
+    If the paper explicitly says so — e.g. names a cost or budget constraint, or simply
+    states results are from a single run — that disclosure is good practice, not a defect.
+    In that case the correct issue (if any) is "variance is not reported/estimated", never
+    an accusation that the paper is misleading or that single-run experiments are invalid.
+  - Descriptive statistics computed over a fixed, complete benchmark or dataset (e.g. overall
+    accuracy on a fixed test set) do not need a significance test — there is no sampling
+    step to test against.
+  - A results table that clearly labels itself (e.g. a caption or column header saying
+    "avg over 3 seeds (±std)") should not be flagged just because the number of seeds is
+    small; flag it only if the dispersion is genuinely absent or the label is genuinely
+    ambiguous.
+
+  If, after checking, the headline numbers are honestly reported with clear provenance and
+  no over-claimed test, the correct outcome is no issues — say so plainly in `summary` and
+  leave `issues` empty. Do not manufacture a low-severity nitpick to have something to say.
+
+  When you do find a real problem, the most valuable one is a headline gain (the number the
+  abstract or introduction cites as evidence the method works) reported from what looks like
+  a single run with no dispersion reported anywhere. If that is present, make it the first
+  issue, name the specific table or result it comes from, and quote the sentence or caption
+  that states or implies the claim.
+
+  Put in `verdict` one of: "well-supported", "under-reported" or "over-claimed", matching how
+  the strongest headline claim is backed. Quote verbatim from the paper only; if you cannot
+  point to specific text for a concern, do not raise it.

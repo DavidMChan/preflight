@@ -1,0 +1,58 @@
+# ARR Responsible NLP Research checklist — section C, item C1.
+id: c1
+code: C1
+section: C
+order: 1
+title: Model size, compute budget, and infrastructure
+applies_when: experiments
+question: |
+  Did you report the number of parameters in the models used, the total computational budget
+  (e.g., GPU hours), and computing infrastructure used?
+evidence_hint: the section (often "Experimental Setup" or an appendix) reporting model size and compute
+guidance: |
+  - Report the number of parameters for every model used, even common ones like BERT — model size
+    provides context necessary to understand results, and readers shouldn't have to look it up.
+  - Report the total computational budget in whatever form fits the paper: for GPU-based work, that
+    likely means total GPU hours, the amount of parallelism across GPUs, and the size/type of GPU,
+    enough for a reader to estimate the compute needed to reproduce, use, or build on the work.
+  - Report the computing infrastructure used (e.g., GPU/TPU type and count).
+  - This should cover all experiments run, not just the final runs behind the reported results.
+    If exact numbers aren't available, a reasonable estimate is better than nothing.
+prompt: |
+  This item has three distinct parts — parameter counts, compute budget, and infrastructure — and
+  `yes` requires the paper to give a reader something concrete on all three. Treat it as `partial`
+  when only one or two parts are covered (e.g., the paper names the API models it evaluates and
+  the GPU used for training, but never states the trainable parameter count of the model it
+  actually trains; or it gives parameter counts and hardware but never any notion of total compute
+  spent). Treat it as `no` only if none of the three is addressed anywhere, including appendices.
+
+  A common near-miss: citing a model by name and version alone (e.g., "GPT-5-mini", "Gemini 3
+  Flash", "Haiku 4.5") is not a parameter count. But when the model name itself encodes a size
+  (e.g., "Qwen3.5-9B", "Llama-3-8B"), that IS an explicit parameter count in the convention this
+  field uses — treat it as satisfying the parameter-count part for that model, do not list it in
+  `missing`, and do not require the paper to additionally spell out "9 billion parameters" in
+  prose. For proprietary, closed-weight models whose
+  parameter count is not publicly disclosed, the paper does not need to report a number for those
+  specific models — note this in the explanation rather than counting it as missing — but this
+  does not excuse omitting the parameter count of any model the paper itself trains or fine-tunes
+  (e.g., a policy model trained with GRPO/RLHF), since that number is always knowable to the authors.
+
+  For compute budget, accept any of: total GPU/TPU hours, wall-clock training time combined with
+  hardware count, or a stated estimate explicitly flagged as approximate — ARR treats an estimate
+  as better than nothing. Do not require GPU hours specifically if the paper reports enough detail
+  (hardware, count, duration) for a reader to derive an equivalent estimate themselves; that still
+  counts toward `yes`. Do not penalize a paper for omitting a compute budget for inference-only
+  calls to third-party hosted models (e.g., API calls to a proprietary model for evaluation) —
+  that infrastructure is not the authors' to report; the budget that matters here is for the
+  authors' own training/fine-tuning and experimentation runs.
+
+  Use `not_applicable` only if the paper's experiments section already determined the paper ran no
+  computational experiments at all (e.g., a purely theoretical or dataset/annotation-only paper);
+  do not use it merely because the paper relies heavily on third-party APIs — reporting whatever
+  infrastructure the authors themselves used (e.g., the machine running training, or orchestrating
+  API calls) is still expected.
+
+  In `missing`, name exactly which of the three pieces is absent and for which model(s) — for
+  example "no parameter count given for the trained policy model", "no GPU hours or equivalent
+  compute estimate stated for the GRPO training runs", or "no mention of the GPU/TPU type or count
+  used for training".

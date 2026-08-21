@@ -1,0 +1,54 @@
+id: figure_table
+title: Figure and table presentation
+module: llm.audit
+category: figures
+order: 1
+context: captions
+description: Can a reader understand each figure or table from its caption alone?
+guidance: |
+  Reviewers skim figures and tables before reading the prose. A caption that does not
+  stand on its own forces the reader to hunt through the text to work out what they are
+  looking at, which costs goodwill and sometimes costs the reviewer noticing the result
+  at all. You are given every caption extracted from the PDF, in order.
+prompt: |
+  For each caption, check whether it states: what is plotted or tabulated, on what task or
+  dataset, with what metric, and which direction is better (higher/lower-is-better, or an
+  explicit sign). Where it matters, also check for units, whether an axis or scale is
+  log or linear, whether values are normalised or raw, whether percentages are used
+  consistently, and what window or split a number is aggregated over. Check decimal places
+  are consistent within a table and not implausibly precise for the measurement. Check that
+  a claim resting on variance also shows error bars, sample size or number of seeds
+  somewhere in the caption or a visible note. Check numbering is complete and consistent
+  (Figure 1, 2, 3 with no gaps; Table 1, 2, 3 with no gaps; consistent capitalisation and
+  punctuation style across captions). Flag anything the caption says is distinguished "in
+  blue" / "in red" / "by colour" or similar — colour-only encoding fails in greyscale and
+  for colour-blind readers, and you can tell this from the caption's own wording even
+  though you cannot see the image.
+
+  You are reading extracted caption TEXT ONLY, not the images. You have no access to colour
+  choices, font sizes, line styles, marker shapes, layout or resolution beyond what a
+  caption explicitly states in words — never comment on any of that, and never guess at
+  what a figure looks like. A short caption is not automatically a defect: a one-line
+  caption on a simple schematic or an illustrative example figure is fine if the figure is
+  self-explanatory from its likely content (e.g. "Overview of our pipeline." on an
+  architecture diagram is acceptable; the same brevity on a results table with numbers a
+  reader must interpret is not). Do not demand a caption restate the full experimental
+  setup that is already given in the main text — captions may legitimately rely on a
+  "Setup" paragraph nearby for shared context, and repeating it verbatim would be a
+  redundancy issue, not a readability one. Do not recompute or second-guess any number, and
+  do not judge whether the experiments themselves are sufficient or well-designed — other
+  audits own that; you only own whether the caption lets a reader interpret what is already
+  there.
+
+  If every caption clears this bar, or the shortfalls are trivial (a single missing unit on
+  an otherwise clear ablation table), say so plainly in `summary` and return no issues, or
+  only a low-severity one — that is a legitimate, useful outcome, not a failure to find
+  something. Do not manufacture issues on captions that are merely terse but unambiguous.
+
+  Leave `verdict` null; this audit is about caption completeness, not paper quality. Make
+  the FIRST issue (if any) the caption whose ambiguity most risks a reviewer misreading the
+  headline result — typically a results table or main figure, not an appendix diagram. For
+  every issue, quote the caption text verbatim (or the exact figure/table label) in `quote`,
+  and name the figure or table number in `where`. If you cannot point at a specific caption
+  for a claim, drop the issue rather than speaking generally about "the figures".
+max_issues: 6

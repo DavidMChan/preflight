@@ -1,0 +1,58 @@
+# ARR Responsible NLP Research checklist — section B, item B4.
+id: b4
+code: B4
+section: B
+order: 4
+title: Personally identifying or offensive content
+applies_when: artifacts
+question: >-
+  Did you discuss the steps taken to check whether the data that was collected / used contains any
+  information that names or uniquely identifies individual people or offensive content, and the
+  steps taken to protect / anonymize it?
+evidence_hint: >-
+  the section discussing how the data was checked for personal or offensive content, and any
+  anonymization or protection measures taken
+guidance: |
+  - The existence of offensive content is not necessarily bad in itself (e.g., swear words occur
+    naturally in text, or hate speech is part of the research question). This item is meant to
+    encourage discussion of the issue, not to demand its absence.
+  - Explain how the data was checked for offensive content and identifying information — e.g. with
+    a script, manually on a sample, via an existing tool.
+  - Explain how the data was anonymized: removal of names, phone/credit card numbers, addresses,
+    user names, etc. Examples of methods: monodirectional hashes, replacement, or removal of data
+    points. If anonymization is not possible given the nature of the research (e.g., authorship
+    identification), explain why.
+  - List any further privacy protection measures used: separation of author metadata from text,
+    licensing restrictions, etc.
+  - If personal data is used, state the standards applied for its storage and processing, and any
+    anonymization efforts.
+  - If individual speakers remain identifiable even after anonymization (e.g. by searching the
+    text), discuss possible harms from misuse of the data and how they are mitigated.
+prompt: |
+  This item only bites when the paper's own data actually could contain personal or offensive
+  content — most NLP papers that reuse an existing, already-released public benchmark or corpus
+  inherit whatever vetting the original dataset's creators did, and a paper that merely names the
+  dataset and cites its source is not thereby silent on this item: `yes` is appropriate if the paper
+  says the data comes from an existing public/licensed source and either notes that source's own
+  filtering or PII policy, or explains that no new personal data was collected. Do not require the
+  paper to redo that vetting work itself. Treat `not_applicable` as correct when the paper works
+  only with non-text artifacts (model weights, code, purely synthetic/programmatically generated
+  data with no natural text spans) or when it plainly never collects, releases, or exposes any raw
+  text that could name a person — e.g. it only reports aggregate metrics over an existing benchmark
+  and releases no data of its own.
+
+  Rate `yes` only if the paper names a concrete check or safeguard: a filtering step, a manual
+  audit, an anonymization method, or an explicit statement that the source dataset was already
+  screened and no new personal data was introduced. A paper that collects or generates new text
+  (including LLM-generated or rewritten text, since generated text can itself surface real names or
+  toxic content) and says nothing at all about checking it is `no`. The common near-miss is a
+  licensing or data-source section that discusses *usage rights* (attribution, redistribution terms)
+  but never addresses *content* (whether the text contains names or offensive material) — that is
+  `partial`, not `yes`, since it answers a different question than the one this item asks.
+
+  Also treat as `partial` a paper that anonymizes or filters its own newly collected data but says
+  nothing about outputs it generates or releases (e.g. LLM completions, rewritten articles) that
+  could just as easily surface identifying or offensive content. In `missing`, name what is absent
+  in concrete terms: e.g. "no statement on whether the reused benchmark was screened for PII",
+  "no check described for offensive content in the model-generated rewrites", "no anonymization
+  method named for the collected user data".

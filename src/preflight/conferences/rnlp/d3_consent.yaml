@@ -1,0 +1,42 @@
+# ARR Responsible NLP Research checklist — section D, item D3.
+id: d3
+code: D3
+section: D
+order: 3
+title: Consent from data subjects
+applies_when: human_subjects
+question: >-
+  Did you discuss whether and how consent was obtained from people whose data you're
+  using/curating?
+evidence_hint: >-
+  the section describing how participants or crowdworkers were told their data would be used
+guidance: |
+  - For example, if you collected data via crowdsourcing, did your instructions to crowdworkers
+    explain how the data would be used?
+prompt: |
+  This item is scoped to human-subjects work, so it only applies when the paper itself collected
+  data from, or ran a study with, identifiable people (crowdworkers, survey respondents, interview
+  participants, annotators recruited by the authors). If the paper's only "human subjects" signal
+  is that it uses annotators to label outputs, still check whether those annotators were the
+  authors' own recruits (in scope) versus a pre-existing labeled dataset the paper merely reuses
+  (out of scope — answer `not_applicable` and say so, since consent for that data is the original
+  curators' responsibility, not this paper's).
+
+  Answer `yes` only if the paper states that participants or crowdworkers were informed about how
+  their data or annotations would be used, or references a consent process (a consent form, an IRB
+  or ethics-board protocol, an opt-in flow, or crowdworker instructions that disclose the data's
+  purpose). Answer `partial` if the paper says participants were recruited or paid but never
+  describes what they were told, or mentions "informed consent" as a phrase without any detail on
+  what was disclosed or how it was obtained. Answer `no` if human data was collected with no
+  mention of consent or disclosure at all.
+
+  The common near-miss: a paper that describes crowdworker pay, platform (e.g. Prolific, MTurk),
+  and task instructions in detail but never states that those instructions told workers how their
+  responses would be used or published. That is `partial`, not `yes` — payment and task description
+  are not consent. Do not credit an IRB-approval statement alone as `yes` if it does not also say
+  what participants were told; IRB approval and informed consent are related but distinct, and the
+  question asks specifically about the latter.
+
+  In `missing`, name concretely what is absent, e.g. "no statement of what crowdworker instructions
+  disclosed about data use", "no mention of a consent form or opt-in step", or "unclear whether
+  participants were told their responses might be published in the paper or released as a dataset".

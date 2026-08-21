@@ -1,0 +1,116 @@
+# NeurIPS main track.
+#
+# NOTE ON NUMBERS: unlike the ACL profile, whose tolerances are taken from the
+# official aclpubcheck implementation, the geometry below is derived from the
+# NeurIPS style file's text block (US Letter, 5.5in x 9in text, single column)
+# and has NOT been cross-checked against an official checker. Verify against the
+# current neurips_*.sty before treating a margin finding here as authoritative.
+# The page limit also moves year to year — set it for the year you are
+# submitting to.
+
+conference:
+  key: neurips
+  name: NeurIPS (main track)
+  extends: base
+  default_track: main
+  style: "NeurIPS (US Letter, single-column, 10pt Times)"
+
+modules:
+  - neurips.checklist
+
+# NeurIPS has its own track set; do not inherit base's.
+tracks_replace: true
+tracks:
+  main:
+    content_page_limit: 9
+    description: >-
+      Main track — 9 pages of content; references, appendices and the paper
+      checklist do not count toward the limit. Confirm against the current CFP.
+
+geometry:
+  page_width_pt: 612.0     # US Letter
+  page_height_pt: 792.0
+  paper_size_label: "US Letter"
+  margin_left_pt: 108.0    # 1.5in
+  margin_right_pt: 108.0
+  margin_top_pt: 72.0
+  margin_bottom_pt: 72.0
+  tolerance_left_pt: 4.0
+  tolerance_right_pt: 6.0
+  tolerance_top_pt: 4.0
+  tolerance_bottom_pt: 4.0
+
+columns:
+  expected_columns: 1
+
+fonts:
+  body_size_pt: 10.0
+  min_font_size_pt: 8.0
+  allowed_font_substrings: [NimbusRomNo9L, TeXGyreTermes, TimesNewRoman, Times-Roman, CMR, LMRoman]
+
+structure:
+  # NeurIPS encourages a Limitations section but the checklist is the hard
+  # requirement, so absence is a warning rather than a desk-rejection error.
+  limitations_required: true
+  appendix_must_be_two_column: false
+  # The checklist follows the references and any appendix, and is excluded from
+  # the page limit alongside them.
+  unlimited_after: [limitations, references, acknowledgments, ethics, appendix]
+
+anonymity:
+  expected_author_line: "Anonymous Author(s)"
+
+severity:
+  # "The papers not including the checklist will be desk rejected."
+  neurips_checklist_present: error
+  limitations_present: warning
+
+cfp:
+  page_limit: >-
+    The main paper is limited to 9 content pages; references, optional technical appendices
+    and the paper checklist do not count toward the limit.
+  limitations_present: >-
+    Authors are encouraged to include a separate "Limitations" section; the checklist's
+    limitations question must be answered either way.
+  neurips_checklist_present: >-
+    The NeurIPS Paper Checklist ships in the style file and must not be removed. Papers not
+    including the checklist will be desk rejected.
+  neurips_checklist_position: >-
+    The single PDF must contain, in this order: the submitted paper, optional technical
+    appendices, then the NeurIPS paper checklist.
+  neurips_checklist_complete: >-
+    Every question must be answered yes, no, or n/a. Answering "no" with a proper
+    justification is acceptable and is not grounds for rejection.
+  anonymity: >-
+    Submissions are anonymous; author names and affiliations must not appear, and released
+    assets must be anonymized at submission time.
+
+unverifiable:
+  - id: originality
+    title: Originality and prior publication
+    message: >-
+      Establishing that the work is unpublished needs cross-paper matching against the
+      authors' other work, which the PDF cannot answer.
+  - id: dual_submission
+    title: Concurrent / dual submission
+    message: Nothing in the PDF shows whether this work is currently under review elsewhere.
+  - id: checklist_accuracy
+    title: Truthfulness of checklist answers
+    message: >-
+      We can confirm that a question was answered, but not whether the answer is accurate.
+      Checklist answers are visible to reviewers and are an integral part of the submission.
+  - id: code_of_ethics
+    title: Conformance to the NeurIPS Code of Ethics
+    message: >-
+      Whether the research actually conforms to the Code of Ethics is a judgement about the
+      work, not a property of the PDF.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only substantial
+      contributors are listed on the submission form.
+  - id: supplementary
+    title: Supplementary material and code release
+    message: >-
+      Whether a linked repository actually contains runnable code, data and instructions can
+      only be established by opening it.

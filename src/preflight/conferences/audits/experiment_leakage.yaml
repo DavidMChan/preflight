@@ -1,0 +1,60 @@
+id: experiment_leakage
+title: Splits, leakage and contamination
+module: llm.audit
+category: experiments
+order: 3
+context: none
+description: Are train/val/test splits kept clean, and is contamination risk acknowledged?
+guidance: |
+  A careful reviewer asks whether the numbers can be trusted at face value. That means:
+  are the splits actually separated, is anything fit or tuned on data it will later be
+  scored against, and — for any modern LLM evaluated on a public benchmark — is there any
+  acknowledgement that the model may have seen that benchmark during pretraining. This is
+  a hygiene check, not a correctness check: you are looking for missing disclosure and
+  describable risk, not proving that leakage occurred.
+prompt: |
+  Look for four specific things, in this order of importance:
+
+  1. Benchmark contamination. If the paper evaluates a proprietary or otherwise
+     closed-pretraining-data model (e.g. a commercial API model) on a public, named
+     benchmark or dataset, and the paper never mentions contamination, memorization, or
+     pretraining exposure as a risk to its conclusions, that is worth one issue at medium
+     severity. Name the specific model and benchmark. Report this AT MOST ONCE, even if
+     several such model/benchmark pairs exist — pick the pairing that matters most to the
+     paper's headline claim.
+  2. Split description. If the paper trains or fine-tunes a model, check whether train,
+     validation and test splits are named and separated, and whether preprocessing,
+     normalization, or filtering decisions are described as fit on training data only
+     (versus fit on the full dataset before splitting, which would leak).
+  3. Duplicate or near-duplicate leakage between splits, and temporal leakage where a
+     later-in-time example informs an earlier prediction (e.g. features or examples drawn
+     from the future relative to what is being predicted).
+  4. For prompting or in-context-learning work: are the few-shot or demonstration examples
+     drawn from the evaluation set itself? Were any hyperparameters, prompts, or thresholds
+     tuned by looking at test-set performance rather than a held-out validation set?
+
+  Do NOT flag any of the following — they are correct practice and need no defence:
+  - Using a benchmark's official, standard published split.
+  - A purely zero-shot evaluation with no training step: there is no split to describe, so
+    say nothing about splits for it.
+  - A paper acknowledging contamination risk in a limitations section, even briefly — a
+    one-sentence acknowledgement fully discharges this concern; do not ask for more.
+  - Generic "future work should study X" boilerplate is fine and not itself an issue.
+
+  The paper is not required to prove contamination is absent, only to name the risk where
+  a headline claim depends on a model that could plausibly have memorized the benchmark.
+  Absence of proof is not evidence of leakage — never assert that leakage occurred unless
+  the text itself shows two splits sharing examples or a description of tuning on test data.
+
+  If none of the four checks turns up anything concrete to point at, say so plainly in
+  `summary` and return no issues — that is the correct outcome for a paper with clean
+  zero-shot evaluation on standard splits and honest risk disclosure. Do not manufacture
+  a contamination issue just to have something to say.
+
+  Put a one-line data-hygiene verdict in `verdict` if you have grounds for one, otherwise
+  leave it null. If you do report issues, make the first one the contamination point (item
+  1) when it applies, since it is the one a reviewer is most likely to actually raise.
+
+  Quote verbatim from the paper wherever a quote is possible; if you cannot point at
+  specific text supporting an issue, do not report it.
+max_issues: 4

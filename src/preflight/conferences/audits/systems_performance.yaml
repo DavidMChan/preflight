@@ -1,0 +1,55 @@
+# Reviewer lens: are systems/performance claims (latency, throughput, memory, cost) sound?
+id: systems_performance
+title: Systems and performance claims
+module: llm.audit
+category: systems
+order: 1
+context: none
+description: Are timing, throughput, memory, cost or scalability claims measured rigorously?
+guidance: |
+  Many papers report no systems-performance numbers at all — they claim accuracy, quality
+  or some other capability, not speed or efficiency. This audit only applies when the paper
+  makes latency, throughput, speedup, scalability, memory, energy, cost or utilisation part
+  of its argument. When it does not, the correct output is no issues.
+prompt: |
+  First decide: does this paper make a systems or performance claim — latency, throughput,
+  speedup, scalability, memory footprint, energy, dollar cost, or hardware utilisation — as
+  part of its contribution or evaluation? A passing mention of which GPU or API was used to
+  run experiments is NOT a performance claim; ignore it. Training or inference cost reported
+  only as an incidental detail (e.g. "training took N hours") is a performance claim only if
+  the paper leans on it as evidence (an efficiency contribution, a cost comparison, a
+  scalability argument). If there is no such claim, say so plainly in `summary` ("no
+  systems-performance claims to audit"), leave `verdict` null, and return an empty issues
+  list. That is a correct, complete result — do not manufacture concerns about compute
+  budgets, model sizes, or API costs that the paper never claims as a contribution.
+
+  If there IS a performance claim, check it against what a systems reviewer would actually
+  demand:
+  - Methodology: are repetitions, warmup, and variance (std, CI, or a range) stated for the
+    timing numbers? Is there a stated outlier or measurement policy?
+  - Reproducibility of the setup: is the hardware/software stack specified well enough to
+    reproduce the number that is actually being leaned on (the relevant pieces only — do not
+    demand driver and compiler versions for a claim that never depended on them)?
+  - Comparability: do baselines get comparable optimisation effort, hardware, batching and
+    precision, or is the comparison stacked (an optimised system vs. an untuned baseline, or
+    a GPU vs. an unoptimised CPU baseline)?
+  - Composition: for claims about speed or cost, is it clear what is included — cold start,
+    steady state, data loading, preprocessing, compilation, network/communication — or does a
+    single undifferentiated number hide where the time actually goes?
+  - Realism: is the workload representative, or is a speedup demonstrated only on a
+    microbenchmark far from the paper's actual use case?
+  - Honesty of the headline number: watch for a geometric-mean or average speedup that hides
+    a regression on some cases; a relative speedup quoted with no absolute latency or
+    throughput; a throughput gain that comes from a larger batch size and silently breaks a
+    stated latency or memory constraint; and a best-case number presented without its
+    failure or worst-case regime.
+
+  Quote the exact sentence or table cell that makes the claim. If the paper's own numbers
+  already show the caveat (e.g. it reports variance, or names the baseline's hardware), do
+  not flag it — credit rigor where it exists instead of inventing a gap. Put "the paper
+  makes no performance claims to audit" or a one-line statement of the claim being examined
+  in `summary`. Use `verdict` only as "Sound", "Needs caveats", or null when not applicable.
+  Make the FIRST issue the single gap that would most mislead a reader relying on the
+  headline number, not the smallest nitpick. Skip anything you cannot point to a verbatim
+  quote for.
+max_issues: 6

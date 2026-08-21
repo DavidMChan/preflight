@@ -1,0 +1,51 @@
+# ARR Responsible NLP Research checklist — section C, item C4.
+id: c4
+code: C4
+section: C
+order: 4
+title: Existing packages and their settings
+applies_when: experiments
+question: If you used existing packages (e.g., for preprocessing, for normalization, or for
+  evaluation, such as NLTK, Spacy, ROUGE, etc.), did you report the implementation, model, and
+  parameter settings used?
+evidence_hint: the section (main text, experimental setup, or appendix) that reports the
+  packages, tools, or metrics used and their versions or settings
+guidance: |
+  - The version number or a reference to the specific implementation matters because different
+    implementations of the same metric can produce slightly different results (e.g., ROUGE).
+  - The paper cites the original paper for the package or model used; if no paper exists, a URL
+    to the website or repository is included instead.
+  - If an existing library was modified, the paper explains what changes were made.
+prompt: |
+  This item is about tools the authors used off the shelf, not tools they built: preprocessing
+  utilities, tokenizers, normalization libraries, evaluation metrics and scorers (ROUGE, BLEU,
+  METEOR, BERTScore, spaCy, NLTK, factuality/NLI checkers, statistical test libraries), and
+  similar. Do not conflate this with the base language models the paper trains or fine-tunes
+  (that is covered elsewhere) — but automatic judges or scorers used to produce reported numbers
+  (e.g. an LLM-as-judge, a factuality checker, an off-the-shelf classifier used for evaluation)
+  do count as existing packages under this item.
+
+  Answer `yes` only if, for the substantive tools used to preprocess data or produce reported
+  results, the paper gives enough to locate exactly what was run: a named implementation plus
+  either a version number, a citation to the tool's paper, or a URL/repository link. Answer
+  `partial` when some tools are named and cited but others that clearly feature in the pipeline or
+  evaluation are mentioned only by name with no version, citation, link, or settings at all — this
+  is the most common case, so look specifically for a bare tool name dropped in a sentence with
+  nothing to pin it down. A single unqualified mention of a well-known tool (e.g. "we used spaCy
+  for tokenization") with no version and no citation is `partial`, not `yes`, since ROUGE-style
+  implementation drift is exactly what this item guards against. Answer `no` only if the paper
+  relies on such packages but names none of them at all.
+
+  Do not penalize the paper for omitting parameter settings on tools that have no meaningful
+  parameters to set (e.g. a standard tokenizer run with defaults) — citing the tool is sufficient
+  there; reserve `partial` for tools whose settings plausibly affect the reported numbers (metric
+  variants, thresholds, prompt templates for an LLM judge) when those settings are unstated. A
+  library the authors modified is `yes` only if the paper also describes the modification, per the
+  guidance; an unmodified library does not need this. If the paper reports only fully original
+  code and models with no third-party preprocessing, normalization, or evaluation tooling, this
+  item may be `not_applicable` (rare in practice — most empirical papers use at least an
+  evaluation metric implementation).
+
+  In `missing`, name the specific tools that are used but under-specified, e.g. "no version or
+  citation given for the ROUGE implementation used" or "MiniCheck is named but no citation, URL,
+  or model variant is given" rather than a generic complaint.
