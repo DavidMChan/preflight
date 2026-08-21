@@ -15,8 +15,8 @@ from rich.table import Table
 from . import cache
 from .context import Settings
 from .models import Progress, Severity
-from .picker import PickerUnavailable, pick_conference, remember
-from .profile import ProfileError, available_profiles, load_profile
+from .picker import PickerUnavailable, pick_conference, pick_track, remember
+from .profile import Profile, ProfileError, available_profiles, load_profile
 from .registry import describe, load_builtin_checks
 from .report import print_report, render_finding, to_markdown
 from .runner import run_checks
@@ -67,19 +67,35 @@ def _build_settings(
     )
 
 
-def _resolve_conference(conference: str | None) -> str:
-    """A venue is required; ask for one when the terminal can answer."""
+def _resolve_conference(conference: str | None) -> tuple[str, bool]:
+    """A venue is required; ask for one when the terminal can answer.
+
+    Returns the profile key and whether it came from the picker. A venue chosen
+    interactively is followed by a track question: picking ARR and silently
+    getting the long-paper limit is how a short paper gets measured against the
+    wrong rule. An explicit ``-c`` keeps the profile default, so scripts that
+    pass a venue and no track behave as before.
+    """
     if conference:
         remember(conference)
-        return conference
+        return conference, False
     try:
-        return pick_conference(console)
+        return pick_conference(console), True
     except PickerUnavailable:
         err_console.print(
             "[red]No conference given.[/red] Pass [bold]-c/--conference[/bold] "
             "(e.g. [bold]-c arr[/bold]); `preflight conferences` lists the bundled profiles."
         )
         raise typer.Exit(2) from None
+    except (KeyboardInterrupt, EOFError):
+        err_console.print("[yellow]Cancelled.[/yellow]")
+        raise typer.Exit(130) from None
+
+
+def _resolve_track(profile: Profile) -> str | None:
+    """Ask which track, once a venue has been chosen interactively."""
+    try:
+        return pick_track(console, profile)
     except (KeyboardInterrupt, EOFError):
         err_console.print("[yellow]Cancelled.[/yellow]")
         raise typer.Exit(130) from None
@@ -116,7 +132,10 @@ def check(
         )
 
     try:
-        profile = load_profile(_resolve_conference(conference))
+        key, from_picker = _resolve_conference(conference)
+        profile = load_profile(key)
+        if track is None and from_picker:
+            track = _resolve_track(profile)
     except ProfileError as exc:
         err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(2) from exc
@@ -192,7 +211,10 @@ def tui(
     settings = _build_settings(llm, scores, hallucinator, model, None, 0, False, offline,
                                refcheck=refcheck)
     try:
-        profile = load_profile(_resolve_conference(conference))
+        key, from_picker = _resolve_conference(conference)
+        profile = load_profile(key)
+        if track is None and from_picker:
+            track = _resolve_track(profile)
     except ProfileError as exc:
         err_console.print(f"[red]{exc}[/red]")
         raise typer.Exit(2) from exc

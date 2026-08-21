@@ -3,7 +3,9 @@
 There is no default venue: the rules that matter (page limits, anonymity,
 checklists) differ enough between conferences that guessing one is worse than
 asking. When ``--conference`` is omitted and the terminal is interactive, we
-ask here; otherwise the caller reports a usage error.
+ask here; otherwise the caller reports a usage error. A venue with more than one
+track is a second question, since picking ARR without picking between long,
+short and demo would silently apply the wrong page limit.
 
 The picker is arrow-key driven where the terminal supports raw input, and falls
 back to a numbered prompt when it does not (pipes, dumb terminals, Windows).
@@ -20,7 +22,7 @@ from rich.console import Console, Group
 from rich.panel import Panel
 from rich.text import Text
 
-from .profile import ProfileError, available_profiles, load_profile
+from .profile import Profile, ProfileError, available_profiles, load_profile
 
 LAST_CHOICE = Path(os.environ.get("PREFLIGHT_CACHE", "~/.cache/preflight")).expanduser() / "last-conference"
 
@@ -33,7 +35,7 @@ class PickerUnavailable(RuntimeError):
 class Choice:
     key: str
     name: str
-    tracks: str
+    detail: str = ""
 
 
 def _choices() -> list[Choice]:
@@ -46,6 +48,15 @@ def _choices() -> list[Choice]:
         tracks = ", ".join(f"{n} ({s.content_page_limit}p)" for n, s in profile.tracks.items())
         out.append(Choice(key, profile.name, tracks))
     return out
+
+
+def _track_choices(profile: Profile) -> list[Choice]:
+    # The bundled descriptions run to a paragraph, which is too much for a row;
+    # the page limit is the fact that decides the choice.
+    return [
+        Choice(name, f"{spec.content_page_limit} content pages")
+        for name, spec in profile.tracks.items()
+    ]
 
 
 def remembered() -> str | None:
@@ -91,11 +102,30 @@ def pick_conference(console: Console) -> str:
     start = next((i for i, c in enumerate(choices) if c.key == last), 0)
 
     try:
-        key = _arrow_picker(console, choices, start, last)
+        key = _arrow_picker(console, choices, start, last, "Which conference?", "last used")
     except _RawModeUnavailable:
-        key = _numbered_picker(console, choices, start, last)
+        key = _numbered_picker(console, choices, start, last, "Which conference?", "last used")
     remember(key)
     return key
+
+
+def pick_track(console: Console, profile: Profile) -> str | None:
+    """Ask which track within a venue. ``None`` means "use the profile default".
+
+    Venues with a single track have nothing to ask about, and a terminal that
+    cannot answer keeps the default rather than failing the run.
+    """
+    choices = _track_choices(profile)
+    if len(choices) < 2 or not interactive():
+        return None
+
+    default = profile.default_track
+    start = next((i for i, c in enumerate(choices) if c.key == default), 0)
+    title = f"Which {profile.name} track?"
+    try:
+        return _arrow_picker(console, choices, start, default, title, "default")
+    except _RawModeUnavailable:
+        return _numbered_picker(console, choices, start, default, title, "default")
 
 
 # -- arrow-key picker -----------------------------------------------------
@@ -105,7 +135,7 @@ class _RawModeUnavailable(RuntimeError):
     pass
 
 
-def _render(choices: list[Choice], index: int, last: str | None) -> Panel:
+def _render(choices: list[Choice], index: int, marked: str | None, title: str, marker: str) -> Panel:
     lines: list[Text] = []
     for i, choice in enumerate(choices):
         selected = i == index
@@ -113,16 +143,16 @@ def _render(choices: list[Choice], index: int, last: str | None) -> Panel:
         line.append("  ❯ " if selected else "    ", style="bold cyan" if selected else "")
         line.append(f"{choice.key:<10}", style="bold cyan" if selected else "bold")
         line.append(choice.name, style="" if selected else "dim")
-        if choice.key == last:
-            line.append("  (last used)", style="dim italic")
+        if choice.key == marked:
+            line.append(f"  ({marker})", style="dim italic")
         lines.append(line)
-        if choice.tracks:
-            lines.append(Text(f"      {choice.tracks}", style="dim"))
+        if choice.detail:
+            lines.append(Text(f"      {choice.detail}", style="dim"))
     lines.append(Text())
     lines.append(Text("  ↑/↓ or j/k to move · enter to choose · q to cancel", style="dim"))
     return Panel(
         Group(*lines),
-        title="Which conference?",
+        title=title,
         title_align="left",
         subtitle="[dim]pass -c next time to skip this[/dim]",
         subtitle_align="right",
@@ -148,7 +178,8 @@ def _read_key() -> str:
         termios.tcsetattr(fd, termios.TCSADRAIN, saved)
 
 
-def _arrow_picker(console: Console, choices: list[Choice], index: int, last: str | None) -> str:
+def _arrow_picker(console: Console, choices: list[Choice], index: int, marked: str | None,
+                  title: str, marker: str) -> str:
     try:
         import termios  # noqa: F401
         import tty  # noqa: F401
@@ -163,7 +194,7 @@ def _arrow_picker(console: Console, choices: list[Choice], index: int, last: str
 
     from rich.live import Live
 
-    with Live(_render(choices, index, last), console=console, auto_refresh=False,
+    with Live(_render(choices, index, marked, title, marker), console=console, auto_refresh=False,
               transient=True, screen=False) as live:
         while True:
             try:
@@ -182,16 +213,17 @@ def _arrow_picker(console: Console, choices: list[Choice], index: int, last: str
                 return choices[int(key) - 1].key
             else:
                 continue
-            live.update(_render(choices, index, last), refresh=True)
+            live.update(_render(choices, index, marked, title, marker), refresh=True)
 
 
 # -- fallback -------------------------------------------------------------
 
 
-def _numbered_picker(console: Console, choices: list[Choice], index: int, last: str | None) -> str:
-    console.print("[bold]Which conference?[/bold]")
+def _numbered_picker(console: Console, choices: list[Choice], index: int, marked: str | None,
+                     title: str = "Which conference?", marker: str = "last used") -> str:
+    console.print(f"[bold]{title}[/bold]")
     for i, choice in enumerate(choices, start=1):
-        suffix = " [dim](last used)[/dim]" if choice.key == last else ""
+        suffix = f" [dim]({marker})[/dim]" if choice.key == marked else ""
         console.print(f"  [cyan]{i}[/cyan]. [bold]{choice.key}[/bold] — {choice.name}{suffix}")
     default = choices[index].key
     while True:
