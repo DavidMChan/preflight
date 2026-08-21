@@ -52,11 +52,6 @@ The tool maintains a clear distinction among four categories:
 A successful result indicates that the PDF-checkable rules pass. It should not be interpreted as
 confirmation that the submission is fully compliant, and the report states this.
 
-Measurable properties are measured. Model-based evaluation is applied only to semantic questions,
-and every such finding identifies the model that produced it. Model-backed checks also report their
-input coverage: when a document is truncated to fit the model input, the run states how much text
-was not read.
-
 ---
 
 ## Installation
@@ -92,10 +87,6 @@ uv run preflight tui paper.pdf                      # interactive interface
 ```
 
 A PDF path supplied without a subcommand is equivalent to `preflight check <path>`.
-
-No default venue is assumed. Without `-c`, preflight presents a selection list of the bundled
-profiles, positioned on the most recently used one; in a non-interactive context it exits with a
-usage error.
 
 Model-backed checks and reference verification are enabled by default. They can be disabled
 individually with `--no-llm`, `--no-refcheck` and `--no-scores`, or collectively with `--offline`.
@@ -139,9 +130,6 @@ Four bundled profiles, each selected with `-c`:
 | `iclr` | ICLR (main conference) | `main` 9p · `camera_ready` 10p | US Letter, single-column, 10pt |
 | `baylearn` | BayLearn Symposium (abstracts) | `abstract` 2p | NeurIPS format, no checklist |
 
-`acl.yaml` and `base.yaml` are inheritance bases rather than submission venues. See
-[Conference configuration](#conference-configuration).
-
 ---
 
 ## Checks
@@ -155,13 +143,11 @@ Four bundled profiles, each selected with `-c`:
 - **Margins**, measured from text and image bounding boxes using the style's tolerances. Line
   numbers in anonymous templates are excluded.
 - **Column layout** — gutter width for two-column venues, and for single-column venues (NeurIPS,
-  ICLR) confirmation that the body was not set in columns — derived from a document-wide column
-  model.
+  ICLR) confirmation that the body was not set in columns.
 - **Body font size**, taken as the modal size across the document, and **minimum font size**,
   reported separately for figure labels, table cells and running prose.
 - **Content page limit.** The limit applies to the content preceding the first unlimited section
-  (Limitations, references, acknowledgements, ethics, appendix); the tool locates that section and
-  counts the pages before it rather than counting pages in the file.
+  (Limitations, references, acknowledgements, ethics, appendix).
 - **Limitations section** — presence, title, position before the references, and absence of new
   methods or results.
 - **Appendix** — position after the references, and column layout.
@@ -182,15 +168,12 @@ Invisible text (render mode 3/7, zero opacity), microscopic text, text set in th
 outside the CropBox, and prompt-injection patterns.
 
 Injection patterns match text that addresses an automated reviewer rather than text that discusses
-one, since papers on prompt injection legitimately quote such strings. Visible matches are reported
-as warnings; concealed matches are reported as errors. Pages dominated by a single image are
-treated as scans, so an OCR text layer is not classified as concealment.
+one. Visible matches are reported as warnings; concealed matches are reported as errors.
 
 ### Responsible NLP checklist — `arr.responsible_nlp`
 
 All eighteen ARR checklist items (A1–A2, B1–B6, C1–C4, D1–D5, E1), each evaluating whether the
-paper contains the information the item requires. Sections B, C and D are gated on the work
-performed, determined by a single applicability assessment.
+paper contains the information the item requires.
 
 The checklist is completed in OpenReview rather than attached to the PDF, so checklist *answers*
 are not inspected. No individual item produces an error; the CFP permits a negative answer
@@ -214,39 +197,11 @@ that resolves it:
 
 1. **Cache.** References recur across drafts.
 2. **Bulk databases, concurrently.** CrossRef, OpenAlex and DOI resolution are issued for all
-   references simultaneously under per-host rate limits. DBLP, arXiv-by-identifier and Semantic
-   Scholar are opt-in through `refcheck.sources`: arXiv requires a three-second interval between
-   requests, which serialises the run, and OpenAlex already indexes arXiv.
-
-   Rate limits are adaptive. A refusal halves the rate for that host, and successful responses
-   restore it incrementally. Removing a host instead would transfer every reference it could have
-   resolved to a more expensive tier.
+   references simultaneously under per-host rate limits.
 3. **Routing by cited artifact type.** A repository is verified against the GitHub API, a model
    card against the Hugging Face Hub, a package against PyPI, and a blog post against its own URL.
-   Querying a bibliographic database about a repository may cause a checker to generate an
-   unsupported claim that a reference cannot be verified.
 4. **Live web search.** Remaining references are submitted to the model's `web_search` tool under
    scholarly domain filters and return a citation URL.
-
-Entries are segmented using the bibliography's hanging indent and parsed by a model in concurrent
-batches against a strict schema.
-
-Three mechanisms are used to ensure the accuracy of the entry count. The region terminates at the
-first heading following the references, under any title, since appendices are frequently lettered
-("A Main Experiments") and matching only the word "Appendix" extends the bibliography to the end of
-the file. Each segment is then shape-checked: a citation contains a year or a locator and consists
-predominantly of words, whereas a table row consists predominantly of numbers. Entries are
-deduplicated by DOI, arXiv identifier or normalised title before lookup, so duplicate references
-are verified only once and subsequent occurrences are reported as duplicates.
-
-Extracted URLs are repaired before use. PDF extraction breaks long URLs across lines, producing
-`https: //host/path` and `https://develo pers.openai.com/x`; these are rejoined at the line break
-and validated, and any remaining string that is not an absolute URL with a valid host is discarded
-rather than requested.
-
-Title matching alone is insufficient. "Attention Is All You Need" and "Is Attention All You Need?"
-are distinct publications with identical term sets, so a match additionally requires author
-agreement; an uncertain match is escalated to the web-search tier rather than reported.
 
 Measured on a 62-entry bibliography from a submission:
 
@@ -257,9 +212,7 @@ Measured on a 62-entry bibliography from a submission:
 | Resolution | 47 verified in a database · 12 resolved to a live source · 3 author-order discrepancies |
 | False negatives | none |
 
-`refcheck.mailto` should be set to a contact address. CrossRef and OpenAlex serve identified
-clients from a higher-throughput pool; without it, requests are throttled and lookups
-are passed to more expensive tiers. The check reports when this occurs.
+`refcheck.mailto` should be set to a contact address.
 
 An unresolved reference is reported as unverified rather than fabricated, since bibliographic
 indexes are incomplete. It is a warning by default and never an error.
@@ -280,20 +233,15 @@ total and no model-based processing.
 | `core.headings` | Contiguous and correctly nested section numbering; absence of empty sections. |
 | `core.figure_quality` | Effective DPI of raster figures, and retention of figure colour distinctions under greyscale printing and a deuteranopia transform. |
 
-All are reported as warnings, as none corresponds to a documented desk-rejection condition. A venue
-may promote any of them through its own `severity:` map.
+All are reported as warnings, as none corresponds to a documented desk-rejection condition.
 
 Certain requirements cannot be evaluated from a PDF and are reported as such rather than
 approximated: tracked changes, structured variable declarations, and the existence of a
-supplementary *file* require the submission package. Where a partial substitute exists it is scoped
-accordingly — the revision check reports that no markup is visible in the PDF, not that the source
-is clean.
+supplementary *file* require the submission package.
 
 ### Reviewer perspectives — `llm.review`, `llm.prose`, `llm.audit`
 
-Thirteen audits, each applying a reviewer's perspective to the full paper. All are advisory by
-construction and cannot produce an error, as they assess quality and presentation rather than
-documented requirements.
+Thirteen audits, each applying a reviewer's perspective to the full paper.
 
 | Audit | Perspective |
 |---|---|
@@ -312,14 +260,7 @@ documented requirements.
 | `systems_performance` | Latency, throughput, speedup and cost claims, where present. |
 
 Each audit is a YAML file in
-[`src/preflight/conferences/audits/`](src/preflight/conferences/audits/) comprising a prompt, a
-choice of structured context (captions, equations, measured prose statistics, or the triage
-surface), and one shared response schema.
-
-A principal challenge in each specification is excluding legitimate practice: `formula_audit` is
-instructed that extracted mathematics is unreliable and that nothing may be reported which cannot
-be established from the prose, and `systems_performance` is instructed that most papers make no
-performance claims and that an empty result is correct.
+[`src/preflight/conferences/audits/`](src/preflight/conferences/audits/).
 
 ### Prose diagnostics — `core.prose`, `core.figures`, `core.surface`
 
@@ -335,14 +276,11 @@ A rehearsal review of the full paper: soundness, excitement, clarity and reprodu
 
 Each dimension is scored against written anchors describing the criteria corresponding to a score
 of 2 compared with those corresponding to a score of 4, and the prompt states that 3 is not a
-neutral default. A rubric that defines only its endpoints may produce predominantly mid-range
-scores accompanied by overly qualified explanations. Each justification must identify the section,
+neutral default. Each justification must identify the section,
 table or value supporting the score and, below 5, the change that would raise it by one point. The
 `overall` value is a predicted outcome rather than an average.
 
-The result is labelled an estimate and never blocks a run. Venue requirements are evaluated by the
-deterministic checks: a missing Limitations section is reported by `limitations_present`, not by
-the score.
+The result is labelled an estimate and never blocks a run.
 
 ---
 
@@ -392,41 +330,7 @@ Three mechanisms make modules reusable across venues:
   rewritten, as an override expresses the significance of a failure rather than its occurrence.
 - **`disabled_checks`** removes an individual check while retaining the remainder of its module.
 
-Numeric tolerances are defined in the profile rather than in Python. The ACL values follow the
-official formatting specification as encoded in
-[aclpubcheck](https://github.com/acl-org/aclpubcheck): A4 is 595×842pt, text begins no higher than
-y=57 and no further left than x=71, ends at least 71pt from the right edge, and reserves the bottom
-62pt. The NeurIPS values are derived from the style file's text block and are annotated in the
-profile as requiring verification against the current `neurips_*.sty`.
-
----
-
-## Execution model
-
-Checks run in three phases:
-
-1. **Deterministic** — computation over the parsed PDF, in order.
-2. **Concurrent** — network-dependent work. Model-backed checks use the asynchronous OpenAI client
-   and bibliographic lookups use a worker thread; both overlap.
-3. **Aggregate** — checks that summarise the preceding phases.
-
-On a 23-page submission, concurrency reduces the model-backed work — 22 checks including all
-eighteen checklist items and the scoring pass — from 82 seconds to 20. The limit is set with
-`--concurrency` (default 8). Reference validation runs alongside and typically determines the
-overall completion time. A full run requires approximately 40 seconds when reference lookup is
-excluded or cached.
-
-Progress reports the checks currently running rather than the most recently completed, and a
-long-running check may publish a sub-status:
-
-```
-[52/54] references 34/62: Attention Is All You Need
-[52/54] references 34/62: rate limited by arxiv, waiting 3s
-```
-
-Responsible NLP prompts are constructed so that the paper text is byte-identical across all
-eighteen calls, with only a short item-specific block appended, preserving a long shared prefix for
-provider-side caching. A test asserts that this prefix remains identical.
+Numeric tolerances are defined in the profile rather than in Python.
 
 ---
 
@@ -472,7 +376,6 @@ uv run python scripts/try_question.py A1 paper.pdf    # a single checklist item
 ```
 
 Tests construct their own synthetic PDFs and depend on no external files.
-`uv run preflight checks -c arr` enumerates every check and its module.
 
 ---
 
@@ -481,9 +384,6 @@ Tests construct their own synthetic PDFs and depend on no external files.
 The following are not evaluated: originality and prior publication, concurrent submission, adequacy
 of citation coverage, correctness of the author list, resubmission metadata, the truth of checklist
 answers, the accuracy of AI-use disclosure, and co-author reviewer registrations.
-
-These are reported as `N/A` on every run so that a clean report does not imply more than it
-establishes.
 
 ---
 
