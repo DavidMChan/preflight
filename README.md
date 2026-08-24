@@ -98,7 +98,12 @@ Results are cached to avoid repeated processing costs:
 uv run preflight show                           # re-read the last run in full
 uv run preflight show min_font_size             # a single finding with all its evidence
 uv run preflight show --list                    # enumerate cached runs
+uv run preflight show 812a6aaf                  # an earlier run, by id or by PDF name
+uv run preflight show 812a6aaf/min_font_size    # one finding from that earlier run
 ```
+
+A bare check id reads the most recent run; `run/check` reads any run still cached, as does
+`--run 812a6aaf min_font_size`.
 
 ```bash
 uv run preflight conferences                    # list bundled profiles

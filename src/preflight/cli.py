@@ -229,12 +229,25 @@ def tui(
 
 @app.command("show")
 def show(
-    target: Annotated[str | None, typer.Argument(help="A check id, or a run id / PDF name. Omit for the last run.")] = None,
+    target: Annotated[str | None, typer.Argument(
+        help="A check id (read from the last run), a run id / PDF name, or 'run/check' "
+             "for one check in an earlier run. Omit for the last run.")] = None,
     run: Annotated[str | None, typer.Option("--run", help="Which cached run to read (id or PDF name).")] = None,
     list_runs: Annotated[bool, typer.Option("--list", help="List cached runs instead of showing one.")] = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Only errors and warnings.")] = False,
 ) -> None:
-    """Re-read a finished run in full detail, without re-running anything."""
+    """Re-read a finished run in full detail, without re-running anything.
+
+    \b
+    preflight show                             the whole of the most recent run
+    preflight show sentence_length             one check, in the most recent run
+    preflight show 812a6aaf                    the whole of an earlier run
+    preflight show 812a6aaf/sentence_length    one check, in that earlier run
+    preflight show --list                      every run still cached
+
+    A run is named either by its id or by the PDF's name, in the argument or
+    in --run. Every cached run stays readable, not only the last one.
+    """
     if list_runs:
         runs = cache.list_runs()
         if not runs:
@@ -253,9 +266,23 @@ def show(
         console.print(table)
         raise typer.Exit(0)
 
-    # `target` may name a run, or a check inside one. Try it as a run first; if
-    # that fails, fall back to the most recent run and read it as a check id.
+    # `target` may name a run, a check inside one, or both as "run/check".
+    # Splitting that form first is what makes an older run's checks reachable
+    # without --run: the cache keeps every run, so addressing should too.
+    # A run can be named by the PDF's path, which has slashes of its own, so
+    # the split is a fallback: whatever resolves whole is a run, not a pair.
+    check: str | None = None
+    if target and "/" in target and run is None and cache.resolve(target) is None:
+        run, check = target.rsplit("/", 1)
+        target = None
+
     path = cache.resolve(run) if run else None
+    if run and path is None:
+        err_console.print(
+            f"[yellow]No cached run matching {run!r}. "
+            "Run `preflight show --list` to see which runs are still cached.[/yellow]"
+        )
+        raise typer.Exit(2)
     named_a_run = False
     if path is None and target:
         path = cache.resolve(target)
@@ -271,15 +298,19 @@ def show(
         err_console.print(f"[red]Could not read the cached run at {path}.[/red]")
         raise typer.Exit(2)
 
-    if target and not named_a_run:
-        wanted = [f for f in report.findings if f.check_id == target]
+    wanted_check = check if check is not None else (None if named_a_run else target)
+    if wanted_check:
+        wanted = [f for f in report.findings if f.check_id == wanted_check]
         if not wanted:
             # Offer near-misses rather than silently printing the whole report.
-            close = sorted(f.check_id for f in report.findings if target.lower() in f.check_id.lower())
+            close = sorted(f.check_id for f in report.findings
+                           if wanted_check.lower() in f.check_id.lower())
             hint = ", ".join(close or sorted(f.check_id for f in report.findings)[:8])
             err_console.print(
-                f"[yellow]No check called {target!r} in run {report.meta.get('run_id')}. "
-                f"Did you mean: {hint}[/yellow]"
+                f"[yellow]No check called {wanted_check!r} in run {report.meta.get('run_id')}. "
+                f"Did you mean: {hint}[/yellow]\n"
+                "[dim]`preflight show <check>` reads the last run; "
+                "`preflight show <run>/<check>` reads an earlier one.[/dim]"
             )
             raise typer.Exit(2)
         console.print()

@@ -67,3 +67,74 @@ def test_load_rejects_junk(tmp_path: Path) -> None:
     junk = tmp_path / "junk.json"
     junk.write_text("{not json")
     assert cache.load(junk) is None
+
+
+# ---------------------------------------------------------------------------
+# Addressing a check inside an older run: `preflight show <run>/<check>`
+# ---------------------------------------------------------------------------
+
+
+def _cli(tmp_path: Path, monkeypatch, *args: str):
+    from typer.testing import CliRunner
+
+    from preflight.cli import app
+
+    monkeypatch.setattr(cache, "DEFAULT_ROOT", tmp_path)
+    return CliRunner().invoke(app, ["show", *args])
+
+
+def _report_saying(message: str) -> Report:
+    report = Report(pdf_path="/tmp/paper.pdf", conference="arr", track="long")
+    report.add(Finding("margins", "Margins", Severity.PASS, message))
+    return report
+
+
+def test_show_reads_a_check_out_of_an_older_run(tmp_path: Path, monkeypatch) -> None:
+    """The whole point: the cache keeps every run, so addressing should too."""
+    older = cache.save(_report_saying("the older run"), root=tmp_path)
+    cache.save(_report_saying("the newer run"), root=tmp_path)
+    assert older is not None
+    run_id = next(r.run_id for r in cache.list_runs(root=tmp_path) if r.path == older)
+
+    result = _cli(tmp_path, monkeypatch, f"{run_id}/margins")
+    assert result.exit_code == 0
+    assert "the older run" in result.output
+    assert "the newer run" not in result.output
+
+
+def test_a_bare_check_id_still_means_the_latest_run(tmp_path: Path, monkeypatch) -> None:
+    cache.save(_report_saying("the older run"), root=tmp_path)
+    cache.save(_report_saying("the newer run"), root=tmp_path)
+
+    result = _cli(tmp_path, monkeypatch, "margins")
+    assert result.exit_code == 0
+    assert "the newer run" in result.output
+
+
+def test_an_unknown_run_says_so_rather_than_falling_back(tmp_path: Path, monkeypatch) -> None:
+    """Falling back to the latest run would answer a question nobody asked."""
+    cache.save(_report_saying("the only run"), root=tmp_path)
+
+    result = _cli(tmp_path, monkeypatch, "deadbeef/margins")
+    assert result.exit_code == 2
+    assert "No cached run matching" in result.output
+    assert "the only run" not in result.output
+
+
+def test_an_unknown_check_names_the_run_it_looked_in(tmp_path: Path, monkeypatch) -> None:
+    cache.save(_report_saying("the only run"), root=tmp_path)
+    run_id = cache.list_runs(root=tmp_path)[0].run_id
+
+    result = _cli(tmp_path, monkeypatch, f"{run_id}/no_such_check")
+    assert result.exit_code == 2
+    assert "no_such_check" in result.output
+    assert run_id in result.output
+
+
+def test_a_run_named_by_a_path_is_not_split_into_run_and_check(tmp_path: Path, monkeypatch) -> None:
+    """A PDF path has slashes of its own; whatever resolves whole is a run."""
+    cache.save(_report_saying("the only run"), root=tmp_path)
+
+    result = _cli(tmp_path, monkeypatch, "/tmp/paper.pdf")
+    assert result.exit_code == 0
+    assert "the only run" in result.output
