@@ -55,6 +55,9 @@ _PAREN_SPAN = re.compile(r"\(([^()]{3,300})\)")
 
 #: Numeric styles: "[12]", "[3, 4]", "[5-7]".
 _NUMERIC_CITE = re.compile(r"\[(\d+(?:\s*[-,]\s*\d+)*)\]")
+#: Most numbers a real bracketed citation group carries. Longer bracketed runs
+#: of numbers are data -- a label vector, a shape, a JSON array in an example.
+_MAX_NUMERIC_GROUP = 8
 
 _ENTRY_YEAR = re.compile(r"\b(?:19|20)\d{2}[a-z]?\b")
 _ENTRY_LEADING_INDEX = re.compile(r"^\s*\[?(\d+)\]?[.)]?\s")
@@ -145,7 +148,7 @@ def detect_numeric_style(text: str, entry_count: int) -> bool:
         1 for pmatch in _PAREN_SPAN.finditer(text) for chunk in pmatch.group(1).split(";")
         if _PAREN_UNIT.match(chunk)
     ) + len(_NARRATIVE.findall(text))
-    numeric_hits = sum(len(_expand_numeric(m.group(1))) for m in _NUMERIC_CITE.finditer(text))
+    numeric_hits = sum(len(n) for _, n in _numeric_citations(text, entry_count))
     if author_year_hits == 0 and numeric_hits >= max(3, entry_count // 10):
         return True
     return numeric_hits > author_year_hits * 3
@@ -161,6 +164,46 @@ def _expand_numeric(blob: str) -> list[int]:
                 out.extend(range(int(lo), int(hi) + 1))
         elif part.isdigit():
             out.append(int(part))
+    return out
+
+
+def _is_citation_group(numbers: list[int], ceiling: int | None) -> bool:
+    """Whether a bracketed run of numbers can be a citation rather than data.
+
+    Papers print plenty of bracketed numbers that are not citations at all:
+    label vectors, tensor shapes, JSON arrays quoted from a prompt. Counting
+    those as citations is not a harmless overcount -- enough of them flip
+    `detect_numeric_style` for an author-year paper, and the whole citation
+    pair of checks then reads the bibliography by position and reports nearly
+    every entry as uncited. Three properties separate the two cheaply:
+
+      * no zero -- reference lists start at [1];
+      * no repeats -- "[0, 0, 2]" is data, "[2, 2]" is nobody's citation;
+      * not too long -- see `_MAX_NUMERIC_GROUP`.
+
+    ``ceiling``, when given, additionally requires every number to name an
+    entry that exists. Callers asking "is this paper numeric-style at all?"
+    pass it; the resolution check does not, because a citation pointing past
+    the end of the list is exactly the failure it exists to report.
+    """
+    if not numbers or len(numbers) > _MAX_NUMERIC_GROUP:
+        return False
+    if any(n < 1 for n in numbers):
+        return False
+    if len(set(numbers)) != len(numbers):
+        return False
+    if ceiling is not None and any(n > ceiling for n in numbers):
+        return False
+    return True
+
+
+def _numeric_citations(text: str, ceiling: int | None) -> list[tuple[re.Match[str], list[int]]]:
+    """Bracketed spans in ``text`` that survive `_is_citation_group`."""
+    out = []
+    for match in _NUMERIC_CITE.finditer(text):
+        numbers = _expand_numeric(match.group(1))
+        if _is_citation_group(numbers, ceiling):
+            out.append((match, numbers))
     return out
 
 
@@ -342,8 +385,8 @@ def check_citation_resolution(ctx: CheckContext) -> Finding:
     if numeric:
         indexed = _index_entries(entries)
         seen: dict[int, tuple[int, str]] = {}
-        for m in _NUMERIC_CITE.finditer(body):
-            for n in _expand_numeric(m.group(1)):
+        for m, numbers in _numeric_citations(body, None):
+            for n in numbers:
                 seen.setdefault(n, (m.start(), _snippet(body, m.start(), m.end())))
         unresolved = [(n, ctx_str) for n, (pos, ctx_str) in sorted(seen.items())
                      if not _resolves_numeric(n, indexed)]
@@ -418,7 +461,8 @@ def check_uncited_references(ctx: CheckContext) -> Finding:
     max_report = int(ctx.conf("citations.max_reported", 15))
 
     if detect_numeric_style(search_text, len(entries)):
-        cited_indices = {n for m in _NUMERIC_CITE.finditer(search_text) for n in _expand_numeric(m.group(1))}
+        cited_indices = {n for _, numbers in _numeric_citations(search_text, len(entries))
+                         for n in numbers}
         uncited = [e for e in entries if e.index not in cited_indices]
     else:
         citations = extract_author_year_citations(search_text)

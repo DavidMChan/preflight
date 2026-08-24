@@ -155,3 +155,65 @@ def test_base14_fonts_are_exempt_from_embedding() -> None:
     assert "helvetica" in base14
     assert "times-roman" in base14
     assert len(base14) == 14
+
+
+# ---------------------------------------------------------------------------
+# Numeric-vs-author-year citation style
+# ---------------------------------------------------------------------------
+
+_AUTHOR_YEAR_BODY = (
+    "Scratchpads help spatial reasoning (Menon et al., 2024; Duan et al., 2025), and "
+    "interleaved traces are cheap to collect (Li et al., 2025a). Shi et al. (2025) agree.\n"
+)
+#: A label vector of the kind papers print in an appendix or a quoted prompt.
+_DATA_VECTORS = "".join(
+    f"row {i}: [0, 0, 2, 0, 3, 0, 0, 0, 0, 0]\n" for i in range(40)
+)
+
+
+def test_bracketed_data_vectors_are_not_numeric_citations() -> None:
+    """A page of "[0, 0, 2, ...]" must not make an author-year paper look numeric.
+
+    When it did, the bibliography was read by position and almost every entry
+    came back "uncited".
+    """
+    from preflight.checks.citations import detect_numeric_style
+
+    assert not detect_numeric_style(_AUTHOR_YEAR_BODY + _DATA_VECTORS, 19)
+
+
+def test_real_numeric_citations_are_still_detected() -> None:
+    from preflight.checks.citations import detect_numeric_style
+
+    body = "Prior work [1], [2, 3] and [5-7] agree, as does [4] and [8].\n"
+    assert detect_numeric_style(body, 19)
+
+
+@pytest.mark.parametrize(
+    ("numbers", "expected"),
+    [
+        ([1], True),
+        ([2, 3], True),
+        ([5, 6, 7], True),
+        ([0], False),                       # reference lists start at [1]
+        ([0, 0, 2, 0, 3], False),           # zeros and repeats: data, not a citation
+        ([2, 2], False),
+        ([1, 2, 3, 4, 5, 6, 7, 8, 9], False),   # longer than any real citation group
+        ([], False),
+    ],
+)
+def test_citation_group_plausibility(numbers: list[int], expected: bool) -> None:
+    from preflight.checks.citations import _is_citation_group
+
+    assert _is_citation_group(numbers, None) is expected
+
+
+def test_citation_group_ceiling_is_optional() -> None:
+    """Detection wants the ceiling; the resolution check must not have it.
+
+    A citation past the end of the list is the failure that check reports.
+    """
+    from preflight.checks.citations import _is_citation_group
+
+    assert not _is_citation_group([25], 19)
+    assert _is_citation_group([25], None)
