@@ -188,6 +188,16 @@ hidden:
     - "in your (output|response|review|answer|summary)[^.]{0,60}(must|should|make sure)"
     - "(must|should) (include|contain|use|repeat) (all of )?the following (phrases|phrase|sentences|words|terms)"
     - "include (all of )?the following phrases"
+    # Fake authority and role reassignment: the shapes an instruction takes when
+    # it is written for a model rather than for a person.
+    - "\\[(system|admin|root|developer|internal)\\]"
+    - "(system|admin|root) *(override|command|instruction) *:"
+    - "(new|updated|revised) (system )?(instructions?|prompt|rules?) *:"
+    - "you (are|will) now (be|act as|become|pretend|roleplay)"
+    - "<\\|(im_start|im_end|system|endoftext)\\|>"
+    - "(-{3,}|={3,}|#{3,}) *(system|instruction|end of)"
+  # Shortest decoded string worth testing against the patterns above.
+  decoded_payload_min_chars: 12
 
 # ---------------------------------------------------------------------------
 # Counted prose diagnostics. These encode measurable style advice, so the

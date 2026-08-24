@@ -7,6 +7,7 @@ tell deterministic measurement apart from model judgement.
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from ..analysis import paper_context
@@ -15,6 +16,8 @@ from ..llm.client import AsyncLLMClient, LLMError
 from ..llm.prompts import (
     ANONYMITY_PROMPT,
     ANONYMITY_SCHEMA,
+    CANARY_PROMPT,
+    CANARY_SYSTEM,
     INJECTION_PROMPT,
     INJECTION_SCHEMA,
     LIMITATIONS_PROMPT,
@@ -216,6 +219,64 @@ def _injection_excerpts(ctx: CheckContext, patterns: list[tuple[str, Any]],
     return out
 
 
+#: Phrases a passage demands are usually quoted inside it; four words or more
+#: of a quotation coming back verbatim is the passage writing the review.
+_QUOTED_SPAN = re.compile("[\"“]([^\"”]{15,200})[\"”]")
+#: Verdict language a one-sentence summary has no reason to reach for.
+_VERDICT_WORDS = re.compile(
+    r"\b(?:accept|acceptance|strong\s+accept|high\s+score|score\s+of|rating\s+of|"
+    r"recommend(?:s|ed|ation)?)\b", re.IGNORECASE)
+_CANARY_TOKEN = "PREFLIGHT-OK"
+
+
+def _canary_residue(excerpts: list[str], reply: str) -> list[str]:
+    """What the passage did to the probe, as a list of plain-language signals.
+
+    Deterministic and separate from the probe itself, so the judgement stays
+    inspectable: every signal is something a reader can confirm against the
+    reply by eye. An empty list is not evidence of safety, only an absence of
+    residue -- a passage can fail to move this particular probe and still be
+    aimed squarely at a reviewer.
+    """
+    signals: list[str] = []
+    flat = " ".join(reply.split())
+    if not flat:
+        return signals
+    if _CANARY_TOKEN not in flat:
+        signals.append("the probe dropped its own control token, so something in the passage "
+                       "displaced its instructions")
+    demanded = {m.group(1).strip() for excerpt in excerpts for m in _QUOTED_SPAN.finditer(excerpt)}
+    echoed = [phrase for phrase in demanded
+              if len(phrase.split()) >= 4 and phrase.lower() in flat.lower()]
+    if echoed:
+        signals.append(f"the probe reproduced {len(echoed)} phrase(s) the passage demanded: "
+                       + "; ".join(f'"{p[:60]}"' for p in echoed[:3]))
+    verdict = _VERDICT_WORDS.search(flat)
+    if verdict:
+        signals.append("the probe's summary reached for reviewer verdict language "
+                       f"({verdict.group(0)!r})")
+    return signals
+
+
+async def _canary_probe(ctx: CheckContext, excerpts: list[str]) -> tuple[str, list[str]] | None:
+    """Run the passage past a model that can do nothing with it, then read the reply.
+
+    The adjudication call asks a model whether the text *is* manipulation, which
+    puts the untrusted text and the question in one prompt. This asks something
+    the text cannot argue with: given a task it has no part in, does the reply
+    come back changed? Returns None when the probe could not run, which is not
+    evidence in either direction.
+    """
+    if not ctx.conf("llm.canary_probe", True):
+        return None
+    try:
+        reply = await _client(ctx).complete(
+            CANARY_SYSTEM, CANARY_PROMPT.format(excerpts=_clip("\n".join(excerpts))))
+    except LLMError:
+        return None
+    return reply, _canary_residue(excerpts, reply)
+
+
 @register("llm_injection", "Machine-reader manipulation (model)", module=MODULE,
           category="semantic", requires=("enable_llm",), order=62)
 async def check_injection_semantics(ctx: CheckContext) -> Finding | None:
@@ -240,24 +301,39 @@ async def check_injection_semantics(ctx: CheckContext) -> Finding | None:
     except LLMError as exc:
         return ctx.skip("llm_injection", "Machine-reader manipulation (model)", str(exc), category="semantic")
 
+    probe = await _canary_probe(ctx, excerpts)
+    residue = probe[1] if probe else []
+
     explanation = str(data.get("explanation", "")).strip()
     confidence = str(data.get("confidence", "low"))
     evidence = [Evidence(detail="model-selected quote", quote=str(q))
                 for q in (data.get("quotes") or [])[:5]]
 
-    if data.get("is_manipulation"):
+    if residue:
+        evidence.append(Evidence(detail="canary probe reply", quote=probe[0][:300]))
+
+    if data.get("is_manipulation") or residue:
+        if residue and not data.get("is_manipulation"):
+            lead = ("The model read this as legitimate content, but a probe run on the same text came "
+                    "back changed, which is the stronger signal: ")
+            confidence = "medium"
+        else:
+            lead = f"The model judges this to be an attempt to manipulate an automated reviewer. {explanation} "
+        tail = (" ".join(f"Probe residue: {s}." for s in residue) if residue
+                else "The probe run on the same text came back clean.")
         return ctx.error(
             "llm_injection", "Machine-reader manipulation (model)",
-            f"The model judges this to be an attempt to manipulate an automated reviewer, which may result "
-            f"in desk rejection. {explanation}",
+            f"{lead}{tail} This may result in desk rejection.",
             category="semantic", evidence=evidence,
             confidence=f"{confidence} — {_model_note(ctx)}",
             cfp_key="hidden_text",
         )
+    probe_note = ("" if probe is None
+                  else " A probe run on the same text came back with no residue.")
     return ctx.ok(
         "llm_injection", "Machine-reader manipulation (model)",
         f"{len(excerpts)} injection-like excerpt(s) were reviewed and judged legitimate scholarly content. "
-        f"{explanation}".strip(),
+        f"{explanation}{probe_note}".strip(),
         category="semantic", evidence=evidence,
         confidence=f"{confidence} — {_model_note(ctx)}", cfp_key="hidden_text",
     )

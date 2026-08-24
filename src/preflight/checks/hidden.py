@@ -9,6 +9,8 @@ threshold and pattern comes from the profile, never from this file.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -508,4 +510,163 @@ def check_prompt_injection(ctx: CheckContext) -> Finding | None:
         remedy="If the strings are study material, quote them inside a figure, listing, or clearly "
         "marked example so no reader mistakes them for instructions.",
         confidence="low — visible matches are frequently legitimate subject matter",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Obfuscated instruction payloads
+#
+# The patterns above only catch an instruction written in the clear. The two
+# passes below undo the cheap ways of hiding one from a pattern matcher and
+# then re-run the same patterns, so evasion costs the author the same finding
+# it was meant to avoid.
+#
+# The decode-then-recheck and de-obfuscate-then-recheck shapes, and the
+# character ranges worth treating as steganography, follow Little Canary
+# (https://github.com/hermes-labs-ai/little-canary), Apache License 2.0,
+# (c) Hermes Labs. Adapted here for static PDF text rather than live agent
+# input: its jailbreak and shell-injection families are dropped, because a
+# paper that quotes them is doing research, not attacking anyone.
+# ---------------------------------------------------------------------------
+
+#: Characters that carry no glyph and so can sit inside a word without a reader
+#: seeing anything. Tag characters (U+E0000 block) have no legitimate use in a
+#: paper at all; the others do, which is why finding them is not by itself the
+#: finding -- what matters is whether removing them reveals an instruction.
+_INVISIBLE_CHARS = re.compile(
+    "[\u200b-\u200f\u202a-\u202e\u2060-\u2064\ufeff\ufe00-\ufe0f]"
+    "|[\U000e0000-\U000e007f]"
+)
+#: Ranges that are never ordinary typography, reported even on their own.
+_STEGANOGRAPHIC_CHARS = re.compile("[\u202a-\u202e]|[\U000e0000-\U000e007f]")
+
+_BASE64_RUN = re.compile(r"[A-Za-z0-9+/]{24,}={0,2}")
+_HEX_RUN = re.compile(r"(?:[0-9a-fA-F]{2}[\s]*){12,}")
+
+
+#: A single non-word character wedged between two letters. Zero-width padding
+#: is the intent, but a PDF producer that lacks the glyph substitutes something
+#: visible-but-meaningless for it, and "I.gnore" defeats a regex just as well.
+_INTRA_WORD_SEPARATOR = re.compile(r"(?<=\w)[^\w\s](?=\w)")
+
+
+def _deobfuscate(text: str) -> str:
+    """The text as a pattern matcher should see it, with the wedges pulled out.
+
+    Both passes are lossy in ways that would matter elsewhere -- "e-mail"
+    becomes "email", "3.14" becomes "314" -- so the result is only matched
+    against, and only quoted where the finding is about the normalization
+    itself, marked as such.
+    """
+    return _INTRA_WORD_SEPARATOR.sub("", _INVISIBLE_CHARS.sub("", text))
+
+
+def _decoded_payloads(text: str, min_chars: int) -> list[tuple[str, str]]:
+    """(encoding, decoded text) for every run that decodes to readable text.
+
+    Deliberately narrow. Base64 and hex are what a payload actually arrives as;
+    the reversal and rot13 tricks a live agent has to worry about need a cue
+    sentence telling the model to undo them, and that sentence is itself
+    pattern-matchable.
+    """
+    out: list[tuple[str, str]] = []
+    for run in _BASE64_RUN.findall(text):
+        try:
+            decoded = base64.b64decode(run + "=" * (-len(run) % 4)).decode("utf-8", "ignore")
+        except (binascii.Error, ValueError):
+            continue
+        if len(decoded) >= min_chars and decoded.isprintable():
+            out.append(("base64", decoded))
+    for run in _HEX_RUN.findall(text):
+        try:
+            decoded = bytes.fromhex(re.sub(r"\s+", "", run)).decode("utf-8", "ignore")
+        except ValueError:
+            continue
+        if len(decoded) >= min_chars and decoded.isprintable():
+            out.append(("hex", decoded))
+    return out
+
+
+@register("injection_obfuscation", "Obfuscated instructions", module=MODULE,
+          category=CATEGORY, order=65)
+def check_injection_obfuscation(ctx: CheckContext) -> Finding | None:
+    """Instructions hidden from a pattern matcher rather than from a reader.
+
+    Two evasions cost nothing to try and are cheap to undo: padding a phrase
+    with zero-width characters so no regex matches it, and encoding it so the
+    page carries no readable instruction at all. Both are reported as errors
+    when what falls out is injection-shaped, because neither has an innocent
+    explanation the way a visible quoted string does.
+    """
+    if not _enabled(ctx):
+        return None
+    patterns = _compiled_patterns(ctx)
+    if not patterns:
+        return None
+    min_chars = int(ctx.conf("hidden.decoded_payload_min_chars", 12))
+    cap = int(ctx.conf("hidden.max_reported_matches", 10))
+
+    hits: list[Evidence] = []
+    stego: list[Evidence] = []
+    for page in ctx.doc.pages:
+        raw = page.text
+        stripped = _deobfuscate(raw)
+        for source, pattern in patterns:
+            match = pattern.search(stripped)
+            if match and not pattern.search(raw):
+                start = max(0, match.start() - 60)
+                hits.append(Evidence(
+                    page=page.number,
+                    detail=f"pattern {source!r} matches only once characters wedged inside "
+                           "its words are removed",
+                    quote="(normalized) " + " ".join(stripped[start : match.end() + 60].split()),
+                ))
+        for encoding, decoded in _decoded_payloads(stripped, min_chars):
+            for source, pattern in patterns:
+                if pattern.search(decoded):
+                    hits.append(Evidence(
+                        page=page.number,
+                        detail=f"a {encoding} payload decodes to text matching pattern {source!r}",
+                        quote=" ".join(decoded.split())[:200],
+                    ))
+                    break
+        found = _STEGANOGRAPHIC_CHARS.findall(raw)
+        if found:
+            stego.append(Evidence(
+                page=page.number,
+                detail=f"{len(found)} bidirectional-override or tag character(s) in the page text",
+                measured=float(len(found)),
+            ))
+
+    if hits:
+        return ctx.error(
+            "injection_obfuscation",
+            "Obfuscated instructions",
+            f"{len(hits)} instruction(s) addressed to an automated reviewer are hidden from a "
+            f"plain text search on page(s) {_page_list(e.page for e in hits)}, by characters "
+            "wedged inside the words or by encoding. Concealment of this kind has no legitimate "
+            "explanation and "
+            "the CFP allows desk rejection for it.",
+            category=CATEGORY,
+            evidence=(hits + stego)[:cap],
+            remedy="Remove the concealed text from the source and rebuild the PDF.",
+            confidence="high — the text is injection-shaped once decoded, and was not readable before",
+        )
+    if stego:
+        return ctx.warn(
+            "injection_obfuscation",
+            "Obfuscated instructions",
+            f"Page(s) {_page_list(e.page for e in stego)} contain bidirectional-override or tag "
+            "characters, which carry no glyph and have no ordinary typographic use. Nothing "
+            "injection-shaped decoded out of them, so this may be an artifact of the toolchain.",
+            category=CATEGORY,
+            evidence=stego[:cap],
+            remedy="Check where the characters came from; if a tool inserted them, rebuild without it.",
+            confidence="medium — the characters are unambiguous, their purpose is not",
+        )
+    return ctx.ok(
+        "injection_obfuscation",
+        "Obfuscated instructions",
+        "No wedged characters, encoded payload, or tag character conceals an instruction.",
+        category=CATEGORY,
     )
