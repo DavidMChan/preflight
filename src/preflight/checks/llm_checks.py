@@ -25,6 +25,9 @@ from ..llm.prompts import (
 )
 from ..models import Evidence, Finding, Severity
 from ..registry import register
+# The same matching the deterministic check uses, so the two agree on what is
+# injection-shaped and only the adjudication differs.
+from .hidden import _compiled_patterns, _concealed_text
 
 MODULE = "llm.semantic"
 
@@ -186,6 +189,33 @@ async def check_anonymity_semantics(ctx: CheckContext) -> Finding | None:
     )
 
 
+def _injection_excerpts(ctx: CheckContext, patterns: list[tuple[str, Any]],
+                        limit: int = 30) -> list[str]:
+    """Injection-shaped passages for the model to judge, with how they render.
+
+    Matched per page against the page's text rather than span by span: the
+    patterns are regexes, and a span is often half a sentence, so a phrase
+    that straddles two of them would never match either. (An earlier version
+    tested the pattern *source* as a literal substring, which no regex with a
+    group in it can ever satisfy -- the model was reliably handed nothing.)
+    """
+    window = int(ctx.conf("hidden.injection_context_chars", 160))
+    out: list[str] = []
+    for page in ctx.doc.pages:
+        page_text = " ".join(page.text.split())
+        concealed = " ".join(_concealed_text(ctx, page).split())
+        for source, pattern in patterns:
+            for match in pattern.finditer(page_text):
+                rendering = ("hidden, microscopic or in the page colour"
+                             if pattern.search(concealed) else "visible")
+                start = max(0, match.start() - window // 2)
+                out.append(f"[page {page.number}, {rendering}, pattern {source!r}] "
+                           f"{page_text[start : match.end() + window // 2]}")
+                if len(out) >= limit:
+                    return out
+    return out
+
+
 @register("llm_injection", "Machine-reader manipulation (model)", module=MODULE,
           category="semantic", requires=("enable_llm",), order=62)
 async def check_injection_semantics(ctx: CheckContext) -> Finding | None:
@@ -193,20 +223,10 @@ async def check_injection_semantics(ctx: CheckContext) -> Finding | None:
     if not _enabled(ctx, "injection_semantics"):
         return None
 
-    patterns = [str(p) for p in (ctx.conf("hidden.prompt_injection_patterns", []) or [])]
+    patterns = _compiled_patterns(ctx)
     if not patterns:
         return None
-
-    excerpts: list[str] = []
-    for span in ctx.doc.spans:
-        low = span.text.lower()
-        hit = next((p for p in patterns if p.lower() in low), None)
-        if hit is None:
-            continue
-        rendering = "invisible" if span.invisible else f"visible at {span.size:.1f} pt"
-        excerpts.append(f"[page {span.page}, {rendering}, pattern {hit!r}] {span.text.strip()[:300]}")
-        if len(excerpts) >= 30:
-            break
+    excerpts = _injection_excerpts(ctx, patterns)
 
     if not excerpts:
         return ctx.ok("llm_injection", "Machine-reader manipulation (model)",
