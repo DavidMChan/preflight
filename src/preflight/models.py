@@ -74,7 +74,10 @@ class Evidence:
         if self.detail:
             bits.append(self.detail)
         if self.measured is not None:
-            m = f"measured {self.measured:.1f}"
+            # Counts arrive here as floats ("16 of 16 questions"); a spurious
+            # ".0" next to an integer expectation reads like a unit mismatch.
+            digits = 0 if float(self.measured).is_integer() else 1
+            m = f"measured {self.measured:.{digits}f}"
             if self.expected:
                 m += f", expected {self.expected}"
             bits.append(m)

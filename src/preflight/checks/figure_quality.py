@@ -163,8 +163,8 @@ def _figure_region(ctx: CheckContext, cap: analysis.Caption) -> tuple[float, flo
     """Best-effort bounding box for the figure a caption belongs to.
 
     Finds the caption's own line, then unions every image and drawing on the
-    same page that sits above it (captions follow their figure in ACL-style
-    papers) and horizontally overlaps it or its column.
+    same page that sits above it (captions follow their figure in these
+    templates) and horizontally overlaps it or its column.
     """
     page = ctx.doc.pages[cap.page - 1]
     label_low = cap.label.lower()

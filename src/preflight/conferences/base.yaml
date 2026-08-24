@@ -59,6 +59,12 @@ geometry:
   tolerance_bottom_pt: 1.0
   min_violation_pt: 1.0
   max_reported_violations: 12
+  # Lines that sit outside the text block by design, keyed by what they are so
+  # a venue profile can add its own without restating these (mappings merge;
+  # lists would replace). Matched against the line's text anywhere on the page.
+  margin_furniture:
+    openreview_watermark: 'Confidential reviewer copy|Unauthorized sharing, redistribution'
+    arxiv_stamp: '^arXiv:\s*\d{4}\.\d{4,5}'
 
 columns:
   expected_columns: 2
@@ -80,6 +86,9 @@ structure:
   limitations_heading: Limitations
   limitations_aliases: [Limitations, Limitation]
   limitations_required: false
+  # ACL and ARR want "Limitations" unnumbered; venues that merely encourage the
+  # section have no such rule, so they turn this off rather than inherit it.
+  limitations_unnumbered: true
   references_aliases: [References, Bibliography]
   appendix_aliases: [Appendix, Appendices, Supplementary Material, Supplemental Material]
   acknowledgments_aliases: [Acknowledgments, Acknowledgements, Acknowledgment, Acknowledgement]
@@ -174,6 +183,11 @@ hidden:
     - "give (this paper|it) (the )?(highest|a high|a perfect) (score|rating)"
     - "do not (mention|reveal|disclose) (this|these instructions)"
     - "only (highlight|mention|discuss) the strengths"
+    # Steering the review's wording rather than its verdict: an instruction to
+    # emit particular phrases is the same attack with a quieter payload.
+    - "in your (output|response|review|answer|summary)[^.]{0,60}(must|should|make sure)"
+    - "(must|should) (include|contain|use|repeat) (all of )?the following (phrases|phrase|sentences|words|terms)"
+    - "include (all of )?the following phrases"
 
 # ---------------------------------------------------------------------------
 # Counted prose diagnostics. These encode measurable style advice, so the

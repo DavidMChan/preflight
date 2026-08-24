@@ -55,7 +55,7 @@ def check_heading_hierarchy(ctx: CheckContext) -> Finding:
     """Numbered section headings should form a contiguous, well-formed tree.
 
     Numeric headings ("3", "3.1") and lettered appendix headings ("A", "B.2")
-    are validated as two separate sequences, since ACL/ARR-style appendices
+    are validated as two separate sequences, since appendices
     restart numbering with letters by design. Unnumbered headings -- which
     include spurious detections on table cells and figure panels -- are
     excluded entirely; they carry no numbering to validate.

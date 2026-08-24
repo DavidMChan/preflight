@@ -49,17 +49,32 @@ _AUTHORS = (
 #: "Smith and Jones, 2021", "Vaswani et al., 2017", "OpenAI, 2024".
 _PAREN_UNIT = re.compile(rf"^\s*{_PREFIX}{_AUTHORS}\s*,?\s+{_YEARS}\s*$")
 #: Narrative form: "Vaswani et al. (2017)", "Khattab and Zaharia (2020)".
-_NARRATIVE = re.compile(rf"{_AUTHORS}\s*\(\s*{_YEARS}\s*\)")
+#: natbib's plainnat brackets the year instead -- "Vickers et al. [2012, 2018]"
+#: -- which is still author-year, not a numeric citation. The delimiters are
+#: matched as a pair of character classes rather than as an alternation, so a
+#: mismatched "Smith (2020]" also matches; that costs nothing worth the noise.
+_NARRATIVE = re.compile(rf"{_AUTHORS}\s*[(\[]\s*{_YEARS}\s*[)\]]")
 #: Candidate parenthetical spans to split and test against `_PAREN_UNIT`.
-_PAREN_SPAN = re.compile(r"\(([^()]{3,300})\)")
+#: Square brackets are included because natbib's plainnat wraps the whole
+#: citation in them -- "[Hendrycks et al., 2021b,a]" -- and a bracket holding a
+#: bare number still fails `_PAREN_UNIT`, which wants a name.
+_PAREN_SPAN = re.compile(r"[(\[]([^()\[\]]{3,300})[)\]]")
 
 #: Numeric styles: "[12]", "[3, 4]", "[5-7]".
 _NUMERIC_CITE = re.compile(r"\[(\d+(?:\s*[-,]\s*\d+)*)\]")
 #: Most numbers a real bracketed citation group carries. Longer bracketed runs
 #: of numbers are data -- a label vector, a shape, a JSON array in an example.
 _MAX_NUMERIC_GROUP = 8
+#: A bracketed number this large is a year, not an entry number: no reference
+#: list runs to 1900 entries, but "Vickers et al. [2012, 2018]" is everywhere.
+_YEAR_LIKE = 1900
 
-_ENTRY_YEAR = re.compile(r"\b(?:19|20)\d{2}[a-z]?\b")
+#: The publication year of a bibliography entry. The lookarounds keep it from
+#: reading the year out of a number that merely contains one: "arXiv:1904.09223"
+#: is a 2019 paper, and the page range in "31(9):2019-2029, 2024." holds two
+#: year-shaped numbers before the real year. Taking either leaves the entry
+#: matching no citation at all.
+_ENTRY_YEAR = re.compile(r"(?<![\d.:\-–—])(?:19|20)\d{2}[a-z]?\b(?![.\-–—]\d)")
 _ENTRY_LEADING_INDEX = re.compile(r"^\s*\[?(\d+)\]?[.)]?\s")
 
 
@@ -179,7 +194,8 @@ def _is_citation_group(numbers: list[int], ceiling: int | None) -> bool:
 
       * no zero -- reference lists start at [1];
       * no repeats -- "[0, 0, 2]" is data, "[2, 2]" is nobody's citation;
-      * not too long -- see `_MAX_NUMERIC_GROUP`.
+      * not too long -- see `_MAX_NUMERIC_GROUP`;
+      * nothing year-sized -- see `_YEAR_LIKE`.
 
     ``ceiling``, when given, additionally requires every number to name an
     entry that exists. Callers asking "is this paper numeric-style at all?"
@@ -188,7 +204,7 @@ def _is_citation_group(numbers: list[int], ceiling: int | None) -> bool:
     """
     if not numbers or len(numbers) > _MAX_NUMERIC_GROUP:
         return False
-    if any(n < 1 for n in numbers):
+    if any(n < 1 or n >= _YEAR_LIKE for n in numbers):
         return False
     if len(set(numbers)) != len(numbers):
         return False
@@ -239,6 +255,48 @@ def _dehyphenate(text: str) -> str:
     return re.sub(r"[-''‑]", "", text)
 
 
+#: A capitalized name at the end of a longer word: the shape a lost space
+#: leaves behind. The run-in text is as often an acronym ("MTCMBKong") as
+#: ordinary prose ("TCMBenchYue"), so what precedes the capital is not
+#: constrained here -- `_unglue` uses its length instead.
+_GLUED_SURNAME = re.compile(r"(?<=\w)([A-Z][a-z''\-À-ÖØ-öø-ÿ]+)$")
+
+
+def _unglue(surname: str) -> str | None:
+    """"TCMBenchYue" -> "Yue"; a name with nothing run into it -> None.
+
+    PDF text extraction drops the space in front of a citation often enough
+    that it is worth undoing: "the TCMBench Yue et al. [2024] benchmark" comes
+    back as one word, and the surname the grammar then captures matches no
+    bibliography entry. The signal is a capital letter mid-word, which
+    ordinary prose does not produce.
+
+    What precedes the capital has to be either long enough to be a word of its
+    own or an acronym -- all caps, digits and hyphens, as in "MTCMBKong" or
+    the "7BChen" left by a model name. "McDonald", "MacLeod" and "DeSantis"
+    carry the same shape but fail both tests, so they stay whole.
+    """
+    match = _GLUED_SURNAME.search(surname)
+    if not match:
+        return None
+    prefix = surname[: match.start(1)]
+    if len(prefix) >= 4 or re.fullmatch(r"[A-Z0-9\-]+", prefix):
+        return match.group(1)
+    return None
+
+
+def _name_pattern(surname: str) -> str:
+    """A regex source matching ``surname`` in body text, glued or not.
+
+    The plain form is case-insensitive; the glued form is not, because the
+    capital is the whole reason to believe a word boundary was lost there.
+    Case-folding it would let a short name match inside an unrelated word --
+    "Li" in "Mali", say.
+    """
+    name = re.escape(surname)
+    return rf"(?:(?i:\b{name}\b)|(?<=[A-Za-z0-9]){name}\b)"
+
+
 def _name_matches(surname: str, text: str) -> bool:
     """Whether ``surname`` appears in ``text``, tolerant of one PDF artifact.
 
@@ -265,7 +323,9 @@ def _resolves(citation: _Citation, entries: list[str]) -> bool:
     worse failure here than the reverse -- see the module docstring.
     """
     year_re = re.compile(rf"\b{re.escape(citation.year)}\b")
-    return any(_name_matches(citation.surname, entry) and year_re.search(entry) for entry in entries)
+    names = [citation.surname, *filter(None, [_unglue(citation.surname)])]
+    return any(any(_name_matches(n, entry) for n in names) and year_re.search(entry)
+               for entry in entries)
 
 
 def _resolves_numeric(index: int, entries: list[_Entry]) -> bool:
@@ -274,6 +334,8 @@ def _resolves_numeric(index: int, entries: list[_Entry]) -> bool:
 
 def _surnames_equal(a: str, b: str) -> bool:
     if a.lower() == b.lower():
+        return True
+    if (_unglue(a) or a).lower() == (_unglue(b) or b).lower():
         return True
     bare_a, bare_b = _dehyphenate(a).lower(), _dehyphenate(b).lower()
     return len(bare_a) >= 6 and bare_a == bare_b
@@ -298,11 +360,10 @@ def _cited_anywhere(entry: _Entry, text: str) -> bool:
     """
     if not entry.year or not entry.surname:
         return False
-    name_re = re.escape(entry.surname)
+    name_re = _name_pattern(entry.surname)
     year_re = re.escape(entry.year)
     pattern = re.compile(
-        rf"\b{name_re}\b[\s\S]{{0,80}}\b{year_re}\b|\b{year_re}\b[\s\S]{{0,80}}\b{name_re}\b",
-        re.IGNORECASE,
+        rf"{name_re}[\s\S]{{0,80}}\b{year_re}\b|\b{year_re}\b[\s\S]{{0,80}}{name_re}"
     )
     if pattern.search(text):
         return True
@@ -351,7 +412,7 @@ def _document_minus_bibliography(ctx: CheckContext) -> str:
 
 def _find_page(ctx: CheckContext, surname: str, year: str) -> int | None:
     """Best-effort page lookup for a citation, by scanning body lines."""
-    name_re = re.compile(rf"\b{re.escape(surname)}\b", re.IGNORECASE)
+    name_re = re.compile(_name_pattern(surname))
     year_re = re.compile(rf"\b{re.escape(year)}\b")
     fallback: int | None = None
     for line in ctx.doc.reading_order:

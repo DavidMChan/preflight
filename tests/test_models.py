@@ -8,11 +8,13 @@ from preflight.models import Evidence, Finding, Report, Severity
 
 
 def test_evidence_renders_measurement_and_expectation() -> None:
-    ev = Evidence(page=5, detail="text bleeds into the LEFT margin", measured=34.0,
+    ev = Evidence(page=5, detail="text bleeds into the LEFT margin", measured=34.5,
                   expected=">= 69.0 pt", quote="a  long   quote")
     rendered = ev.render()
     assert "page 5" in rendered
-    assert "measured 34.0, expected >= 69.0 pt" in rendered
+    assert "measured 34.5, expected >= 69.0 pt" in rendered
+    # A whole number keeps no decimal: counts render beside integer expectations.
+    assert "measured 34," in Evidence(measured=34.0, expected="34").render()
     assert '"a long quote"' in rendered      # whitespace is normalised
 
 

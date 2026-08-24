@@ -146,11 +146,12 @@ def check_limitations_present(ctx: CheckContext) -> Finding:
             category="structure", evidence=evidence,
             remedy=f"Rename the heading to {expected!r}.",
         )
-    if heading.numbering:
+    if heading.numbering and ctx.conf("structure.limitations_unnumbered", True):
         return ctx.warn(
             "limitations_present",
             "Limitations section",
-            f"The Limitations section is numbered ({heading.numbering}). The ACL template leaves it unnumbered.",
+            f"The Limitations section is numbered ({heading.numbering}); this venue's template "
+            "leaves it unnumbered.",
             category="structure", evidence=evidence,
             remedy="Use \\section*{Limitations} so it is not numbered.",
         )

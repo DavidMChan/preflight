@@ -38,6 +38,14 @@ DEFAULT_INJECTION_PATTERNS: tuple[str, ...] = (
     r"(?:score|rating|grade)",
     r"do\s+not\s+(?:mention|reveal|disclose|report|output)\s+(?:this|these|the\s+following)",
     r"only\s+(?:highlight|emphasi[sz]e|discuss)\s+(?:the\s+)?(?:strengths|positives)",
+    # Steering the review's wording rather than its verdict. Papers that study
+    # prompting can phrase things this way too, which is what the model
+    # adjudication in `llm_injection` is there to sort out.
+    r"in\s+your\s+(?:output|response|review|answer|summary)[^.\n]{0,60}"
+    r"(?:must|should|make\s+sure)",
+    r"(?:must|should)\s+(?:include|contain|use|repeat)\s+(?:all\s+of\s+)?the\s+following"
+    r"\s+(?:phrases|phrase|sentences|words|terms)",
+    r"include\s+(?:all\s+of\s+)?the\s+following\s+phrases",
 )
 
 

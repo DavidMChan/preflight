@@ -58,9 +58,28 @@ def _line_number_re(ctx: CheckContext) -> re.Pattern[str]:
     return re.compile(str(ctx.conf("fonts.ignore_small_text_regex", r"^\s*\d{1,4}\s*$")))
 
 
-def _is_margin_exempt(line: Line, pattern: re.Pattern[str]) -> bool:
+def _margin_furniture(ctx: CheckContext) -> list[re.Pattern[str]]:
+    """Regexes for lines that belong in the margin because nobody chose to put them there.
+
+    A style file's own preprint footer sits below the text block by design, and
+    a submission system stamps its confidentiality banner across the foot of
+    every page after the author has stopped editing. Neither is something an
+    author can fix, so reporting them buries the wide table that they can.
+
+    Matching on the text rather than on the band it occupies is deliberate:
+    anything *else* that turns up down there -- a stray line pushed off the
+    block, or text planted in the banner's place to catch an automated
+    reviewer -- is still worth reporting, and an exempt band would hide it.
+    """
+    spec = ctx.conf("geometry.margin_furniture", {}) or {}
+    return [re.compile(str(pattern)) for pattern in spec.values()]
+
+
+def _is_margin_exempt(line: Line, pattern: re.Pattern[str],
+                      furniture: list[re.Pattern[str]]) -> bool:
     """Line numbers from the anonymous template legitimately sit in the margin."""
-    return bool(pattern.match(line.text.strip()))
+    text = " ".join(line.text.split())
+    return bool(pattern.match(text)) or any(f.search(text) for f in furniture)
 
 
 @register("margins", "Margins", module=MODULE, category="format", order=11)
@@ -78,6 +97,7 @@ def check_margins(ctx: CheckContext) -> Finding:
     cap = int(ctx.conf("geometry.max_reported_violations", 12))
 
     pattern = _line_number_re(ctx)
+    furniture = _margin_furniture(ctx)
     violations: list[Evidence] = []
 
     for page in ctx.doc.pages:
@@ -87,7 +107,7 @@ def check_margins(ctx: CheckContext) -> Finding:
         limit_bottom = page.height - (bottom - tb)
 
         for line in page.lines:
-            if not line.text.strip() or _is_margin_exempt(line, pattern):
+            if not line.text.strip() or _is_margin_exempt(line, pattern, furniture):
                 continue
             if all(s.invisible for s in line.spans):
                 continue  # reported by the hidden-text check instead
@@ -129,7 +149,8 @@ def check_margins(ctx: CheckContext) -> Finding:
             category="format",
             evidence=violations[:cap],
             remedy="Usually caused by wide tables, unbroken URLs, or oversized figures. "
-            "Wrap long URLs, shrink or rotate wide tables, and let the ACL style set the text block.",
+            "Wrap long URLs, shrink or rotate wide tables, and let the venue's style file "
+            "set the text block.",
             confidence="high — measured from text bounding boxes; images with white backgrounds may be spurious",
         )
     return ctx.ok(
@@ -159,7 +180,7 @@ def check_column_layout(ctx: CheckContext) -> Finding:
             "This usually means the paper was not built with the official style file.",
             category="format",
             evidence=[Evidence(detail=f"column bands: {[(round(a, 1), round(b, 1)) for a, b in bands]}")],
-            remedy="Build with the official ACL LaTeX class or Word template.",
+            remedy="Build with the venue's official LaTeX class or Word template.",
             cfp_key="paper_size",
         )
 

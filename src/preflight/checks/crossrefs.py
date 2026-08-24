@@ -469,9 +469,9 @@ def check_supplement_identifiers(ctx: CheckContext) -> Finding:
         return ctx.warn(
             "supplement_identifiers",
             "Supplementary and appendix references",
-            f"{' and '.join(parts)} found. ARR requires the appendix to be in the same "
-            "file as the paper, so an unresolvable \"Appendix C\" usually means the "
-            "appendix is missing or was renamed.",
+            f"{' and '.join(parts)} found. An unresolvable \"Appendix C\" usually means "
+            "the appendix is missing, was renamed, or lives in a separate supplementary "
+            "file that this PDF does not contain.",
             category="figures",
             evidence=evidence,
             remedy="Make sure every appendix/section letter cited in the text has a matching "

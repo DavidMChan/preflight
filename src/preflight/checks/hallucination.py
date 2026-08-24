@@ -87,7 +87,7 @@ def _bibliography_lines(ctx: CheckContext) -> list[Line]:
     started = False
     for line in ctx.doc.reading_order:
         if ignore.match(line.text.strip()):
-            continue  # the anonymous ACL template numbers every line
+            continue  # anonymous submission templates number every line
         if not started:
             started = line.page == start.page and abs(line.bbox[1] - start.bbox[1]) < 1.0
             continue

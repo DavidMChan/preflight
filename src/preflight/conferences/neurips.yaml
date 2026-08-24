@@ -39,6 +39,9 @@ geometry:
   tolerance_right_pt: 6.0
   tolerance_top_pt: 4.0
   tolerance_bottom_pt: 4.0
+  margin_furniture:
+    # neurips_*.sty prints this below the text block on page 1 of a submission.
+    neurips_preprint_footer: '^Submitted to \d+(?:st|nd|rd|th) Conference on Neural Information Processing Systems'
 
 columns:
   expected_columns: 1
@@ -52,6 +55,8 @@ structure:
   # NeurIPS encourages a Limitations section but the checklist is the hard
   # requirement, so absence is a warning rather than a desk-rejection error.
   limitations_required: true
+  # neurips_*.sty numbers every section; there is no unnumbered convention here.
+  limitations_unnumbered: false
   appendix_must_be_two_column: false
   # The checklist follows the references and any appendix, and is excluded from
   # the page limit alongside them.
