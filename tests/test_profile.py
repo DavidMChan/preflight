@@ -127,7 +127,7 @@ def test_circular_inheritance_is_rejected(tmp_path: Path) -> None:
 
 # -- the US Letter two-column venues --------------------------------------
 
-LETTER_TWO_COLUMN = ("cvpr", "aistats", "icml", "aaai")
+LETTER_TWO_COLUMN = ("cvpr", "aistats", "icml", "aaai", "icra")
 
 
 @pytest.mark.parametrize("key", LETTER_TWO_COLUMN)
@@ -167,10 +167,22 @@ def test_content_page_limits_match_the_published_calls() -> None:
     assert load_profile("aistats").track("camera_ready").content_page_limit == 9
     assert load_profile("icml").track("main").content_page_limit == 8
     assert load_profile("aaai").track("main").content_page_limit == 7
+    assert load_profile("icra").track("main").content_page_limit == 8
+
+
+def test_icra_counts_the_complete_pdf_and_enables_papercept_rules() -> None:
+    icra = load_profile("icra")
+    assert icra.get("structure.unlimited_after") == []
+    assert icra.get("structure.appendix_must_follow_references") is False
+    assert icra.get("pdf.minimum_version") == "1.4"
+    assert icra.get("pdf.require_base14_embedding") is True
+    assert icra.get("pdf.forbid_type3_fonts") is True
+    assert icra.get("pdf.forbid_hyperlinks") is True
+    assert icra.get("pdf.forbid_bookmarks") is True
 
 
 def test_unverified_geometry_cannot_desk_reject() -> None:
-    """None of the four ship an official format checker, so margins must warn."""
+    """Profiles without published checker tolerances keep margin findings advisory."""
     for key in LETTER_TWO_COLUMN:
         profile = load_profile(key)
         assert profile.severity_for("margins", Severity.ERROR) is Severity.WARNING, key

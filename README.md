@@ -5,8 +5,8 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Checks: 104](https://img.shields.io/badge/checks-104-blue)](#checks)
-[![Venues: 8](https://img.shields.io/badge/venues-8-blueviolet)](#conferences)
-[![Tests: 184](https://img.shields.io/badge/tests-184%20passing-brightgreen)](#development)
+[![Venues: 9](https://img.shields.io/badge/venues-9-blueviolet)](#conferences)
+[![Tests: 229](https://img.shields.io/badge/tests-229%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -15,7 +15,7 @@ sections, margins, fonts, anonymity, appendix placement, concealed text directed
 reviewers, reference validity, and the venue's responsible-research checklist. Each finding reports
 the specific location and measurement that produced it — `page 5, x=34.0pt, expected >= 69.0pt`.
 
-It includes profiles for ACL Rolling Review, NeurIPS, ICLR, ICML, CVPR, AAAI, AISTATS and
+It includes profiles for ACL Rolling Review, NeurIPS, ICLR, ICML, CVPR, AAAI, AISTATS, ICRA and
 BayLearn. Conference profiles are YAML files; additional venues can be configured without
 modifying the source code.
 
@@ -82,6 +82,7 @@ the deterministic report is unaffected.
 uv run preflight paper.pdf                          # select a conference interactively
 uv run preflight paper.pdf -c arr -t short          # ARR short-paper limits
 uv run preflight paper.pdf -c neurips               # a different venue
+uv run preflight paper.pdf -c icra                  # ICRA complete-paper checks
 uv run preflight paper.pdf -c iclr -t camera_ready  # ICLR, 10-page camera-ready limit
 uv run preflight paper.pdf --offline                # deterministic checks only, no network
 uv run preflight tui paper.pdf                      # interactive interface
@@ -122,7 +123,7 @@ Exit codes: `0` clean · `1` errors · `2` warnings under `--strict`, or an inva
 
 ## Conferences
 
-Eight bundled profiles, each selected with `-c`:
+Nine bundled profiles, each selected with `-c`:
 
 | Key | Venue | Tracks (content page limit) | Format |
 |---|---|---|---|
@@ -133,6 +134,7 @@ Eight bundled profiles, each selected with `-c`:
 | `cvpr` | CVPR (IEEE/CVF) | `main` 8p · `rebuttal` 1p | US Letter, two-column, 10pt; no appendix in the submission PDF |
 | `aaai` | AAAI (main technical track) | `main` 7p, and six further tracks | US Letter, two-column, 10pt; reproducibility checklist |
 | `aistats` | AISTATS | `main` 8p · `camera_ready` 9p | US Letter, two-column, 10pt |
+| `icra` | ICRA 2027 (IEEE RAS) | `main` 8p complete paper | US Letter, two-column, 10pt; references included; double-anonymous |
 | `baylearn` | BayLearn Symposium (abstracts) | `abstract` 2p | NeurIPS format, no checklist |
 
 Each profile encodes the most recent author kit published at the time it was written, named in a
@@ -157,11 +159,11 @@ number cannot report a desk rejection.
   ICLR) confirmation that the body was not set in columns.
 - **Body font size**, taken as the modal size across the document, and **minimum font size**,
   reported separately for figure labels, table cells and running prose.
-- **Content page limit.** The limit applies to the content preceding the first unlimited section
-  (Limitations, references, acknowledgements, ethics, appendix).
+- **Content page limit.** The limit applies to content preceding the first venue-approved unlimited
+  section. For venues such as ICRA that count references and appendices, every PDF page counts.
 - **Limitations section** — presence, title, position before the references, and absence of new
   methods or results.
-- **Appendix** — position after the references, and column layout.
+- **Appendix** — venue-specific placement and column layout.
 
 ### Anonymity — `core.anonymity`
 
@@ -307,6 +309,7 @@ base.yaml          venue-agnostic defaults, every module
 neurips.yaml       US Letter, single-column, 10pt, NeurIPS checklist mandatory
 └── baylearn.yaml  BayLearn abstracts: NeurIPS format, 2 pages, no checklist
 iclr.yaml          US Letter, single-column, 10pt, 9 pages (10 for camera ready)
+icra.yaml          US Letter, two-column, 10pt, 8 complete pages (references included)
 ```
 
 ```yaml
@@ -381,7 +384,7 @@ Conventions observed by the existing checks:
 ## Development
 
 ```bash
-uv run pytest                                  # 184 tests, no network required
+uv run pytest                                  # 229 tests, no network required
 uv run ruff check src tests
 uv run python scripts/try_question.py A1 paper.pdf    # a single checklist item
 ```

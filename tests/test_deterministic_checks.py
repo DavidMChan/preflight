@@ -157,6 +157,75 @@ def test_base14_fonts_are_exempt_from_embedding() -> None:
     assert len(base14) == 14
 
 
+def test_icra_requires_base14_fonts_to_be_embedded(tmp_path: Path) -> None:
+    import pymupdf
+
+    path = tmp_path / "unembedded-base14.pdf"
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Unembedded Helvetica", fontname="helv", fontsize=10)
+    doc.save(path)
+    doc.close()
+
+    profile = load_profile("icra")
+    ctx = CheckContext(doc=Document(path), profile=profile, track=profile.track("main"),
+                       settings=Settings.offline())
+    try:
+        finding = load_builtin_checks().checks["font_embedding"].run(ctx)[0]
+        assert finding.severity is Severity.ERROR
+        assert "unembedded font" in finding.message
+        assert finding.cfp_reference
+    finally:
+        ctx.doc.close()
+
+
+def test_icra_rejects_type3_fonts() -> None:
+    from types import SimpleNamespace
+
+    class FakePage:
+        def get_fonts(self, *, full: bool):
+            assert full
+            return [(7, "n/a", "Type3", "BitmapFont")]
+
+    class FakeRawDocument:
+        def __getitem__(self, index: int):
+            assert index == 0
+            return FakePage()
+
+    profile = load_profile("icra")
+    parsed = SimpleNamespace(doc=FakeRawDocument(), pages=[SimpleNamespace(number=1)])
+    ctx = CheckContext(doc=parsed, profile=profile, track=profile.track("main"),
+                       settings=Settings.offline())
+    finding = load_builtin_checks().checks["font_embedding"].run(ctx)[0]
+    assert finding.severity is Severity.ERROR
+    assert "Type 3 font" in finding.message
+    assert "forbidden Type 3" in finding.evidence[0].detail
+
+
+def test_icra_rejects_embedded_hyperlinks(tmp_path: Path) -> None:
+    import pymupdf
+
+    path = tmp_path / "linked.pdf"
+    doc = pymupdf.open()
+    page = doc.new_page()
+    page.insert_text((72, 72), "Printed project URL", fontsize=10)
+    page.insert_link({"kind": pymupdf.LINK_URI, "from": pymupdf.Rect(70, 60, 180, 80),
+                      "uri": "https://example.com/project"})
+    doc.save(path)
+    doc.close()
+
+    profile = load_profile("icra")
+    ctx = CheckContext(doc=Document(path), profile=profile, track=profile.track("main"),
+                       settings=Settings.offline())
+    try:
+        finding = load_builtin_checks().checks["pdf_health"].run(ctx)[0]
+        assert finding.severity is Severity.ERROR
+        assert any(e.detail == "embedded hyperlink annotation" for e in finding.evidence)
+        assert finding.cfp_reference
+    finally:
+        ctx.doc.close()
+
+
 # ---------------------------------------------------------------------------
 # Numeric-vs-author-year citation style
 # ---------------------------------------------------------------------------

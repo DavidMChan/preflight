@@ -118,7 +118,15 @@ def _title_block_lines(ctx: CheckContext) -> list[Line]:
 
 def _looks_like_person(text: str, ctx: CheckContext) -> bool:
     max_words = int(ctx.conf("anonymity.name_max_words", 5))
-    parts = [p.strip() for p in re.split(r",| and |&|·|\|", text) if p.strip()]
+    # IEEE author blocks attach numeric/symbol footnote markers to each name;
+    # PDF extraction commonly flattens ``Author$^{1}$`` into ``Author1``.
+    # Remove only trailing affiliation markers before applying the conservative
+    # name shape, so the official template cannot hide an otherwise plain name.
+    parts = [
+        re.sub(r"(?<=[A-Za-z.])(?:\s*[0-9¹²³⁴⁵⁶⁷⁸⁹⁰*†‡§¶]+)+$", "", p.strip()).strip()
+        for p in re.split(r",| and |&|·|\|", text)
+        if p.strip()
+    ]
     if not parts or len(text.split()) > max_words * max(len(parts), 1):
         return False
     return all(_NAME_RE.match(p) and len(p.split()) <= max_words for p in parts)

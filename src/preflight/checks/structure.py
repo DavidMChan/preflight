@@ -67,17 +67,27 @@ def _is_content_line(line: Line) -> bool:
 def check_page_limit(ctx: CheckContext) -> Finding:
     """Count content pages up to the first unlimited section, not total PDF pages."""
     limit = ctx.track.content_page_limit
+    unlimited_kinds = [
+        str(k) for k in (ctx.conf("structure.unlimited_after", list(_KIND_ALIAS_KEYS)) or [])
+    ]
     marker = _first_unlimited(ctx)
 
     if marker is None:
-        # No Limitations/References/appendix landmark at all: every page counts.
+        # Some venues (including ICRA) count the complete PDF, references and
+        # appendices included. Other profiles reach this branch when none of
+        # their configured unlimited-section landmarks could be found.
         content_pages = ctx.doc.page_count
-        note = (
-            "No Limitations, references or appendix heading was found, so every page in the PDF "
-            "counts as content."
-        )
-        evidence = [Evidence(detail="no unlimited-section landmark detected",
-                             measured=float(content_pages), expected=f"<= {limit} content pages")]
+        if unlimited_kinds:
+            note = (
+                "No configured unlimited-section heading was found, so every page in the PDF "
+                "counts as content."
+            )
+            detail = "no unlimited-section landmark detected"
+        else:
+            note = "This venue counts the complete PDF, including references and appendices."
+            detail = "complete PDF page count"
+        evidence = [Evidence(detail=detail, measured=float(content_pages),
+                             expected=f"<= {limit} pages")]
     else:
         idx = _line_index(ctx, marker)
         content_pages = marker.page
@@ -96,23 +106,46 @@ def check_page_limit(ctx: CheckContext) -> Finding:
         ]
 
     if content_pages > limit:
+        if unlimited_kinds:
+            remedy = (
+                "Move material into an unlimited section allowed by this venue, or cut content. "
+                "Do not shrink fonts or margins to fit."
+            )
+        else:
+            remedy = (
+                "Cut the complete paper to the page limit, including references and appendices. "
+                "Do not shrink fonts or margins to fit."
+            )
+        count_summary = (
+            f"The complete PDF has {content_pages} page(s); {ctx.track.name} papers allow {limit}."
+            if not unlimited_kinds
+            else f"Main content appears to run through page {content_pages}; "
+                 f"{ctx.track.name} papers allow {limit}."
+        )
         return ctx.error(
             "page_limit",
             "Content page limit",
-            f"Main content appears to run through page {content_pages}; {ctx.track.name} papers allow "
-            f"{limit}. {note} Exceeding the page limit is explicitly a desk-rejection condition.",
+            f"{count_summary} {note} Exceeding the page limit is explicitly a desk-rejection condition.",
             category="structure",
             evidence=evidence,
-            remedy="Move material into the appendix (which is unlimited and sits after the references), "
-            "or cut content. Do not shrink fonts or margins to fit.",
-            confidence="high — derived from the position of the first unlimited section, not raw page count",
+            remedy=remedy,
+            confidence=(
+                "high — derived from the position of the first unlimited section, not raw page count"
+                if marker is not None else "high — taken from the complete PDF page count"
+            ),
+            cfp_key="page_limit",
         )
+    count_summary = (
+        f"{content_pages} complete PDF page(s)"
+        if not unlimited_kinds else f"{content_pages} content page(s)"
+    )
     return ctx.ok(
         "page_limit",
         "Content page limit",
-        f"{content_pages} content page(s) against a limit of {limit} for {ctx.track.name} papers. {note}",
+        f"{count_summary} against a limit of {limit} for {ctx.track.name} papers. {note}",
         category="structure",
         evidence=evidence,
+        cfp_key="page_limit",
     )
 
 
@@ -273,11 +306,21 @@ def check_references_position(ctx: CheckContext) -> Finding:
         return ctx.warn("references_position", "References placement",
                         "No References or Bibliography heading was detected.", category="structure",
                         confidence="low — heading detection may have missed it",
-                        remedy="Verify the bibliography heading is present and formatted by the style file.")
+                        remedy="Verify the bibliography heading is present and formatted by the style file.",
+                        cfp_key="references_position")
+    unlimited_kinds = [
+        str(k) for k in (ctx.conf("structure.unlimited_after", list(_KIND_ALIAS_KEYS)) or [])
+    ]
+    limit_note = (
+        "are excluded from the content page limit"
+        if "references" in unlimited_kinds
+        else "count toward the complete-paper page limit"
+    )
     return ctx.ok("references_position", "References placement",
-                  f"References begin on page {references.page} and are excluded from the content page limit.",
+                  f"References begin on page {references.page} and {limit_note}.",
                   category="structure",
-                  evidence=[Evidence(page=references.page, detail=f"heading {references.text!r}")])
+                  evidence=[Evidence(page=references.page, detail=f"heading {references.text!r}")],
+                  cfp_key="references_position")
 
 
 @register("appendix_position", "Appendix placement", module=MODULE, category="structure", order=35)

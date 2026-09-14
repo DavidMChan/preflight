@@ -41,6 +41,29 @@ def test_page_limit_fires_when_content_overruns(overlong_paper: Path) -> None:
     assert finding.evidence
 
 
+def test_icra_page_limit_counts_references_and_appendices(tmp_path: Path) -> None:
+    from conftest import build_paper
+
+    path = build_paper(tmp_path / "icra-nine-pages.pdf", pages=9,
+                       limitations_page=None, references_page=2, appendix_page=3,
+                       page_size=(612.0, 792.0), body_size=10.0, author_line="")
+    finding = _finding(_run(path, conference="icra", track="main"), "page_limit")
+    assert finding.severity is Severity.ERROR
+    assert "complete PDF" in finding.message
+    assert "including references and appendices" in (finding.remedy or "")
+
+
+def test_icra_detects_ieee_author_lines_with_affiliation_markers(tmp_path: Path) -> None:
+    from conftest import build_paper
+
+    path = build_paper(tmp_path / "named-icra.pdf", pages=1, limitations_page=None,
+                       references_page=None, page_size=(612.0, 792.0), body_size=10.0,
+                       author_line="Albert Author1 and Bernard D. Researcher2")
+    finding = _finding(_run(path, conference="icra", track="main"), "anonymity_title_block")
+    assert finding.severity is Severity.ERROR
+    assert any("author name" in e.detail for e in finding.evidence)
+
+
 def test_short_track_applies_a_tighter_limit(clean_paper: Path) -> None:
     """The same PDF passes as a long paper and fails as a short one."""
     assert _finding(_run(clean_paper, track="long"), "page_limit").severity is Severity.PASS

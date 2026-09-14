@@ -290,7 +290,7 @@ markup:
 pdf:
   # The base-14 fonts are legitimately never embedded. pdfTeX also emits Type3
   # fonts whose glyphs live in the content stream rather than a font program;
-  # the module exempts those separately, or nearly every LaTeX paper would fail.
+  # the module exempts those unless a venue explicitly prohibits them.
   base14_fonts:
     [Helvetica, Helvetica-Bold, Helvetica-Oblique, Helvetica-BoldOblique,
      Courier, Courier-Bold, Courier-Oblique, Courier-BoldOblique,

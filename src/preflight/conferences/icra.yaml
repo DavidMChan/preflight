@@ -1,0 +1,222 @@
+# ICRA 2027 — IEEE International Conference on Robotics and Automation.
+#
+# CYCLE: this profile is pinned to the official ICRA 2027 call for technical
+# papers and the PaperCept IEEE conference kit supplied for the conference.
+# The call was published in July 2026 for a 15 September 2026 submission
+# deadline. ICRA 2027 takes place in Seoul, Republic of Korea, 24-28 May 2027.
+#
+# SOURCES:
+#   https://2027.ieee-icra.org/contribute/call-for-icra-2027-papers-now-accepting-submissions/
+#   https://www.ieee-ras.org/publications/rules-for-the-double-anonymous-review-process/
+#   https://ras.papercept.net/conferences/support/support.php
+#   https://ras.papercept.net/conferences/support/general.php
+#   supplied ieeeconf.zip (ieeeconf.cls, root.tex, root.pdf)
+#
+# NOTE ON NUMBERS: root.tex selects
+#   \documentclass[letterpaper, 10 pt, conference]{ieeeconf}
+# and calls \overrideIEEEmargins. ieeeconf.cls sets a 7.0in text width, 0.2in
+# column gap, 0.75in side margins, a -22pt top margin, and a 684pt text height
+# at 10pt. Its bundled root.pdf confirms a 612x792pt MediaBox, body glyphs at
+# x=54..558pt, later-page text beginning near y=54.5pt, and a modal 10pt Times
+# face. The declared text block is therefore left/right 54pt, top 50pt and
+# bottom 58pt. PaperCept publishes no numeric tolerance table, so margin
+# findings remain warnings even though the geometry itself comes from the kit.
+
+conference:
+  key: icra
+  name: ICRA 2027 (IEEE International Conference on Robotics and Automation)
+  extends: base
+  default_track: main
+  style: "ICRA/PaperCept IEEE (US Letter, two-column, 10pt Times)"
+
+tracks_replace: true
+tracks:
+  main:
+    content_page_limit: 8
+    description: >-
+      Technical paper submission — at most 8 pages for the complete paper,
+      including text, figures, tables, acknowledgments, bibliography/references,
+      appendices, and any other supplementary material. Papers over eight pages
+      at submission are returned without review.
+
+geometry:
+  page_width_pt: 612.0
+  page_height_pt: 792.0
+  paper_size_label: "US Letter (8.5in x 11in)"
+  margin_left_pt: 54.0
+  margin_right_pt: 54.0
+  margin_top_pt: 50.0
+  margin_bottom_pt: 58.0
+  # Engineering tolerances, not values published by PaperCept.
+  tolerance_left_pt: 4.0
+  tolerance_right_pt: 6.0
+  tolerance_top_pt: 4.0
+  tolerance_bottom_pt: 4.0
+
+columns:
+  expected_columns: 2
+  column_gap_pt: 14.4
+  min_gap_pt: 8.0
+
+fonts:
+  body_size_pt: 10.0
+  # The template explicitly uses 8pt for figure labels and its conference class
+  # uses 8pt for footnotes/captions. Smaller mathematical scripts are ignored by
+  # the check when they are too short to constitute running text.
+  min_font_size_pt: 8.0
+  allowed_font_substrings:
+    - NimbusRomNo9L
+    - TeXGyreTermes
+    - TimesNewRoman
+    - Times-Roman
+    - Times
+    - NimbusMonL
+    - Courier
+    - CMR
+    - CMMI
+    - CMSY
+    - LMRoman
+    - LMMath
+
+structure:
+  limitations_required: false
+  # ICRA's eight-page cap is for the complete paper. No heading starts free
+  # pages: references, acknowledgments, appendices and supplementary content all
+  # count. IEEE's sample places appendices before acknowledgments/references.
+  unlimited_after: []
+  appendix_must_follow_references: false
+  appendix_must_be_two_column: true
+
+anonymity:
+  enabled: true
+  # The supplied generic IEEE template has no anonymous-mode placeholder. ICRA
+  # instructs authors to omit the author/affiliation block entirely.
+  expected_author_line: null
+  title_block_height_pt: 145.0
+
+pdf:
+  # PaperCept rejects old PDFs, protected files, unembedded fonts and Type 3
+  # fonts. It also asks for Base 14 fonts to be subset/embedded and prohibits
+  # embedded links and bookmarks (a printed URL is permitted by the ICRA FAQ).
+  minimum_version: "1.4"
+  require_base14_embedding: true
+  forbid_type3_fonts: true
+  forbid_hyperlinks: true
+  forbid_bookmarks: true
+
+structure_note: >-
+  ICRA counts the entire PDF toward its eight-page limit, including references,
+  acknowledgments, appendices, and any other supplementary material. The paper
+  remains in the ICRA double-column format throughout. The generic PaperCept
+  sample contains author names; remove its complete author/affiliation block for
+  ICRA's double-anonymous review.
+
+severity:
+  # Explicit submission/ingestion failures in the ICRA call and PaperCept rules.
+  page_limit: error
+  anonymity_title_block: error
+  font_embedding: error
+  pdf_health: error
+  # The official kit establishes these measurements, but PaperCept supplies no
+  # public numeric tolerance table. Keep borderline bounding-box findings
+  # advisory and let the unmodified class plus PaperCept's PDF Test arbitrate.
+  margins: warning
+  paper_size: warning
+
+cfp:
+  page_limit: >-
+    ICRA 2027 permits at most 8 pages for the complete paper: text, figures, tables,
+    acknowledgments, bibliography/references, and all other material. Papers over
+    eight pages at submission are returned without review; there are no free
+    reference or appendix pages.
+  paper_size: >-
+    Every submission must follow the ICRA double-column format. The supplied
+    PaperCept LaTeX source uses \documentclass[letterpaper, 10 pt,
+    conference]{ieeeconf} and \overrideIEEEmargins. PaperCept requires US Letter
+    for final IEEE submissions and recommends the conference template throughout.
+  margins: >-
+    The PaperCept template prescribes its margins and warns authors not to alter
+    margins, column widths, line spacing, or text fonts. This profile derives the
+    text block from ieeeconf.cls and checks rendered boxes with an advisory
+    tolerance because PaperCept does not publish its checker thresholds.
+  font_size: >-
+    The official PaperCept source selects 10pt conference mode. Its sample uses
+    8pt figure labels, while the class keeps running body text at 10pt. Do not
+    shrink body text or spacing to fit the eight-page complete-paper limit.
+  anonymity: >-
+    ICRA 2027 uses IEEE RAS double-anonymous review. Omit names, affiliations,
+    acknowledgments to people or funders, author/lab names and logos in figures,
+    identifiable faces, identifying external links, and author information in
+    file metadata. Cite prior work neutrally rather than as "our earlier work".
+    Violations of the RAS rules can result in desk rejection.
+  references_position: >-
+    Bibliography/references are part of the complete paper and count toward the
+    eight-page limit. The IEEE template places the bibliography at the end.
+  appendix_position: >-
+    Any appendix or supplementary material included in the PDF must fit inside
+    the same eight regular pages. The supplied IEEE template places appendices
+    before acknowledgments and references.
+  pdf_fonts: >-
+    PaperCept requires every font, including Base 14 fonts, to be embedded or
+    subset and prohibits Type 3 bitmap fonts and fonts requiring non-English
+    language support. A PDF that fails the font tests cannot be uploaded.
+  pdf_health: >-
+    PaperCept requires PDF 1.4 compatibility or newer, all security settings off,
+    and no password protection. Its compliance guidance prohibits links and
+    bookmarks; ICRA permits printed URLs but says they must not be embedded links.
+    Test the final file with PaperCept's PDF Test before submitting.
+
+unverifiable:
+  - id: papercept_pdf_test
+    title: PaperCept PDF Test and compliant conversion
+    message: >-
+      PaperCept runs its own conformance and compliance tests on every upload and
+      may convert a submitted PDF or source archive. Preflight checks the original
+      PDF, not PaperCept's converted output or private acceptance thresholds. Run
+      the official PDF Test and inspect every converted page for changed or missing
+      content before submission.
+  - id: non_english_fonts
+    title: Fonts requiring non-English language support
+    message: >-
+      PaperCept prohibits fonts that require non-English language support. Font
+      names and encodings vary too widely for a reliable local blocklist, so the
+      official PDF Test must make this determination. Preflight does check for
+      forbidden Type 3 fonts and missing embedded font programs.
+  - id: ai_disclosure_and_confidentiality
+    title: Generative AI disclosure and review confidentiality
+    message: >-
+      AI-generated article content must be disclosed in the acknowledgments with
+      the system, affected sections, and manner of use; ordinary editing and grammar
+      help is generally outside that policy. Manuscript-under-review content may not
+      be processed through an AI system. Whether tools were used or disclosed as
+      required cannot be established from the PDF alone.
+  - id: accompanying_video
+    title: Optional accompanying video
+    message: >-
+      The optional video is a separate upload: at most 20 MB and 180 seconds, in
+      mpeg/mp4/mpg, at least 480 pixels high, at least 20 fps, progressive scan.
+      It must be uploaded during one of the initial-submission windows and follow
+      the same double-anonymous rules. The paper PDF cannot establish compliance.
+  - id: submission_metadata
+    title: PaperPlaza authors, keywords, and deadline
+    message: >-
+      All co-authors must be entered in PaperPlaza, at least three RAS keywords
+      must be selected, and the submission must arrive by 15 September 2026 at
+      23:59 PST. These are submission-form facts rather than PDF properties.
+  - id: dual_submission
+    title: Prior and concurrent publication
+    message: >-
+      Non-archival workshop versions and preprints are allowed, but a workshop
+      paper with a DOI is archival and simultaneous submission elsewhere is not
+      allowed. Establishing publication status requires comparison with external
+      records and other submissions.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can catch leaked identities, but cannot confirm that all and only
+      contributors are entered as co-authors in PaperPlaza.
+  - id: in_person_presentation
+    title: On-site presentation
+    message: >-
+      ICRA 2027 is on-site only. An accepted paper without an on-site presenter is
+      treated as a no-show and skipped; that future commitment is not in the PDF.

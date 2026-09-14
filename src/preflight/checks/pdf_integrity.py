@@ -85,14 +85,17 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
 
     An unembedded font renders with a substitute on any machine that lacks it,
     which can shift line breaks, hide glyphs, or trip a publisher's ingestion
-    pipeline. Type 3 fonts are excluded: their glyphs are drawn directly from
-    PDF content streams (CharProcs), so there is no separate font file to
-    embed -- ``extract_font`` legitimately returns an empty buffer for them.
+    pipeline. Type 3 glyphs live in PDF content streams (CharProcs), so there is
+    no separate font file to embed. They are normally exempt, but profiles for
+    publishers such as IEEE/PaperCept can prohibit them explicitly.
     """
     base14 = {str(s).lower() for s in (ctx.conf("pdf.base14_fonts", _DEFAULT_BASE14) or [])}
+    require_base14 = bool(ctx.conf("pdf.require_base14_embedding", False))
+    forbid_type3 = bool(ctx.conf("pdf.forbid_type3_fonts", False))
     raw = ctx.doc.doc
 
     missing: dict[str, set[int]] = {}
+    type3: dict[str, set[int]] = {}
     seen: dict[str, str] = {}  # simple name -> subtype, for the report
     all_fonts: dict[str, set[int]] = {}
 
@@ -104,9 +107,11 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
         for item in fonts:
             xref, _ext, subtype, basefont, *_rest = item
             if subtype == "Type3":
+                if forbid_type3:
+                    type3.setdefault(basefont or "unnamed Type 3 font", set()).add(page.number)
                 continue  # self-contained; nothing external to embed
             simple = basefont.split("+", 1)[-1] if "+" in basefont else basefont
-            if not simple or simple.lower() in base14:
+            if not simple or (simple.lower() in base14 and not require_base14):
                 continue  # base-14 standard font, legitimately unembedded
             all_fonts.setdefault(simple, set()).add(page.number)
             seen[simple] = subtype
@@ -118,7 +123,7 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
             if not embedded:
                 missing.setdefault(simple, set()).add(page.number)
 
-    if missing:
+    if missing or type3:
         evidence = [
             Evidence(
                 detail=f"font {name!r} ({seen.get(name, '?')}) is not embedded",
@@ -127,19 +132,34 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
             )
             for name, pages in sorted(missing.items())
         ]
+        evidence.extend(
+            Evidence(
+                detail=f"font {name!r} is a forbidden Type 3 bitmap font",
+                page=min(pages),
+                expected="Type 1, TrueType, or another scalable embedded font",
+            )
+            for name, pages in sorted(type3.items())
+        )
         pages_all = sorted({p for pages in missing.values() for p in pages})
+        pages_all = sorted({*pages_all, *(p for pages in type3.values() for p in pages)})
+        issues = []
+        if missing:
+            issues.append(f"{len(missing)} unembedded font(s)")
+        if type3:
+            issues.append(f"{len(type3)} Type 3 font(s)")
         return ctx.warn(
             "font_embedding",
             "Font embedding",
-            f"{len(missing)} font(s) are referenced but not embedded, appearing on "
+            f"{' and '.join(issues)} found on "
             f"page(s) {', '.join(str(p) for p in pages_all[:10])}"
             f"{'...' if len(pages_all) > 10 else ''}.",
             category="format",
             evidence=evidence[:10],
-            remedy="Regenerate the PDF with font embedding enabled "
+            remedy="Regenerate the PDF with scalable fonts and font embedding enabled "
             "(pdflatex: use Type 1/OpenType fonts and embed with pdftex.map/-dEmbedAllFonts, "
-            "or run through `gs -dEmbedAllFonts=true`).",
+            "or use PaperCept's compliant conversion).",
             confidence="high — checked via the PDF's own font descriptor and extract_font()",
+            cfp_key="pdf_fonts",
         )
     if not all_fonts:
         return ctx.skip(
@@ -152,6 +172,7 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
         "Font embedding",
         f"All {len(all_fonts)} non-standard font(s) referenced in the document are embedded.",
         category="format",
+        cfp_key="pdf_fonts",
     )
 
 
@@ -178,12 +199,36 @@ def check_pdf_health(ctx: CheckContext) -> Finding:
         problems.append(Evidence(detail="PyMuPDF had to repair the file structure on open; "
                                         "the source PDF is malformed"))
 
+    version = str(ctx.doc.metadata.get("format") or "unknown")
+    minimum_version = ctx.conf("pdf.minimum_version", None)
+    if minimum_version is not None:
+        match = re.search(r"(\d+(?:\.\d+)?)", version)
+        if match and tuple(int(p) for p in match.group(1).split(".")) < tuple(
+            int(p) for p in str(minimum_version).split(".")
+        ):
+            problems.append(Evidence(detail=f"PDF version {match.group(1)} is too old",
+                                     measured=float(match.group(1)),
+                                     expected=f">= PDF {minimum_version}"))
+
+    if bool(ctx.conf("pdf.forbid_hyperlinks", False)) and ctx.doc.hyperlinks:
+        for page, uri in ctx.doc.hyperlinks[:8]:
+            problems.append(Evidence(page=page, detail="embedded hyperlink annotation", quote=uri,
+                                     expected="printed URL without an embedded link"))
+
+    if bool(ctx.conf("pdf.forbid_bookmarks", False)):
+        try:
+            bookmarks = doc.get_toc(simple=True)
+        except Exception:  # pragma: no cover - malformed outline tree
+            bookmarks = []
+        if bookmarks:
+            problems.append(Evidence(detail=f"{len(bookmarks)} PDF bookmark(s) found",
+                                     expected="no document bookmarks"))
+
     zero_area: list[PageInfo] = [p for p in ctx.doc.pages if p.width <= 0 or p.height <= 0]
     for p in zero_area:
         problems.append(Evidence(page=p.number, detail="zero-area MediaBox",
                                  measured=p.width * p.height, expected="> 0"))
 
-    version = str(ctx.doc.metadata.get("format") or "unknown")
     producer = str(ctx.doc.metadata.get("producer") or "unknown")
 
     if problems:
@@ -194,7 +239,9 @@ def check_pdf_health(ctx: CheckContext) -> Finding:
             category="format",
             evidence=problems[:10],
             remedy="Regenerate the PDF from source rather than editing the container directly; "
-            "a repaired or encrypted submission can be rejected by the publisher's ingestion pipeline.",
+            "remove encryption, embedded links and bookmarks, and use the PDF version required by "
+            "the publisher's ingestion pipeline.",
+            cfp_key="pdf_health",
         )
     return ctx.ok(
         "pdf_health",
@@ -204,4 +251,5 @@ def check_pdf_health(ctx: CheckContext) -> Finding:
         category="format",
         evidence=[Evidence(detail=f"pages={ctx.doc.page_count}, format={version}, "
                                    f"encrypted={ctx.doc.is_encrypted}, producer={producer!r}")],
+        cfp_key="pdf_health",
     )
