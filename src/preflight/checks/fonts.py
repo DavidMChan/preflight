@@ -87,6 +87,11 @@ def check_min_font_size(ctx: CheckContext) -> Finding:
     in_scripts = 0
     for line in ctx.doc.reading_order:
         body_flow = _is_body_flow(ctx, line)
+        # Small capitals are cut at 80% of the size the line is set at: an 8pt
+        # IEEE table caption ("LIBERO RESULTS") carries 6.4pt glyphs by design,
+        # and the reader sees 8pt type. Judge the line at its full-size initial.
+        if line.small_caps and line.heading_size >= minimum - 0.15:
+            continue
         for span in line.spans:
             text = span.text.strip()
             if len(text) < 3 or ignore.match(text) or span.invisible:

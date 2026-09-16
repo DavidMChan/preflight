@@ -216,8 +216,17 @@ def _is_citation_group(numbers: list[int], ceiling: int | None) -> bool:
 def _numeric_citations(text: str, ceiling: int | None) -> list[tuple[re.Match[str], list[int]]]:
     """Bracketed spans in ``text`` that survive `_is_citation_group`."""
     out = []
+    previous: tuple[re.Match[str], list[int]] | None = None
     for match in _NUMERIC_CITE.finditer(text):
         numbers = _expand_numeric(match.group(1))
+        # IEEE compresses a run into "[1]–[4]": two bracketed numbers joined by
+        # a dash. The second bracket then stands for everything after the first.
+        if previous is not None and len(numbers) == 1 and len(previous[1]) == 1:
+            between = text[previous[0].end() : match.start()]
+            lo, hi = previous[1][0], numbers[0]
+            if re.fullmatch(r"\s*[-–—]\s*", between) and lo < hi <= lo + _MAX_NUMERIC_GROUP:
+                numbers = list(range(lo + 1, hi + 1))
+        previous = (match, numbers)
         if _is_citation_group(numbers, ceiling):
             out.append((match, numbers))
     return out

@@ -82,6 +82,25 @@ def _is_margin_exempt(line: Line, pattern: re.Pattern[str],
     return bool(pattern.match(text)) or any(f.search(text) for f in furniture)
 
 
+def _systematic_side(violations: list[Evidence]) -> str | None:
+    """The side whose overshoot repeats at one position on three or more pages.
+
+    A float that overflows does so once, by its own amount. The same line
+    position over and over is the text block: the margins themselves differ
+    from the template's.
+    """
+    seen: dict[tuple[str, int], set[int]] = {}
+    for e in violations:
+        if e.page is None or e.measured is None or "text bleeds" not in e.detail:
+            continue
+        side = e.detail.split()[-2].lower()
+        seen.setdefault((side, round(e.measured)), set()).add(e.page)
+    for (side, _), pages in seen.items():
+        if len(pages) >= 3:
+            return side
+    return None
+
+
 @register("margins", "Margins", module=MODULE, category="format", order=11)
 def check_margins(ctx: CheckContext) -> Finding:
     """Measure the extreme text/image boxes on each page against the style margins."""
@@ -140,17 +159,31 @@ def check_margins(ctx: CheckContext) -> Finding:
 
     if violations:
         pages = sorted({e.page for e in violations if e.page})
+        systematic = _systematic_side(violations)
+        note = (
+            f" The {systematic} overshoot recurs at the same position on most pages, so it is "
+            "the text block itself that sits outside the template's, not a float spilling "
+            "over: the paper was built with a different class file or altered margins."
+            if systematic else ""
+        )
+        remedy = (
+            "Rebuild with the venue's official class file and its default margins; do not "
+            "override the text block."
+            if systematic else
+            "Usually caused by wide tables, unbroken URLs, or oversized figures. "
+            "Wrap long URLs, shrink or rotate wide tables, and let the venue's style file "
+            "set the text block."
+        )
         return ctx.error(
             "margins",
             "Margins",
             f"{len(violations)} margin violation(s) across {len(pages)} page(s): "
             f"{', '.join(str(p) for p in pages[:10])}"
-            f"{'...' if len(pages) > 10 else ''}. Margin violations can be rejected without review.",
+            f"{'...' if len(pages) > 10 else ''}. Margin violations can be rejected without review."
+            + note,
             category="format",
             evidence=violations[:cap],
-            remedy="Usually caused by wide tables, unbroken URLs, or oversized figures. "
-            "Wrap long URLs, shrink or rotate wide tables, and let the venue's style file "
-            "set the text block.",
+            remedy=remedy,
             confidence="high — measured from text bounding boxes; images with white backgrounds may be spurious",
         )
     return ctx.ok(

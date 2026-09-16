@@ -145,6 +145,9 @@ def _join(lines: list[Line]) -> str:
     return text.strip()
 
 
+_NUMERIC_LABEL = re.compile(r"^\s*\[\d{1,3}\]")
+
+
 def segment(ctx: CheckContext, lines: list[Line]) -> list[str]:
     """Group lines into entries using the bibliography's hanging indent."""
     if not lines:
@@ -155,7 +158,14 @@ def segment(ctx: CheckContext, lines: list[Line]) -> list[str]:
     entries: list[list[Line]] = []
     current: list[Line] = []
     for line in lines:
-        if any(abs(line.bbox[0] - left) <= tolerance for left in lefts) and current:
+        offset = min(abs(line.bbox[0] - left) for left in lefts)
+        # IEEE right-aligns the numeric label, so "[1]" through "[9]" begin one
+        # digit's width inside the column edge that "[10]" sits on. A line that
+        # opens with a bracketed number close to the edge starts an entry too.
+        starts_entry = offset <= tolerance or (
+            offset <= 4 * tolerance and _NUMERIC_LABEL.match(line.text) is not None
+        )
+        if starts_entry and current:
             entries.append(current)
             current = [line]
         else:

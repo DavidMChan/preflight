@@ -136,3 +136,92 @@ def test_captions_do_not_absorb_margin_line_numbers(tmp_path: Path) -> None:
     assert len(caps) == 1
     assert caps[0].text == "Layer sweep over the development split."
     assert "1898" not in caps[0].text and "1899" not in caps[0].text
+
+
+def test_body_text_starts_at_the_abstract(small_caps_paper: Path) -> None:
+    from preflight.analysis import body_text, sentences
+
+    ctx = _ctx(small_caps_paper)
+    body = body_text(ctx)
+    assert "DRIVERLESS" not in body          # the title is not prose
+    assert "Anonymous authors" not in body
+    assert "random sequences can stand in" in body
+    assert "Activation steering constructs" in body
+    assert not any("DRIVERLESS" in s.text for s in sentences(ctx))
+
+
+def test_a_long_caption_is_one_caption_and_the_next_paragraph_is_not(tmp_path: Path) -> None:
+    import pymupdf
+
+    from preflight.analysis import captions
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    y = 300.0
+    page.insert_text((54, y), "Fig. 1. The pipeline. A frozen policy proposes", fontname="tiro", fontsize=8)
+    for i in range(14):                      # a teaser caption fourteen lines long
+        y += 9.5
+        page.insert_text((54, y), f"caption line {i} continues the description of the figure,",
+                         fontname="tiro", fontsize=8)
+    y += 30                                  # a paragraph gap, then the abstract
+    page.insert_text((54, y), "Abstract. Vision-language-action (VLA) models have made progress.",
+                     fontname="tibo", fontsize=10)
+    path = tmp_path / "long_caption.pdf"
+    doc.save(path)
+    doc.close()
+    caps = captions(_ctx(path))
+    assert len(caps) == 1
+    assert "caption line 13" in caps[0].text
+    assert "Abstract" not in caps[0].text
+
+
+def test_inline_ieee_abstract_is_extracted(tmp_path: Path) -> None:
+    import pymupdf
+
+    from preflight.analysis import abstract_text
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((150, 80), "A Title Set Large", fontname="tibo", fontsize=24)
+    y = 140.0
+    for i, text in enumerate([
+        "Abstract: Vision-language-action (VLA) models have made progress",
+        "on manipulation. We study whether a verifier helps them.",
+        "It does, on four tasks.",
+    ]):
+        page.insert_text((54, y + i * 12), text, fontname="tibo", fontsize=10)
+    page.insert_text((54, 200), "I.", fontname="tibo", fontsize=10)
+    page.insert_text((80, 200), "INTRODUCTION", fontname="tibo", fontsize=10)
+    page.insert_textbox(pymupdf.Rect(54, 210, 298, 700), "The introduction begins here. " * 40,
+                        fontname="tiro", fontsize=10)
+    path = tmp_path / "ieee.pdf"
+    doc.save(path)
+    doc.close()
+    text = abstract_text(_ctx(path))
+    assert text.startswith("Vision-language-action (VLA) models")
+    assert text.rstrip().endswith("on four tasks.")
+    assert "introduction begins" not in text
+
+
+def test_caption_sentences_are_not_body_prose(tmp_path: Path) -> None:
+    import pymupdf
+
+    from preflight.analysis import sentences
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((54, 100), "Abstract. We report a method and its results in this paper.",
+                     fontname="tiro", fontsize=10)
+    page.insert_textbox(pymupdf.Rect(54, 120, 298, 300),
+                        "The method works by construction. Each stage is run in turn on the data. ",
+                        fontname="tiro", fontsize=10)
+    page.insert_text((54, 400), "Fig. 2. From top to bottom: soup into a basket; a bowl into the drawer;",
+                     fontname="tiro", fontsize=8)
+    page.insert_text((54, 409), "a mug onto the plate; and the cube out of the drawer onto the table.",
+                     fontname="tiro", fontsize=8)
+    path = tmp_path / "cap_prose.pdf"
+    doc.save(path)
+    doc.close()
+    texts = [s.text for s in sentences(_ctx(path))]
+    assert any("works by construction" in t for t in texts)
+    assert not any("From top to bottom" in t for t in texts)

@@ -156,6 +156,13 @@ def build_small_caps_paper(path: Path) -> Path:
             y += 40
             page.insert_text((108, y), "Anonymous authors", fontname="tibo", fontsize=10)
             y += 30
+            _small_caps(page, 280, y, "Abstract", 12.0, 9.6)
+            y += 16
+            page.insert_textbox(pymupdf.Rect(140, y, 470, y + 60),
+                                "We study whether random sequences can stand in for examples. "
+                                "The abstract sets out the claim in two sentences.",
+                                fontname="tiro", fontsize=10)
+            y += 70
             page.insert_text((108, y), "1", fontname="tiro", fontsize=12)
             _small_caps(page, 127, y, "Introduction", 12.0, 9.6)
             y += 16

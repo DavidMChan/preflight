@@ -154,7 +154,8 @@ def check_title_support(ctx: CheckContext) -> Finding:
         # is enough evidence the concept is not a title-only flourish.
         whole_count = _count_in_body(body_lower, cleaned.replace("-", "").replace("/", ""))
         part_counts = [_count_in_body(body_lower, p) for p in subterms if len(p) >= min_len]
-        best = max([whole_count, *part_counts]) if part_counts else whole_count
+        # The body excludes the title block, so the title's own use is added back.
+        best = (max([whole_count, *part_counts]) if part_counts else whole_count) + 1
         if best < min_occurrences:
             unsupported.append(
                 Evidence(

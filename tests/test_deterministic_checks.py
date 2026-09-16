@@ -582,3 +582,62 @@ def test_a_corporate_author_is_the_entry_surname() -> None:
     assert _cited_anywhere(entries[0], body)
     assert _cited_anywhere(entries[1], body)
     assert not _cited_anywhere(entries[2], body)
+
+
+def test_right_aligned_reference_labels_start_entries(clean_paper: Path) -> None:
+    """IEEE sets "[1]"-"[9]" one digit's width inside the edge that "[10]" sits on."""
+    from preflight.document import Line, Span
+    from preflight.refcheck.parse import segment
+
+    ctx = _ctx(clean_paper)
+    left = ctx.doc.column_bands[0][0]
+
+    def line(x: float, text: str, y: float) -> Line:
+        span = Span(text=text, bbox=(x, y, x + 200, y + 9), font="tiro", size=9.0,
+                    color=0, flags=0, page=9)
+        return Line(spans=[span], bbox=span.bbox, page=9)
+
+    lines = [
+        line(left + 4.0, "[1] A. Author, “First paper,” arXiv preprint, 2023.", 100),
+        line(left + 14.0, "[Online]. Available: https://arxiv.org/abs/2307.15818", 110),
+        line(left + 4.0, "[2] B. Author, “Second paper,” in Proceedings, 2024.", 120),
+        line(left, "[10] C. Author, “Tenth paper,” in Proceedings, 2022.", 130),
+        line(left + 14.0, "continued on a second line with pages 1–9.", 140),
+    ]
+    entries = segment(ctx, lines)
+    assert [e.split()[0] for e in entries] == ["[1]", "[2]", "[10]"]
+    assert entries[0].endswith("2307.15818")
+
+
+def test_small_caps_captions_are_judged_at_their_full_size(tmp_path: Path) -> None:
+    """An 8pt IEEE table caption in small capitals carries 6.4pt glyphs by design."""
+    import pymupdf
+
+    from preflight.checks.fonts import check_min_font_size
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    x = 54.0
+    for word in ("Table", "I:", "Libero", "Results"):
+        page.insert_text((x, 100), word[0], fontname="tiro", fontsize=8)
+        x += pymupdf.get_text_length(word[0], fontname="tiro", fontsize=8)
+        page.insert_text((x, 100), word[1:].upper(), fontname="tiro", fontsize=6.4)
+        x += pymupdf.get_text_length(word[1:].upper(), fontname="tiro", fontsize=6.4) + 3
+    page.insert_textbox(pymupdf.Rect(54, 120, 298, 700), "Body text at ten point. " * 80,
+                        fontname="tiro", fontsize=10)
+    path = tmp_path / "smallcaps.pdf"
+    doc.save(path)
+    doc.close()
+    profile = load_profile("icra")
+    ctx = CheckContext(doc=Document(path), profile=profile, track=profile.track("main"),
+                       settings=Settings.offline())
+    assert check_min_font_size(ctx).severity == Severity.PASS
+
+
+def test_ieee_bracketed_ranges_cite_the_interior() -> None:
+    """"[9]–[11]" cites 10 as well; "[5]– [8]" survives the stray space."""
+    from preflight.checks.citations import _numeric_citations
+
+    text = "embodiments [9]–[11] and models [5]– [8], but [3] alone and [20] - [40] is not a run."
+    cited = sorted({n for _, numbers in _numeric_citations(text, None) for n in numbers})
+    assert cited == [3, 5, 6, 7, 8, 9, 10, 11, 20, 40]

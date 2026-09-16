@@ -87,24 +87,37 @@ def _first_unlimited_heading(ctx: CheckContext) -> Heading | None:
 
 
 def body_text(ctx: CheckContext) -> str:
-    """Main content only: everything before the references and appendices.
+    """Main content only: after the title block, before the references.
 
     Prose diagnostics must not be run over the bibliography, where "sentences"
-    are citation strings and every third token is a proper noun.
+    are citation strings and every third token is a proper noun, nor over the
+    title block and figure labels, which run together into one long
+    "sentence" with no full stop.
     """
     cached = ctx.shared.get("analysis_body_text")
     if isinstance(cached, str):
         return cached
     stop = _first_unlimited_heading(ctx)
-    if stop is None:
-        text = full_text(ctx)
-    else:
-        lines = []
-        for line in ctx.doc.reading_order:
-            if line.page == stop.page and abs(line.bbox[1] - stop.bbox[1]) < 0.6:
-                break
-            lines.append(line.text)
-        text = clean_text(ctx, "\n".join(lines))
+    display = (ctx.doc.body_font_size or 11.0) + 3.0
+    # The title block is not prose. It ends where the abstract begins, whether
+    # that is a heading ("ABSTRACT") or IEEE's inline "Abstract—"; a teaser
+    # figure placed above the abstract goes with it.
+    first_page = [ln for ln in ctx.doc.reading_order if ln.page == 1]
+    abstract_at = next(
+        (i for i, ln in enumerate(first_page) if ln.text.strip().lower().startswith("abstract")),
+        None,
+    )
+    title_block = set(map(id, first_page[:abstract_at])) if abstract_at else set()
+    lines = []
+    for line in ctx.doc.reading_order:
+        if stop is not None and line.page == stop.page and abs(line.bbox[1] - stop.bbox[1]) < 0.6:
+            break
+        if id(line) in title_block or (line.page == 1 and line.heading_size >= display):
+            continue
+        if ctx.doc.pages[line.page - 1].inside_graphic(line.bbox):
+            continue  # labels drawn inside a figure
+        lines.append(line.text)
+    text = clean_text(ctx, "\n".join(lines))
     ctx.shared["analysis_body_text"] = text
     return text
 
@@ -150,7 +163,35 @@ def section_text(ctx: CheckContext, aliases: list[str]) -> str:
 
 
 def abstract_text(ctx: CheckContext) -> str:
-    return section_text(ctx, ["Abstract"])
+    text = section_text(ctx, ["Abstract"])
+    if text:
+        return text
+    # IEEE sets the abstract as a bold paragraph opening "Abstract—" with no
+    # heading of its own. It runs from that line to the next heading (usually
+    # "Index Terms" or "I. INTRODUCTION").
+    first_page = [ln for ln in ctx.doc.reading_order if ln.page == 1]
+    start = next(
+        (i for i, ln in enumerate(first_page) if re.match(r"(?i)abstract\s*[—–:.-]", ln.text.strip())),
+        None,
+    )
+    if start is None:
+        return ""
+    # The abstract's own bold lines register as headings too; a real section
+    # heading is numbered, set in capitals, or the "Index Terms" line.
+    stops = [
+        h for h in ctx.doc.headings
+        if h.page == 1 and h.bbox[1] > first_page[start].bbox[1] and (
+            h.numbering is not None or h.text.isupper()
+            or re.match(r"(?i)^(index terms|keywords)", h.text)
+        )
+    ]
+    lines: list[str] = []
+    for ln in first_page[start:]:
+        if any(abs(ln.bbox[1] - h.bbox[1]) < 0.6 for h in stops):
+            break
+        lines.append(ln.text)
+    text = clean_text(ctx, "\n".join(lines))
+    return re.sub(r"(?i)^abstract\s*[—–:.-]\s*", "", text)
 
 
 def conclusion_text(ctx: CheckContext) -> str:
@@ -228,6 +269,14 @@ def sentences(ctx: CheckContext, text: str | None = None) -> list[Sentence]:
             out.append(Sentence(text=piece, index=len(out)))
 
     if use_cache:
+        # A caption is a label, not the running argument: "From top to bottom:
+        # soup into a basket; bowl into the drawer; ..." is a list by design.
+        caption_texts = [" ".join(c.text.split()) for c in captions(ctx)]
+        kept = [
+            s for s in out
+            if not any(s.text in cap or (len(s.text) > 40 and cap in s.text) for cap in caption_texts)
+        ]
+        out = [Sentence(text=s.text, index=i) for i, s in enumerate(kept)]
         ctx.shared["analysis_sentences"] = out
     return out
 
@@ -268,17 +317,21 @@ def captions(ctx: CheckContext) -> list[Caption]:
             continue
         kind = match.group(1).lower().rstrip(".").replace("fig", "figure")
         body = match.group(3)
-        # Captions wrap; absorb following lines until the next caption or a gap.
+        # Captions wrap; absorb following lines until the next caption or a
+        # gap. The gap is measured line to line, not from the caption's first
+        # line: a ten-line teaser caption is still one caption.
         number_re = _line_number_re(ctx)
-        for follower in lines[i + 1 : i + 12]:
+        previous = line
+        for follower in lines[i + 1 : i + 30]:
             nxt = " ".join(follower.text.split())
             if not nxt or _CAPTION_RE.match(nxt) or follower.page != line.page:
                 break
             if number_re.match(nxt):
                 continue  # a margin line number interleaved with the caption
-            if abs(follower.bbox[1] - line.bbox[1]) > 60:
+            if follower.bbox[1] - previous.bbox[3] > 8.0:
                 break
             body += " " + nxt
+            previous = follower
         body = body.strip()
         out.append(
             Caption(
