@@ -244,6 +244,11 @@ def _index_entries(entries: list[str]) -> list[_Entry]:
         printed_index = int(idx_match.group(1)) if idx_match else i
         prefix = raw[: year_match.start()] if year_match else raw
         first_author = re.split(r"\s+and\s+|,", prefix, maxsplit=1)[0].strip()
+        # A lone corporate author ("DeepSeek-AI. DeepSeek-V3 technical report.
+        # CoRR, ...") has no comma before the title, so the split above runs
+        # on into it. The author block ends at the first full stop that is not
+        # an initial's.
+        first_author = re.split(r"(?<!\b[A-Z])\.\s+", first_author, maxsplit=1)[0].strip()
         words = [w.strip(".,") for w in first_author.split() if w.strip(".,")]
         surname = words[-1] if words else (raw.split()[0] if raw.split() else "")
         out.append(_Entry(index=printed_index, raw=raw, surname=surname,

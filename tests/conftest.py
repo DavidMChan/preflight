@@ -117,3 +117,76 @@ def real_paper() -> Path:
     if not path.is_file():
         pytest.skip("local sample PDF not available")
     return path
+
+
+# ---------------------------------------------------------------------------
+# Small-caps headings and single-column papers (the ICLR / NeurIPS template)
+# ---------------------------------------------------------------------------
+
+
+def _small_caps(page: pymupdf.Page, x: float, y: float, word: str, big: float, small: float) -> float:
+    """Set ``word`` the way pdfTeX emits \\textsc: a full-size initial, then
+    the rest as smaller capitals. Returns the x position after the word."""
+    page.insert_text((x, y), word[0], fontname="tiro", fontsize=big)
+    x += pymupdf.get_text_length(word[0], fontname="tiro", fontsize=big)
+    page.insert_text((x, y), word[1:].upper(), fontname="tiro", fontsize=small)
+    return x + pymupdf.get_text_length(word[1:].upper(), fontname="tiro", fontsize=small)
+
+
+def build_small_caps_paper(path: Path) -> Path:
+    """Two US-Letter pages, single column at x=108, 10pt body, headings in
+    small caps as the ICLR style file sets them. A stack of centred display
+    equations shares a left edge, which must not become a second column."""
+    body = (
+        "Activation steering constructs a direction from examples of a behavior. "
+        "We find that sequences sampled at random can replace those examples. "
+    ) * 6
+    doc = pymupdf.open()
+    for number in (1, 2):
+        page = doc.new_page(width=612, height=792)
+        for i in range(40):
+            page.insert_text((73, 100 + i * 12), f"{number * 100 + i:03d}", fontname="tiro", fontsize=8)
+        page.insert_text((108, 60), "Under review as a conference paper at ICLR 2027",
+                         fontname="tiro", fontsize=9)
+        y = 100.0
+        if number == 1:
+            x = 108.0
+            for word in ("Driverless", "Steering"):
+                x = _small_caps(page, x, y, word, 17.2, 13.8) + 5
+            y += 40
+            page.insert_text((108, y), "Anonymous authors", fontname="tibo", fontsize=10)
+            y += 30
+            page.insert_text((108, y), "1", fontname="tiro", fontsize=12)
+            _small_caps(page, 127, y, "Introduction", 12.0, 9.6)
+            y += 16
+            page.insert_textbox(pymupdf.Rect(108, y, 504, y + 200), body, fontname="tiro", fontsize=10)
+            y += 210
+            # 2.3 EVALUATION: 10pt small caps, no larger than the body, not bold.
+            page.insert_text((108, y), "1.1", fontname="tiro", fontsize=10)
+            x = 130.0
+            for word in ("Evaluation", "Of", "Steering"):
+                x = _small_caps(page, x, y, word, 10.0, 8.0) + 4
+            y += 16
+            # A three-level number pushes its label past the usual indent.
+            page.insert_text((108, y), "1.1.1", fontname="tiro", fontsize=10)
+            _small_caps(page, 142.3, y, "Setup", 10.0, 8.0)
+            y += 16
+            page.insert_textbox(pymupdf.Rect(108, y, 504, y + 200), body, fontname="tiro", fontsize=10)
+            y += 210
+            for i in range(4):
+                page.insert_text((278, y + i * 14), f"v = x + {i}", fontname="tiro", fontsize=10)
+        else:
+            page.insert_textbox(pymupdf.Rect(108, y, 504, y + 300), body, fontname="tiro", fontsize=10)
+            y += 320
+            _small_caps(page, 108, y, "References", 12.0, 9.6)
+            y += 16
+            page.insert_text((108, y), "Jane Doe. A paper about things. CoRR, 2021.",
+                             fontname="tiro", fontsize=10)
+    doc.save(path)
+    doc.close()
+    return path
+
+
+@pytest.fixture
+def small_caps_paper(tmp_path: Path) -> Path:
+    return build_small_caps_paper(tmp_path / "small_caps.pdf")

@@ -13,6 +13,12 @@ from ..registry import register
 MODULE = "core.fonts"
 
 
+# Computer Modern and AMS fonts whose name ends in the design size 5, 6 or 7:
+# CMR7, CMMI7, CMSY5, MSBM7... These are the script and scriptscript fonts that
+# TeX uses for first- and second-level sub/superscripts, and nothing else.
+_DEFAULT_SCRIPT_FONT_RE = r"(?:^|\+)(?:CM[A-Z]*|MS[AB]M|EU[A-Z]{2}|RSFS|LASY|LCMSS[A-Z]*)[5-7]$"
+
+
 def _ignore_pattern(ctx: CheckContext) -> re.Pattern[str]:
     return re.compile(str(ctx.conf("fonts.ignore_small_text_regex", r"^\s*\d{1,4}\s*$")))
 
@@ -71,12 +77,14 @@ def check_min_font_size(ctx: CheckContext) -> Finding:
     """Flag runs of real text set below the smallest legitimate size."""
     minimum = float(ctx.conf("fonts.min_font_size_pt", 9.0))
     ignore = _ignore_pattern(ctx)
+    script_fonts = re.compile(str(ctx.conf("fonts.script_font_regex", _DEFAULT_SCRIPT_FONT_RE)))
 
     offenders: list[Evidence] = []
     body_offenders: list[Evidence] = []
     total_small = 0
     body_small = 0
     in_artwork = 0
+    in_scripts = 0
     for line in ctx.doc.reading_order:
         body_flow = _is_body_flow(ctx, line)
         for span in line.spans:
@@ -84,6 +92,12 @@ def check_min_font_size(ctx: CheckContext) -> Finding:
             if len(text) < 3 or ignore.match(text) or span.invisible:
                 continue
             if span.size >= minimum - 0.15:
+                continue
+            # TeX's script and scriptscript fonts exist only for sub- and
+            # superscripts; a 7pt "match" under a sigma is maths notation set
+            # exactly as the style file intends, not shrunken text.
+            if script_fonts.search(span.font):
+                in_scripts += len(text)
                 continue
             # Labels baked into a figure are a legibility problem, not a font-size
             # violation of the body text; the hidden-text module reports those.
@@ -105,6 +119,11 @@ def check_min_font_size(ctx: CheckContext) -> Finding:
         f" ({in_artwork} undersized characters inside figures were ignored here; "
         "see the microscopic-text check)" if in_artwork else ""
     )
+    if in_scripts:
+        artwork_note += (
+            f" ({in_scripts} characters in TeX sub/superscript fonts were ignored: "
+            "mathematical notation, not shrunken text)"
+        )
     if not offenders:
         return ctx.ok("min_font_size", "Minimum font size",
                       f"No body text below the {minimum:.1f} pt minimum.{artwork_note}",

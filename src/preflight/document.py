@@ -96,6 +96,32 @@ class Line:
         return max(self.spans, key=lambda s: s.width).size
 
     @property
+    def heading_size(self) -> float:
+        """The size a reader perceives the line at.
+
+        Small-caps headings (the ICLR and NeurIPS templates set every heading
+        this way) reach the extractor as a full-size initial followed by a
+        smaller run of capitals: "R" at 12pt, "EFERENCES" at 9.6pt. The widest
+        span is then the small one, and ``size`` under-reports the heading. When
+        every letter on the line is a capital and the line mixes sizes, the
+        largest span is the one the eye measures.
+        """
+        if not self.small_caps:
+            return self.size
+        return max(s.size for s in self.spans if any(c.isalpha() for c in s.text))
+
+    @property
+    def small_caps(self) -> bool:
+        """True if the line is set in small capitals: all capitals, two sizes."""
+        lettered = [s for s in self.spans if any(c.isalpha() for c in s.text)]
+        if len(lettered) < 2:
+            return False
+        letters = "".join(c for s in lettered for c in s.text if c.isalpha())
+        if not letters.isupper():
+            return False
+        return len({round(s.size, 1) for s in lettered}) >= 2
+
+    @property
     def bold(self) -> bool:
         visible = [s for s in self.spans if s.text.strip()]
         if not visible:
@@ -292,9 +318,15 @@ class Document:
         if not peaks:
             starts = [0.0]
         else:
-            primary = peaks[0][0]                      # peaks are count-ordered
+            primary, primary_count = peaks[0]          # peaks are count-ordered
+            # A real second column carries about as many lines as the first. A
+            # handful of lines sharing a left edge -- a stack of centred
+            # equations, one table's column -- is not a column, and treating it
+            # as one scrambles reading order on single-column papers.
             secondary = next(
-                (x for x, _ in peaks[1:] if abs(x - primary) > 0.25 * page_width), None
+                (x for x, c in peaks[1:]
+                 if abs(x - primary) > 0.25 * page_width and c >= 0.15 * primary_count),
+                None,
             )
             starts = sorted([primary, secondary]) if secondary is not None else [primary]
 
@@ -411,14 +443,23 @@ class Document:
             text = " ".join(line.text.split())
             if not _looks_like_heading(text):
                 continue
-            if not (line.bold or line.size >= body + 0.4):
+            size = line.heading_size
+            # Small caps are a heading style in their own right: the ICLR
+            # template sets subsection headings as 10pt small caps, no larger
+            # than the body and not bold.
+            if not (line.bold or size >= body + 0.4 or line.small_caps):
                 continue
             # Headings begin at a column edge; table cells and inline bold runs
             # start anywhere, and captions announce themselves.
             spans_gutter = self.spans_both_columns(line)
             # A numbered heading's label is indented by the width of its number,
-            # which the extractor often emits as a separate run.
-            at_column = any(-6.0 <= line.bbox[0] - s <= 34.0 for s in starts)
+            # which the extractor often emits as a separate run. When that run
+            # is found at the column edge it anchors the label wherever a long
+            # number ("B.2.1") pushed it.
+            numbering_run = self._numbering_before(line, starts)
+            at_column = numbering_run is not None or any(
+                -6.0 <= line.bbox[0] - s <= 34.0 for s in starts
+            )
             # "Abstract" and the title block are centred rather than set at a
             # column edge, so anchoring only to columns misses them.
             if not (spans_gutter or at_column or self._centred_over_block(line)):
@@ -426,13 +467,13 @@ class Document:
             m = re.match(r"^((?:\d+(?:\.\d+)*)|(?:[A-Z](?:\.\d+)*))[.\s]+(.+)$", text)
             numbering, label = (m.group(1), m.group(2)) if m else (None, text)
             if numbering is None:
-                numbering = self._numbering_before(line, starts)
+                numbering = numbering_run
             out.append(
                 Heading(
                     text=label.strip(),
                     page=line.page,
                     bbox=line.bbox,
-                    size=line.size,
+                    size=size,
                     order=order,
                     numbering=numbering,
                 )

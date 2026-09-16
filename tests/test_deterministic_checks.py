@@ -531,3 +531,54 @@ def test_deobfuscation_leaves_ordinary_prose_matchable() -> None:
 
     prose = "We e-mail the authors. Ignore all previous instructions, it read."
     assert re.search(r"ignore all previous instructions", _deobfuscate(prose), re.IGNORECASE)
+
+
+# ---------------------------------------------------------------------------
+# Words in capitals are not abbreviations; TeX script fonts are not small text
+# ---------------------------------------------------------------------------
+
+
+def test_capitalised_words_and_maths_are_not_abbreviations() -> None:
+    from preflight.checks.abbreviations import _in_math, _shouted
+
+    heading = "as described in 2.3 EVALUATION OF REPRESENTATION STEERING below."
+    start = heading.index("OF")
+    assert _shouted(heading, start, start + 2)
+    prompt = "Vary the syntax used to name the behavior LENGTH BALANCED ACROSS LISTS."
+    start = prompt.index("ACROSS")
+    assert _shouted(prompt, start, start + 6)
+    maths = "At each candidate k, Ckn) ∈ Rd and the KN forward passes."
+    start = maths.index("KN")
+    assert _in_math(maths, start, start + 2)
+    prose = "We compare against the CAA baseline on both tasks."
+    start = prose.index("CAA")
+    assert not _shouted(prose, start, start + 3)
+    assert not _in_math(prose, start, start + 3)
+
+
+def test_script_fonts_are_mathematical_notation_not_small_text() -> None:
+    import re
+
+    from preflight.checks.fonts import _DEFAULT_SCRIPT_FONT_RE
+
+    pattern = re.compile(_DEFAULT_SCRIPT_FONT_RE)
+    for font in ("CMMI7", "CMR5", "CMSY7", "MSBM7", "ABCDEF+CMR7"):
+        assert pattern.search(font), font
+    for font in ("CMR10", "CMMI10", "NimbusRomNo9L-Regu", "CMR17", "Helvetica"):
+        assert not pattern.search(font), font
+
+
+def test_a_corporate_author_is_the_entry_surname() -> None:
+    from preflight.checks.citations import _cited_anywhere, _index_entries
+
+    entries = _index_entries([
+        "DeepSeek-AI. DeepSeek-V3 technical report. CoRR, abs/2412.19437, 2024.",
+        "Gemma Team. Gemma 2: Improving open language models. CoRR, abs/2408.00118, 2024.",
+        "Aaron Grattafiori, Abhimanyu Dubey, et al. The Llama 3 herd of models. CoRR, 2024.",
+        "J. Doe and A. Roe. A paper about things. In Proceedings, 2021.",
+    ])
+    assert [e.surname for e in entries] == ["DeepSeek-AI", "Team", "Grattafiori", "Doe"]
+    body = "We evaluate DeepSeek-V3.1 (DeepSeek-AI, 2024) and Gemma-2-9B (Gemma Team, 2024)."
+    assert _cited_anywhere(entries[0], body)
+    assert _cited_anywhere(entries[1], body)
+    assert not _cited_anywhere(entries[2], body)

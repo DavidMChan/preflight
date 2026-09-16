@@ -1,4 +1,4 @@
-# ICLR main conference (2026 cycle).
+# ICLR main conference (2027 cycle; the limits are unchanged from 2026).
 #
 # NOTE ON NUMBERS: unlike the ACL profile, whose tolerances come from the
 # official aclpubcheck implementation, the geometry below was measured off the
@@ -6,10 +6,13 @@
 # (https://github.com/ICLR/Master-Template/raw/master/iclr2026.zip) and
 # cross-checked against iclr2026_conference.sty: US Letter, \oddsidemargin
 # 0.5in (so a 1.5in left margin), \textwidth 5.5in, \textheight 9in, 10pt
-# Times, single column. There is no official ICLR format checker to defer to.
+# Times, single column. The 2027 style files
+# (https://media.iclr.cc/Conferences/ICLR2027/iclr-2027-style-files.zip) keep
+# the same text block. There is no official ICLR format checker to defer to.
 #
 # The page limit moves year to year: 9 content pages at submission, 10 during
-# the rebuttal and for the camera ready. Set the track accordingly.
+# the rebuttal and for the camera ready (author guidelines, 2026 and 2027).
+# Set the track accordingly.
 
 conference:
   key: iclr
@@ -46,8 +49,11 @@ geometry:
   tolerance_left_pt: 4.0
   tolerance_right_pt: 6.0
   tolerance_top_pt: 4.0
-  # Footnotes and display maths in the template reach ~2pt past the text block.
-  tolerance_bottom_pt: 4.0
+  # TeX lets the last line on a page hang up to \maxdepth (5pt at 10pt) below
+  # the text block, and the extractor's boxes add font descent on top of that:
+  # ordinary body lines already end 2pt past it, and the "k=1" limit under a
+  # summation that closes a page reaches 5.5pt. Neither is the author's doing.
+  tolerance_bottom_pt: 6.0
 
 columns:
   expected_columns: 1
@@ -106,7 +112,7 @@ cfp:
     exceeds it are desk-rejected. References are unlimited, and unlimited appendices may
     follow the bibliography.
   paper_size: >-
-    Submissions must use the official ICLR style files (iclr2026.zip): US Letter,
+    Submissions must use the official ICLR style files for the year: US Letter,
     single column, 10pt Times.
   margins: >-
     Margins come from the ICLR style file and should not be altered to fit content.

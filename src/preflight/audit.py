@@ -22,7 +22,7 @@ from typing import Any
 
 import yaml
 
-from .analysis import captions, equation_lines, paper_context, sentences
+from .analysis import captions, equation_lines, paper_context, sentences, title_text
 from .context import CheckContext
 
 DEFAULT_MODULE = "llm.audit"
@@ -161,14 +161,10 @@ def _ctx_prose_stats(ctx: CheckContext) -> str:
 def _ctx_surface(ctx: CheckContext) -> str:
     from .analysis import abstract_text, conclusion_text
 
-    title = ""
-    for line in ctx.doc.reading_order:
-        if line.page == 1 and line.text.strip():
-            title = " ".join(line.text.split())
-            break
+    title = title_text(ctx)
     return (
         "\n=== TRIAGE SURFACE ===\n"
-        f"Title (first line of page 1): {title}\n\n"
+        f"Title: {title}\n\n"
         f"Abstract:\n{abstract_text(ctx) or '(not extracted)'}\n\n"
         f"Conclusion:\n{conclusion_text(ctx) or '(not extracted)'}\n"
         + _ctx_captions(ctx)

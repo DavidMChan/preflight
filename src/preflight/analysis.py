@@ -109,6 +109,37 @@ def body_text(ctx: CheckContext) -> str:
     return text
 
 
+def title_text(ctx: CheckContext) -> str:
+    """The paper's title: the largest type on page 1, joined across its lines.
+
+    The first line on the page is usually a running head ("Under review as a
+    conference paper at ICLR 2027") or a margin line number, so position alone
+    picks the wrong text. The title is the largest type on the page, and it
+    may wrap, so consecutive lines at that size are joined.
+    """
+    cached = ctx.shared.get("analysis_title")
+    if isinstance(cached, str):
+        return cached
+    ignore = _line_number_re(ctx)
+    lines = [
+        ln for ln in ctx.doc.reading_order
+        if ln.page == 1 and ln.text.strip() and not ignore.match(ln.text.strip())
+        and any(c.isalpha() for c in ln.text)
+    ]
+    title = ""
+    if lines:
+        largest = max(ln.heading_size for ln in lines)
+        picked: list[str] = []
+        for ln in sorted(lines, key=lambda ln: (ln.bbox[1], ln.bbox[0])):
+            if abs(ln.heading_size - largest) < 0.5:
+                picked.append(" ".join(ln.text.split()))
+            elif picked:
+                break
+        title = " ".join(picked)
+    ctx.shared["analysis_title"] = title
+    return title
+
+
 def section_text(ctx: CheckContext, aliases: list[str]) -> str:
     """Text of the first section matching ``aliases``, up to the next heading."""
     heading = ctx.doc.find_heading(aliases)
@@ -238,10 +269,13 @@ def captions(ctx: CheckContext) -> list[Caption]:
         kind = match.group(1).lower().rstrip(".").replace("fig", "figure")
         body = match.group(3)
         # Captions wrap; absorb following lines until the next caption or a gap.
+        number_re = _line_number_re(ctx)
         for follower in lines[i + 1 : i + 12]:
             nxt = " ".join(follower.text.split())
             if not nxt or _CAPTION_RE.match(nxt) or follower.page != line.page:
                 break
+            if number_re.match(nxt):
+                continue  # a margin line number interleaved with the caption
             if abs(follower.bbox[1] - line.bbox[1]) > 60:
                 break
             body += " " + nxt

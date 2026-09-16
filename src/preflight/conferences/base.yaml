@@ -81,6 +81,9 @@ fonts:
   allowed_font_substrings: []
   # Line numbers in anonymous templates are legitimately tiny and sit in the margin.
   ignore_small_text_regex: '^\s*\d{1,4}\s*$'
+  # TeX's script and scriptscript fonts (CMR7, CMMI7, CMSY5, MSBM7...) exist
+  # only for sub- and superscripts; text in them is notation, not shrunken prose.
+  script_font_regex: '(?:^|\+)(?:CM[A-Z]*|MS[AB]M|EU[A-Z]{2}|RSFS|LASY|LCMSS[A-Z]*)[5-7]$'
 
 structure:
   limitations_heading: Limitations

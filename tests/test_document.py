@@ -83,3 +83,25 @@ def test_real_paper_structure(real_paper: Path) -> None:
         assert len(doc.column_bands) == 2
         assert doc.find_heading(["Limitations"]) is not None
         assert doc.find_heading(["References"]) is not None
+
+
+def test_small_caps_headings_are_found(small_caps_paper: Path) -> None:
+    with Document(small_caps_paper) as doc:
+        assert doc.body_font_size == 10.0
+        references = doc.find_heading(["References"])
+        assert references is not None and references.page == 2
+        assert references.size == 12.0            # the initial, not the small capitals
+        intro = doc.find_heading(["Introduction"])
+        assert intro is not None and intro.numbering == "1"
+        # Subsections are 10pt small caps: no bigger than the body and not bold.
+        sub = doc.find_heading(["Evaluation of Steering"])
+        assert sub is not None and sub.numbering == "1.1"
+        # A three-level number pushes the label past the one-number indent.
+        subsub = doc.find_heading(["Setup"])
+        assert subsub is not None and subsub.numbering == "1.1.1"
+
+
+def test_a_stack_of_equations_is_not_a_second_column(small_caps_paper: Path) -> None:
+    with Document(small_caps_paper) as doc:
+        assert len(doc.column_bands) == 1
+        assert abs(doc.column_bands[0][0] - 108.0) < 2.0

@@ -107,3 +107,32 @@ def test_paper_context_records_truncation(clean_paper: Path) -> None:
 
 def test_numeric_tokens_only_matches_decimals() -> None:
     assert numeric_tokens("we report 92.15 and 3.4 but not 2024 or v2") == ["92.15", "3.4"]
+
+
+def test_title_is_the_largest_type_not_the_first_line(small_caps_paper: Path) -> None:
+    from preflight.analysis import title_text
+
+    ctx = _ctx(small_caps_paper)
+    # The running head and the line numbers come first on the page; the title
+    # is the largest type, and its small capitals are read at the initial's size.
+    assert title_text(ctx) == "DRIVERLESS STEERING"
+
+
+def test_captions_do_not_absorb_margin_line_numbers(tmp_path: Path) -> None:
+    import pymupdf
+
+    from preflight.analysis import captions
+
+    doc = pymupdf.open()
+    page = doc.new_page(width=612, height=792)
+    page.insert_text((108, 200), "Figure 3: Layer sweep over the", fontname="tiro", fontsize=10)
+    page.insert_text((73, 206), "1898", fontname="tiro", fontsize=8)    # margin ruler
+    page.insert_text((108, 212), "development split.", fontname="tiro", fontsize=10)
+    page.insert_text((73, 218), "1899", fontname="tiro", fontsize=8)
+    path = tmp_path / "cap.pdf"
+    doc.save(path)
+    doc.close()
+    caps = captions(_ctx(path))
+    assert len(caps) == 1
+    assert caps[0].text == "Layer sweep over the development split."
+    assert "1898" not in caps[0].text and "1899" not in caps[0].text

@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 import string
 
-from ..analysis import abstract_text, body_text, conclusion_text
+from ..analysis import abstract_text, body_text, conclusion_text, title_text
 from ..context import CheckContext
 from ..models import Evidence, Finding
 from ..registry import register
@@ -123,10 +123,7 @@ def check_title_support(ctx: CheckContext) -> Finding:
     min_len = int(ctx.conf("surface.title_min_term_length", 3))
     min_occurrences = int(ctx.conf("surface.title_min_occurrences", 2))
 
-    title_line = next(
-        (line.text.strip() for line in ctx.doc.reading_order if line.page == 1 and line.text.strip()),
-        "",
-    )
+    title_line = title_text(ctx)
     if not title_line or len(title_line.split()) < 2:
         return ctx.skip(
             "title_support",

@@ -116,6 +116,14 @@ def _looks_like_table_row(text: str) -> bool:
 
 _CITATION_AFTER_RE = re.compile(r"^\s*\(\s*[A-Za-z][^()]{0,50}\d{4}[a-z]?\s*\)")
 
+# Symbols that only occur in extracted mathematics. A capitalised token sitting
+# next to one of these ("the KN k, Ckn) ∈ Rd") is a product of variables that
+# extraction ran together, not an acronym. Ordinary hyphens are deliberately
+# absent: prose is full of them.
+_MATH_CONTEXT_RE = re.compile(r"[=≤≥∈∉∑∏∫√≈≠∇∂×−·]")
+_MATH_WINDOW = 30
+_LOWERCASE_WORD_RE = re.compile(r"\b[a-z]{2,}\b")
+
 
 @dataclass(slots=True)
 class _Def:
@@ -149,6 +157,23 @@ def _sentence_definitions(text: str) -> list[_Def]:
     return out
 
 
+def _in_math(text: str, start: int, end: int) -> bool:
+    return bool(_MATH_CONTEXT_RE.search(text[max(0, start - _MATH_WINDOW) : end + _MATH_WINDOW]))
+
+
+def _shouted(text: str, start: int, end: int) -> bool:
+    """True if the token is one word of a run of capitals.
+
+    Small-caps headings ("EVALUATION OF REPRESENTATION STEERING") and prompt
+    text set in capitals ("LENGTH BALANCED ACROSS LISTS") reach the extractor
+    as ordinary upper-case words, and every short one of them looks like an
+    acronym. Acronyms are not written in runs; capitalised prose is.
+    """
+    before = re.search(r"\b[A-Z]{2,}\s+$", text[:start])
+    after = re.match(r"\s+[A-Z]{2,}\b", text[end:])
+    return bool(before or after)
+
+
 def _is_in_caption(sentence_text: str, caption_texts: list[str]) -> bool:
     flat = " ".join(sentence_text.split())
     return any(flat in cap or (len(flat) > 20 and cap in flat) for cap in caption_texts)
@@ -180,6 +205,9 @@ def check_abbreviation_defined(ctx: CheckContext) -> Finding:
                         "No extractable body prose to check.", category="prose")
 
     caption_texts = [" ".join(c.text.split()) for c in captions(ctx)]
+    # A token whose lower-case form is used as a word elsewhere in the paper
+    # ("NOT", "OF", "LENGTH") is a word set in capitals, not an abbreviation.
+    ordinary_words = set(_LOWERCASE_WORD_RE.findall(" ".join(s.text for s in sents)))
 
     defined_at: dict[str, int] = {}
     first_use_at: dict[str, tuple[int, Sentence]] = {}
@@ -207,6 +235,10 @@ def check_abbreviation_defined(ctx: CheckContext) -> Finding:
             base = _base_letters(token)
             if base in exempt or token in exempt:
                 continue
+            if token.lower() in ordinary_words or _shouted(text, m.start(), m.end()):
+                continue  # a word in capitals, not an acronym
+            if _in_math(text, m.start(), m.end()):
+                continue  # variables that extraction ran together
             tail = text[m.end() : m.end() + 1]
             if tail == "-" and text[m.end() + 1 : m.end() + 2].isalpha():
                 continue  # a fragment of a longer hyphenated proper noun ("EB-NeRD")
