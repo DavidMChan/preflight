@@ -1,4 +1,7 @@
-# ICLR main conference (2027 cycle; the limits are unchanged from 2026).
+# ICLR main conference (2027 cycle). The page limits and text block are
+# unchanged from 2026; what is new is a required AI use statement, set out in
+# the AI Policy for Authors (https://iclr.cc/Conferences/2027/AIPolicyForAuthors)
+# and printed as a required section in the 2027 template.
 #
 # NOTE ON NUMBERS: unlike the ACL profile, whose tolerances come from the
 # official aclpubcheck implementation, the geometry below was measured off the
@@ -27,9 +30,9 @@ tracks:
   main:
     content_page_limit: 9
     description: >-
-      Submission — 9 pages of main text; references, ethics and reproducibility
-      statements, the LLM-usage section and appendices do not count toward the
-      limit. Papers with main text beyond the limit are desk-rejected.
+      Submission — 9 pages of main text; references, the AI use, ethics and
+      reproducibility statements, acknowledgments and appendices do not count
+      toward the limit. Papers with main text beyond the limit are desk-rejected.
   camera_ready:
     content_page_limit: 10
     description: >-
@@ -81,13 +84,115 @@ structure:
   limitations_required: false
   appendix_must_follow_references: true
   appendix_must_be_two_column: false
-  # Both optional statements go at the end of the main text, before the
-  # references, and neither counts toward the page limit — so treating the
-  # earlier of them as the start of unlimited material is correct.
-  ethics_aliases:
-    [Ethics Statement, Ethical Considerations, Ethics, Reproducibility Statement,
-     Reproducibility, Broader Impact, Broader Impacts]
-  unlimited_after: [limitations, references, acknowledgments, ethics, appendix]
+  # The three statements go at the end of the main text, before the
+  # references, and none counts toward the page limit — so treating the
+  # earliest of them as the start of unlimited material is correct. The
+  # reproducibility and AI use kinds resolve to the `statements:` aliases below.
+  ethics_aliases: &ethics_aliases
+    [Ethics Statement, Ethical Statement, Ethical Considerations, Ethics,
+     Ethics and Broader Impact, Broader Impact, Broader Impacts, Broader Impact Statement]
+  unlimited_after:
+    [limitations, references, acknowledgments, ethics, reproducibility, ai_use, appendix]
+
+# Checked by core.statements (presence, leftover template text, placement,
+# length) and, with --llm, llm_statement_coverage (the required task list).
+statements:
+  ai_use:
+    title: AI use statement
+    requirement: required
+    aliases:
+      [AI Use Statement, AI Use, AI-Use Statement, AI Usage Statement, AI Usage,
+       AI Use Disclosure, AI Disclosure, AI Disclosure Statement, Statement on AI Use,
+       Disclosure of AI Use, Declaration of AI Use, Use of AI, Use of AI Tools,
+       Use of Generative AI, Use of Generative AI Tools, Generative AI Use Statement,
+       Generative AI Usage, LLM Usage, LLM Usage Statement, LLM Usage Disclosure, LLM Use,
+       LLM Use Statement, Declaration of LLM Usage, Use of LLMs, Usage of LLMs,
+       Use of Large Language Models, The Use of Large Language Models,
+       The Use of Large Language Models (LLMs)]
+    before_references: true
+    # "This statement should not be more than 1 page." (2027 template)
+    max_pages: 1
+    why: >-
+      ICLR 2027 requires every submission to disclose AI use in a dedicated section (AI
+      Policy for Authors; the template marks it "required"). It does not count toward the
+      page limit.
+    remedy: >-
+      Add an unnumbered "AI use statement" section at the end of the main text, before the
+      references, following the template: for every task with required disclosure, say
+      whether generative AI tools were used, were not used, or the task is not applicable;
+      list any recommended-disclosure uses; and state that all AI-assisted work was reviewed.
+    # Placeholders from the template (square brackets) and the policy page (angle brackets).
+    template_text:
+      - '[\[<]\s*(?:other\s+)?tasks with (?:required|recommended) disclosure\s*[\]>]'
+      - '[\[<]\s*the rest of the required disclosure tasks\s*[\]>]'
+      - '\[\s*Elaborate\b'
+      - 'This section is required and does not count toward the page limit'
+      - 'See the ICLR 2027 AI Policy for Authors for more details'
+    must_address_rule: >-
+      for every task with required disclosure, it must say that generative AI tools were
+      used for it, that they were not used for it, or that the task is not applicable to
+      this work (ICLR 2027 AI Policy for Authors).
+    must_address:
+      - Generate synthetic data sets
+      - Help develop theoretical models or conceptual frameworks
+      - Formulate mathematical claims
+      - Provide critical ingredients for proving mathematical claims
+      - Assist in the writing of proofs
+      - Propose or refine hypotheses
+      - Design or provide feedback on research methodology or experiments
+      - Implement methods
+      - Assist with translation
+      - Clean and reformat datasets
+      - Support qualitative and thematic data analysis
+      - Interpret results
+  ethics:
+    title: Ethics statement
+    requirement: recommended
+    aliases: *ethics_aliases
+    before_references: true
+    max_pages: 1
+    why: >-
+      ICLR recommends one at the end of the main text whenever the work raises Code of
+      Ethics questions: human subjects, dataset releases, potentially harmful insights or
+      applications, conflicts of interest or sponsorship, bias and fairness, privacy and
+      security, legal compliance, or research integrity (e.g. IRB). Reviewers are asked to
+      flag potential violations. The FAQ says a paper that raises none of these needs no
+      statement.
+    remedy: >-
+      If the work touches any Code of Ethics topic, add an unnumbered "Ethics statement"
+      (at most 1 page) at the end of the main text, before the references.
+    template_text:
+      - 'This section is recommended and does not count toward the page limit'
+      - 'If authors feel that their paper submission raises questions regarding the Code of Ethics'
+  reproducibility:
+    title: Reproducibility statement
+    requirement: recommended
+    aliases:
+      [Reproducibility Statement, Reproducibility, Statement on Reproducibility,
+       Reproducibility and Code Availability]
+    before_references: true
+    why: >-
+      ICLR strongly encourages a paragraph-long reproducibility statement at the end of the
+      main text that points to the parts of the paper, appendix and supplementary material
+      supporting reproduction. It does not count toward the page limit.
+    remedy: >-
+      Add an unnumbered "Reproducibility statement" paragraph at the end of the main text,
+      before the references, referencing (not repeating) the relevant appendix sections,
+      proofs, data-processing descriptions and anonymous code.
+    template_text:
+      - 'This section is recommended and does not count toward the page limit'
+      - 'It is important that the work published in ICLR is reproducible'
+
+template:
+  running_head:
+    pattern: '(?:Under review as|Published as) a conference paper at ICLR \d{4}'
+    expected:
+      main: Under review as a conference paper at ICLR 2027
+      camera_ready: Published as a conference paper at ICLR 2027
+
+surface:
+  # "The abstract must be limited to one paragraph." (2027 template)
+  abstract_max_paragraphs: 1
 
 anonymity:
   expected_author_line: "Anonymous authors"
@@ -137,6 +242,28 @@ cfp:
   references_position: >-
     The bibliography does not count toward the page limit and unlimited additional pages
     are allowed for it.
+  statement.ai_use: >-
+    Required: AI use statement. Authors must disclose AI use in a mandatory section of the
+    paper, which does not count toward the page limit. For each task with required
+    disclosure, state whether generative AI was used, was not used, or the task is not
+    applicable (AI Policy for Authors). The template caps it at 1 page.
+  statement.ethics: >-
+    Recommended: Ethics statement, at the end of the main text before references, for
+    submissions that raise Code of Ethics questions. It does not count toward the page
+    limit, but should not be more than 1 page.
+  statement.reproducibility: >-
+    Recommended: Reproducibility statement. Authors are strongly encouraged to include a
+    paragraph-long Reproducibility Statement at the end of the main text (before
+    references). It does not count toward the page limit.
+  llm_statement_coverage.ai_use: >-
+    Authors must disclose the specific tasks where generative AI tools were used, and state
+    which required disclosure tasks were not applicable (AI Policy for Authors).
+  running_head: >-
+    Authors are required to use the current ICLR LaTeX style files, not previous versions;
+    tweaking the style files may be grounds for rejection. \iclrfinalcopy must stay
+    commented out for submission.
+  abstract_paragraphs: >-
+    The abstract must be limited to one paragraph (ICLR 2027 template).
 
 unverifiable:
   - id: originality
@@ -150,13 +277,14 @@ unverifiable:
       Nothing in the PDF shows whether this work is under review elsewhere. Papers on
       arXiv or presented at non-archival workshops do not violate ICLR's dual-submission
       policy; parallel submission to another conference or journal does.
-  - id: llm_disclosure
-    title: LLM usage disclosure
+  - id: ai_use_accuracy
+    title: Accuracy of the AI use statement
     message: >-
-      If an LLM played a significant role in ideation or writing, a separate LLM-usage
-      section is required (it may go in the appendix and does not count toward the page
-      limit). Whether the disclosure matches how the model was actually used is not a
-      property of the PDF, and undisclosed significant use can lead to desk rejection.
+      The statement's presence, finish and coverage are checked above; whether it truthfully
+      describes how AI was used is not a property of the PDF. The submission form also asks
+      for some of this information, and the two should agree. A substantial falsehood or
+      misrepresentation produced by an LLM is a Code of Ethics violation and might lead to
+      desk rejection.
   - id: reciprocal_reviewing
     title: Reciprocal reviewing requirement
     message: >-

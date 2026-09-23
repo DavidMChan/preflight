@@ -77,6 +77,9 @@ def _first_unlimited_heading(ctx: CheckContext) -> Heading | None:
         "ethics": "structure.ethics_aliases",
         "appendix": "structure.appendix_aliases",
     }
+    # A venue's required and recommended statements are end matter too.
+    for kind in (ctx.conf("statements", {}) or {}):
+        keys.setdefault(str(kind), f"statements.{kind}.aliases")
     found = []
     for kind, conf_key in keys.items():
         aliases = [str(a) for a in (ctx.conf(conf_key, [kind.capitalize()]) or [])]

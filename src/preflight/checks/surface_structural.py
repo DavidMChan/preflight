@@ -74,6 +74,65 @@ def check_abstract_present(ctx: CheckContext) -> Finding:
 
 
 # ---------------------------------------------------------------------------
+# abstract_paragraphs
+# ---------------------------------------------------------------------------
+
+
+@register("abstract_paragraphs", "Abstract paragraphs", module=MODULE, category="surface", order=40)
+def check_abstract_paragraphs(ctx: CheckContext) -> Finding | None:
+    """Venues that say "one paragraph" mean it; count the breaks in the abstract.
+
+    A paragraph break shows as extra space between baselines (templates with
+    no indent, like ICLR's, separate paragraphs by half a line) or as an
+    indented line after a short one.
+    """
+    limit = ctx.conf("surface.abstract_max_paragraphs", None)
+    heading = ctx.doc.find_heading(["Abstract"])
+    if limit is None or heading is None:
+        return None
+    following = next((h for h in ctx.doc.headings if h.order > heading.order), None)
+    furniture = re.compile(str(ctx.conf("fonts.ignore_small_text_regex", r"^\s*\d{1,4}\s*$")))
+    lines, inside = [], False
+    for ln in ctx.doc.reading_order:
+        if ln.page == heading.page and abs(ln.bbox[1] - heading.bbox[1]) < 0.6:
+            inside = True
+            continue
+        if following is not None and ln.page == following.page and abs(ln.bbox[1] - following.bbox[1]) < 0.6:
+            break
+        text = ln.text.strip()
+        # Stray superscripts and subscripts arrive as narrow lines of their own.
+        if inside and text and not furniture.search(text) and ln.bbox[2] - ln.bbox[0] > 30.0:
+            lines.append(ln)
+    if len(lines) < 3:
+        return None
+
+    gaps = sorted(b.bbox[1] - a.bbox[1] for a, b in zip(lines, lines[1:], strict=False) if a.page == b.page)
+    leading = gaps[len(gaps) // 2] if gaps else 0.0
+    left = min(ln.bbox[0] for ln in lines)
+    right = max(ln.bbox[2] for ln in lines)
+    breaks = []
+    for prev, ln in zip(lines, lines[1:], strict=False):
+        spaced = ln.page == prev.page and ln.bbox[1] - prev.bbox[1] > leading + 3.0
+        indented = ln.bbox[0] - left > 6.0 and right - prev.bbox[2] > 20.0
+        if spaced or indented:
+            breaks.append(ln)
+    paragraphs = len(breaks) + 1
+    if paragraphs <= int(limit):
+        return ctx.ok("abstract_paragraphs", "Abstract paragraphs",
+                      f"The abstract is {paragraphs} paragraph(s), within the limit of {limit}.",
+                      category="surface", cfp_key="abstract_paragraphs")
+    return ctx.warn(
+        "abstract_paragraphs", "Abstract paragraphs",
+        f"The abstract appears to have {paragraphs} paragraphs; the template limits it to {limit}.",
+        category="surface", cfp_key="abstract_paragraphs",
+        evidence=[Evidence(page=ln.page, detail="a new paragraph seems to start here", quote=ln.text[:80])
+                  for ln in breaks[:4]],
+        remedy="Merge the abstract into a single paragraph.",
+        confidence="medium — inferred from line spacing and indentation",
+    )
+
+
+# ---------------------------------------------------------------------------
 # title_support
 # ---------------------------------------------------------------------------
 

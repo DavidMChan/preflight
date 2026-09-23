@@ -28,7 +28,9 @@ _KIND_ALIAS_KEYS = {
 
 
 def _aliases(ctx: CheckContext, kind: str) -> list[str]:
-    key = _KIND_ALIAS_KEYS[kind]
+    # A kind outside the fixed set names one of the venue's `statements:`, so a
+    # profile can list its own end-matter in `unlimited_after`.
+    key = _KIND_ALIAS_KEYS.get(kind, f"statements.{kind}.aliases")
     default = [kind.capitalize()]
     return [str(a) for a in (ctx.conf(key, default) or default)]
 
@@ -38,7 +40,8 @@ def _headings(ctx: CheckContext) -> dict[str, Heading | None]:
     cached = ctx.shared.get("structure_headings")
     if cached is not None:
         return cached
-    found = {kind: ctx.doc.find_heading(_aliases(ctx, kind)) for kind in _KIND_ALIAS_KEYS}
+    kinds = [*_KIND_ALIAS_KEYS, *(str(k) for k in (ctx.conf("structure.unlimited_after", []) or []))]
+    found = {kind: ctx.doc.find_heading(_aliases(ctx, kind)) for kind in dict.fromkeys(kinds)}
     ctx.shared["structure_headings"] = found
     return found
 
@@ -58,9 +61,15 @@ def _line_index(ctx: CheckContext, heading: Heading) -> int | None:
     return None
 
 
-def _is_content_line(line: Line) -> bool:
+def _is_content_line(ctx: CheckContext, line: Line) -> bool:
     text = line.text.strip()
-    return bool(text) and not text.isdigit() and any(c.isalpha() for c in text)
+    if not text or text.isdigit() or not any(c.isalpha() for c in text):
+        return False
+    # A running head or footer lies wholly outside the text block. Counting it
+    # makes a page whose first line is the References heading a content page.
+    top = float(ctx.conf("geometry.margin_top_pt", 0.0))
+    bottom = ctx.doc.pages[line.page - 1].height - float(ctx.conf("geometry.margin_bottom_pt", 0.0))
+    return line.bbox[3] > top and line.bbox[1] < bottom
 
 
 @register("page_limit", "Content page limit", module=MODULE, category="structure", order=30)
@@ -92,7 +101,7 @@ def check_page_limit(ctx: CheckContext) -> Finding:
         idx = _line_index(ctx, marker)
         content_pages = marker.page
         if idx is not None:
-            preceding = [ln for ln in ctx.doc.reading_order[:idx] if _is_content_line(ln)]
+            preceding = [ln for ln in ctx.doc.reading_order[:idx] if _is_content_line(ctx, ln)]
             if preceding:
                 # If nothing precedes the landmark on its own page, content ended
                 # on the previous page and this page is entirely unlimited material.

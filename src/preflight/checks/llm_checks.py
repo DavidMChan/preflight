@@ -25,12 +25,16 @@ from ..llm.prompts import (
     REVIEWER_SYSTEM,
     SCORE_PROMPT,
     SCORE_SCHEMA,
+    STATEMENT_COVERAGE_PROMPT,
+    STATEMENT_COVERAGE_SCHEMA,
 )
 from ..models import Evidence, Finding, Severity
 from ..registry import register
+
 # The same matching the deterministic check uses, so the two agree on what is
 # injection-shaped and only the adjudication differs.
 from .hidden import _compiled_patterns, _concealed_text
+from .statements import statement_text
 
 MODULE = "llm.semantic"
 
@@ -110,6 +114,65 @@ async def check_limitations_semantics(ctx: CheckContext) -> Finding | None:
                   f"{explanation}".strip(),
                   category="semantic", confidence=f"{confidence} — {_model_note(ctx)}",
                   cfp_key="limitations_scope")
+
+
+@register("llm_statement_coverage", "Statement coverage (model)", module=MODULE,
+          category="semantic", requires=("enable_llm",), order=60)
+async def check_statement_coverage(ctx: CheckContext) -> list[Finding] | None:
+    """Ask a model whether each declared statement covers the items it must.
+
+    Whether a statement exists is the deterministic check's job; whether its
+    prose settles every listed item is a reading task only a model can do.
+    """
+    if not _enabled(ctx, "statement_semantics"):
+        return None
+    out: list[Finding] = []
+    for key, spec in (ctx.conf("statements", {}) or {}).items():
+        items = [str(i) for i in ((spec or {}).get("must_address") or [])]
+        found = statement_text(ctx, str(key))
+        if not items or found is None:
+            continue    # a missing statement is already an error of its own
+        page, body = found
+        check_id = f"llm_statement_coverage.{key}"
+        title = f"{spec.get('title') or key} coverage (model)"
+        prompt = STATEMENT_COVERAGE_PROMPT.format(
+            title=spec.get("title") or key, rule=str(spec.get("must_address_rule", "")).strip(),
+            items="\n".join(f"- {i}" for i in items), body=_clip(body),
+        )
+        try:
+            data = await _client(ctx).json(REVIEWER_SYSTEM, prompt, schema_hint=STATEMENT_COVERAGE_SCHEMA)
+        except LLMError as exc:
+            out.append(ctx.skip(check_id, title, str(exc), category="semantic"))
+            continue
+
+        verdicts = {str(v.get("item", "")).strip().lower(): v for v in (data.get("items") or [])
+                    if isinstance(v, dict)}
+        # An item the model skipped counts against the statement, not for it.
+        status = {i: str(verdicts.get(i.lower(), {}).get("status", "unaddressed")) for i in items}
+        unaddressed = [i for i in items if status[i] == "unaddressed"]
+        blanket = [i for i in items if status[i] == "blanket"]
+        confidence = f"{data.get('confidence', 'low')} — {_model_note(ctx)}"
+        explanation = str(data.get("explanation", "")).strip()
+        if not unaddressed and not blanket:
+            out.append(ctx.ok(check_id, title,
+                              f"The statement names all {len(items)} required items. {explanation}".strip(),
+                              category="semantic", confidence=confidence))
+            continue
+        parts = []
+        if unaddressed:
+            parts.append(f"{len(unaddressed)} of {len(items)} required items are not addressed at all: "
+                         + "; ".join(unaddressed) + ".")
+        if blanket:
+            parts.append(f"{len(blanket)} are covered only by a catch-all sentence rather than named: "
+                         + "; ".join(blanket) + ".")
+        quotes = [str(v.get("quote")) for v in verdicts.values() if v.get("quote")][:4]
+        out.append(ctx.warn(
+            check_id, title, " ".join(parts) + (f" {explanation}" if explanation else ""),
+            category="semantic", confidence=confidence,
+            evidence=[Evidence(page=page, detail="model-selected quote", quote=q) for q in quotes],
+            remedy=str(spec.get("remedy", "")).strip() or None,
+        ))
+    return out
 
 
 def _anonymity_candidates(ctx: CheckContext) -> list[str]:

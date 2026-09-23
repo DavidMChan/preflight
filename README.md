@@ -129,7 +129,7 @@ Nine bundled profiles, each selected with `-c`:
 |---|---|---|---|
 | `arr` | ACL Rolling Review | `long` 8p · `short` 4p · `demo` 6p | A4, two-column, 11pt; Limitations mandatory; ARR checklist |
 | `neurips` | NeurIPS (main track) | `main` 9p | US Letter, single-column, 10pt; NeurIPS checklist mandatory |
-| `iclr` | ICLR (main conference) | `main` 9p · `camera_ready` 10p | US Letter, single-column, 10pt |
+| `iclr` | ICLR (main conference) | `main` 9p · `camera_ready` 10p | US Letter, single-column, 10pt; AI use statement mandatory |
 | `icml` | ICML | `main` 8p · `position` 8p · `camera_ready` 9p | US Letter, two-column, 10pt; Impact Statement mandatory |
 | `cvpr` | CVPR (IEEE/CVF) | `main` 8p · `rebuttal` 1p | US Letter, two-column, 10pt; no appendix in the submission PDF |
 | `aaai` | AAAI (main technical track) | `main` 7p, and six further tracks | US Letter, two-column, 10pt; reproducibility checklist |
@@ -147,7 +147,7 @@ number cannot report a desk rejection.
 
 ## Checks
 
-104 checks across 25 modules. Each profile enables a subset; ARR enables 103.
+109 checks across 27 modules. Each profile enables a subset; ARR enables 108.
 
 ### Deterministic — `core.geometry`, `core.fonts`, `core.structure`
 
@@ -164,6 +164,20 @@ number cannot report a desk rejection.
 - **Limitations section** — presence, title, position before the references, and absence of new
   methods or results.
 - **Appendix** — venue-specific placement and column layout.
+
+### Venue statements and template — `core.statements`, `core.template`
+
+A profile's `statements:` map declares the sections a venue requires or recommends beside the
+paper — for ICLR, the AI use, ethics and reproducibility statements. Each is located as a heading or
+a bold run-in head, and reported as missing (an error when required, a warning when recommended),
+still holding the template's placeholder text (treated as missing when required), placed after the
+references, or longer than the venue's cap. Statements a venue excludes from the page limit are
+listed in `structure.unlimited_after`. With `--llm`, a model also confirms that the statement
+settles every item the venue lists; for ICLR, the twelve tasks with required AI disclosure.
+
+`core.template` reads the style file's running head, which records the template year and whether
+the camera-ready switch is on: an earlier year's style files, or author names enabled on a
+submission, are errors.
 
 ### Anonymity — `core.anonymity`
 
@@ -279,8 +293,9 @@ Each audit is a YAML file in
 
 Counted rather than judged, with no model involved: a sentence-length histogram against a 46-word
 threshold, connective frequencies, runs of three or more sentences with identical openings, bare
-demonstratives, hollow concluding sentences, caption completeness and numbering, and whether each
-substantive title term appears in the body.
+demonstratives, hollow concluding sentences, caption completeness and numbering, whether each
+substantive title term appears in the body, and, where the template limits it, the number of
+paragraphs in the abstract.
 
 ### Reviewer-style scores — `llm.semantic`
 

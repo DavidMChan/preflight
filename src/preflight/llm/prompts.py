@@ -69,6 +69,32 @@ self-references that identify the authors ("in our previous work [Smith et al.]"
 {excerpts}
 --- END ---"""
 
+STATEMENT_COVERAGE_SCHEMA = """{
+  "items": [
+    {"item": "the item exactly as listed", "status": "named"|"blanket"|"unaddressed",
+     "quote": "short verbatim quote from the statement that settles it, or empty"}
+  ],
+  "confidence": "low"|"medium"|"high",
+  "explanation": "one or two sentences"
+}"""
+
+STATEMENT_COVERAGE_PROMPT = """The venue requires the paper's {title} to cover a fixed list of items: {rule}
+
+For EACH item below, decide how the statement handles it:
+- "named": the statement names this item (or an unmistakable paraphrase of it) and says where it stands.
+- "blanket": the item is covered only by a catch-all sentence ("we did not use AI for anything else",
+  "all other tasks are not applicable") without being named.
+- "unaddressed": nothing in the statement settles this item either way.
+
+Judge only what the statement says. Do not infer use or non-use from the rest of the paper. Return one entry
+per item, in the order given.
+
+--- ITEMS ---
+{items}
+--- STATEMENT ---
+{body}
+--- END ---"""
+
 INJECTION_SCHEMA = """{
   "is_manipulation": true|false,
   "confidence": "low"|"medium"|"high",

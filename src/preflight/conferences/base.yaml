@@ -29,6 +29,8 @@ modules:
   - core.abbreviations
   - core.crossrefs              # figure/table callouts, panels, supplements
   - core.headings               # numbered heading hierarchy
+  - core.statements             # venue-declared statements (AI use, ethics, ...)
+  - core.template               # the style file's running head: year and mode
   - core.figure_quality         # resolution, greyscale and colour-vision legibility
   - core.unverifiable
   # Network-backed, and inert unless the corresponding flag is on.
@@ -369,7 +371,7 @@ llm:
   # well under this, so the whole document normally goes in one piece; if a
   # paper does exceed it, the run reports the truncation rather than hiding it.
   max_context_chars: 600000
-  checks: [limitations_semantics, anonymity_semantics, injection_semantics]
+  checks: [limitations_semantics, anonymity_semantics, injection_semantics, statement_semantics]
 
 neurips:
   expected_question_count: 16
