@@ -116,7 +116,7 @@ def check(
     max_refs: Annotated[int, typer.Option("--max-refs", help="Cap references sent to hallucinator (0 = all).")] = 0,
     json_out: Annotated[Path | None, typer.Option("--json", help="Write the full report as JSON.")] = None,
     markdown_out: Annotated[Path | None, typer.Option("--markdown", help="Write a Markdown summary.")] = None,
-    verbose: Annotated[bool, typer.Option("--verbose", "-v", help="Show all evidence and CFP references.")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose/--minimal", "-v", help="--verbose (the default) shows every piece of evidence and the CFP references; --minimal collapses each finding to its first few lines.")] = True,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Only show errors and warnings.")] = False,
     strict: Annotated[bool, typer.Option("--strict", help="Exit non-zero on warnings as well as errors.")] = False,
     concurrency: Annotated[int, typer.Option("--concurrency", help="Maximum simultaneous model calls.")] = 8,
@@ -175,7 +175,7 @@ def check(
             console.print(f"[dim]JSON written to {target}[/dim]")
         if markdown_out is not None:
             target = _numbered(markdown_out, path, len(pdf))
-            target.write_text(to_markdown(report), encoding="utf-8")
+            target.write_text(to_markdown(report, verbose=verbose), encoding="utf-8")
             console.print(f"[dim]Markdown written to {target}[/dim]")
 
         if report.errors:
@@ -204,6 +204,7 @@ def tui(
     hallucinator: Annotated[bool, typer.Option("--hallucinator/--no-hallucinator")] = False,
     offline: Annotated[bool, typer.Option("--offline")] = False,
     model: Annotated[str, typer.Option("--model", "-m")] = DEFAULT_MODEL,
+    verbose: Annotated[bool, typer.Option("--verbose/--minimal", "-v", help="--verbose (the default) shows every piece of evidence and the CFP references; --minimal collapses each finding to its first few lines. Toggle with v.")] = True,
 ) -> None:
     """Open the interactive terminal UI."""
     from .tui.app import PreflightApp
@@ -224,6 +225,7 @@ def tui(
         profile=profile,
         track=track,
         settings=settings,
+        verbose=verbose,
     ).run()
 
 
@@ -233,6 +235,7 @@ def show(
     run: Annotated[str | None, typer.Option("--run", help="Which cached run to read (id or PDF name).")] = None,
     list_runs: Annotated[bool, typer.Option("--list", help="List cached runs instead of showing one.")] = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Only errors and warnings.")] = False,
+    verbose: Annotated[bool, typer.Option("--verbose/--minimal", "-v", help="--verbose (the default) shows every piece of evidence and the CFP references; --minimal collapses each finding to its first few lines.")] = True,
 ) -> None:
     """Re-read a finished run in full detail, without re-running anything."""
     if list_runs:
@@ -284,10 +287,10 @@ def show(
             raise typer.Exit(2)
         console.print()
         for finding in wanted:
-            console.print(render_finding(finding, verbose=True))
+            console.print(render_finding(finding, verbose=verbose))
         raise typer.Exit(0)
 
-    print_report(report, console, verbose=True, show_passed=not quiet)
+    print_report(report, console, verbose=verbose, show_passed=not quiet)
 
 
 @app.command("conferences")

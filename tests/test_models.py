@@ -79,3 +79,30 @@ def test_the_report_tags_each_finding_offline_online_or_llm() -> None:
 
     markdown = to_markdown(report)
     assert "- **Reference details** (`reference_details`, online + LLM) — wrong" in markdown
+
+
+def test_findings_show_everything_unless_minimal() -> None:
+    from rich.console import Console
+
+    from preflight.report import render_finding, to_markdown
+
+    finding = Finding("reference_details", "Reference details", Severity.ERROR, "wrong",
+                      evidence=[Evidence(detail=f"entry {i}") for i in range(10)],
+                      cfp_reference="Citations must be accurate.")
+
+    def shown(**kw) -> str:
+        console = Console(record=True, width=200)
+        console.print(render_finding(finding, **kw))
+        return console.export_text()
+
+    full = shown()
+    assert "entry 9" in full and "CFP: Citations must be accurate." in full
+    collapsed = shown(verbose=False)
+    assert "entry 3" in collapsed and "entry 4" not in collapsed
+    assert "and 6 more (preflight show reference_details)" in collapsed
+    assert "CFP:" not in collapsed
+
+    report = Report(pdf_path="p.pdf", conference="arr", track="long")
+    report.add(finding)
+    assert "entry 9" in to_markdown(report)
+    assert "entry 9" not in to_markdown(report, verbose=False)

@@ -61,8 +61,10 @@ def test_tui_groups_errors_first(overlong_paper: Path) -> None:
 
 
 def test_toggles_change_settings_without_rerunning(clean_paper: Path) -> None:
+    assert _drive(clean_paper).verbose is True          # everything is shown by default
     driven = _drive(clean_paper, keys=("l", "b", "v"))
     assert driven.settings.enable_llm is True          # toggled on from offline
     assert driven.settings.enable_hallucinator is True
-    assert driven.verbose is True
+    assert driven.verbose is False                     # v collapses to minimal
+    assert "minimal" in driven.status
     assert "re-run" in driven.status

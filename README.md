@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Checks: 117](https://img.shields.io/badge/checks-117-blue)](#checks)
 [![Venues: 10](https://img.shields.io/badge/venues-10-blueviolet)](#conferences)
-[![Tests: 374](https://img.shields.io/badge/tests-374%20passing-brightgreen)](#development)
+[![Tests: 376](https://img.shields.io/badge/tests-376%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -99,6 +99,7 @@ uv run preflight paper.pdf -c icra                  # ICRA complete-paper checks
 uv run preflight paper.pdf -c icassp                # ICASSP 4 + 1 pages, author list required
 uv run preflight paper.pdf -c iclr -t camera_ready  # ICLR, 10-page camera-ready limit
 uv run preflight paper.pdf --offline                # deterministic checks only, no network
+uv run preflight paper.pdf --minimal                # the first few lines of each finding
 uv run preflight tui paper.pdf                      # interactive interface
 ```
 
@@ -122,16 +123,20 @@ uv run preflight paper.pdf --json report.json --markdown report.md
 uv run preflight *.pdf --quiet --strict         # batch processing
 ```
 
+Reports show every piece of evidence and the CFP references by default. `--minimal` collapses each
+finding to its first few lines, and `preflight show <check_id>` expands one again.
+
 Additional options: `-m/--model` selects the model, `--concurrency` limits simultaneous model calls
-(default 8), `--verbose` reports all evidence and CFP references, `--quiet` restricts output to
-errors and warnings, and `--strict` treats warnings as a non-zero exit condition.
+(default 8), `--quiet` restricts output to errors and warnings, and `--strict` treats warnings as a
+non-zero exit condition.
 
 Exit codes: `0` clean · `1` errors · `2` warnings under `--strict`, or an invalid file or profile.
 
 ### Terminal interface
 
 `preflight tui paper.pdf` presents findings in the left pane and full evidence in the right pane.
-`r` re-runs · `l` LLM · `s` scores · `v` verbose · `n` next PDF · `e` export Markdown · `q` quit.
+`r` re-runs · `l` LLM · `s` scores · `v` minimal/verbose · `n` next PDF · `e` export Markdown · `q` quit.
+It opens verbose; `preflight tui --minimal` opens collapsed.
 
 ---
 

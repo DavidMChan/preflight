@@ -71,3 +71,22 @@ def test_load_rejects_junk(tmp_path: Path) -> None:
     junk = tmp_path / "junk.json"
     junk.write_text("{not json")
     assert cache.load(junk) is None
+
+
+def test_check_is_verbose_unless_minimal(tmp_path: Path, clean_paper: Path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from preflight import picker
+    from preflight.cli import app
+
+    monkeypatch.setattr(cache, "DEFAULT_ROOT", tmp_path)
+    monkeypatch.setattr(picker, "LAST_CHOICE", tmp_path / "last-conference")
+    run = ["check", str(clean_paper), "-c", "arr", "-t", "long", "--offline"]
+
+    verbose = CliRunner().invoke(app, run)
+    minimal = CliRunner().invoke(app, [*run, "--minimal"])
+    assert verbose.exit_code == minimal.exit_code == 0
+    # Collapsed output points at the saved run for the rest; the full output has nothing hidden.
+    assert "Full evidence kept as run" in minimal.output
+    assert "Full evidence kept as run" not in verbose.output
+    assert CliRunner().invoke(app, ["show", "--minimal"]).exit_code == 0

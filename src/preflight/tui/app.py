@@ -59,7 +59,7 @@ class PreflightApp(App[None]):
         Binding("b", "toggle_hallucinator", "Bib check"),
         Binding("n", "next_file", "Next PDF"),
         Binding("e", "export", "Export .md"),
-        Binding("v", "toggle_verbose", "Verbose"),
+        Binding("v", "toggle_verbose", "Verbose/minimal"),
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
     ]
@@ -72,6 +72,7 @@ class PreflightApp(App[None]):
         profile: Profile,
         track: str | None = None,
         settings: Settings | None = None,
+        verbose: bool = True,
     ) -> None:
         super().__init__()
         self.paths = paths
@@ -80,7 +81,7 @@ class PreflightApp(App[None]):
         self.settings = settings or Settings()
         self.index = 0
         self.report: Report | None = None
-        self.verbose = False
+        self.verbose = verbose
         self._findings: dict[str, Finding] = {}
 
     # -- layout -----------------------------------------------------------
@@ -213,7 +214,8 @@ class PreflightApp(App[None]):
                     parts.append(Text(f"  · {rendered}", style="dim"))
             remaining = len(finding.evidence) - (limit or len(finding.evidence))
             if remaining > 0:
-                parts.append(Text(f"  · ... {remaining} more — press v for verbose", style="dim italic"))
+                parts.append(Text(f"  · ... {remaining} more — press v to show everything",
+                                  style="dim italic"))
 
         if finding.confidence:
             parts.append(Text(f"\nConfidence: {finding.confidence}", style="italic"))
@@ -258,7 +260,7 @@ class PreflightApp(App[None]):
             ("LLM", self.settings.enable_llm),
             ("scores", self.settings.enable_scores),
             ("bib check", self.settings.enable_hallucinator),
-            ("verbose", self.verbose),
+            ("minimal", not self.verbose),
         ]
         on = ", ".join(name for name, enabled in flags if enabled) or "deterministic checks only"
         model = f" · {self.settings.llm_model}" if self.settings.enable_llm else ""
@@ -307,7 +309,7 @@ class PreflightApp(App[None]):
         if self.report is None:
             return
         target = Path(self.report.pdf_path).with_suffix(".preflight.md")
-        target.write_text(to_markdown(self.report), encoding="utf-8")
+        target.write_text(to_markdown(self.report, verbose=self.verbose), encoding="utf-8")
         self.notify(f"Wrote {target}")
 
     def action_cursor_down(self) -> None:

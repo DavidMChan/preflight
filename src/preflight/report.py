@@ -80,7 +80,7 @@ def headline(report: Report) -> Text:
     return text
 
 
-def render_finding(finding: Finding, *, verbose: bool = False) -> Group:
+def render_finding(finding: Finding, *, verbose: bool = True) -> Group:
     style = STYLES[finding.severity]
     head = Text()
     head.append(f"{finding.severity.glyph} ", style=style)
@@ -99,7 +99,8 @@ def render_finding(finding: Finding, *, verbose: bool = False) -> Group:
             body.append(Text(f"  · {rendered}", style="dim"))
     hidden = len(finding.evidence) - (limit or len(finding.evidence))
     if hidden > 0:
-        body.append(Text(f"  · ... and {hidden} more (use --verbose)", style="dim italic"))
+        body.append(Text(f"  · ... and {hidden} more (preflight show {finding.check_id})",
+                         style="dim italic"))
 
     if finding.confidence:
         body.append(Text(f"  confidence: {finding.confidence}", style="dim italic"))
@@ -115,7 +116,7 @@ def print_report(
     report: Report,
     console: Console | None = None,
     *,
-    verbose: bool = False,
+    verbose: bool = True,
     show_passed: bool = True,
 ) -> None:
     console = console or Console()
@@ -187,8 +188,11 @@ def _summary_line(report: Report) -> Text:
     return text
 
 
-def to_markdown(report: Report) -> str:
-    """A copy-pasteable summary, for pasting into an issue or an email."""
+def to_markdown(report: Report, *, verbose: bool = True) -> str:
+    """A copy-pasteable summary, for pasting into an issue or an email.
+
+    Verbose lists every piece of evidence; otherwise each finding keeps its first six.
+    """
     counts = report.counts()
     lines = [
         f"# {report.conference.upper()} pre-flight — {report.track} paper",
@@ -209,7 +213,7 @@ def to_markdown(report: Report) -> str:
         for f in findings:
             tag = f", {f.mode}" if shows_mode(f) else ""
             lines.append(f"- **{f.title}** (`{f.check_id}`{tag}) — {f.message}")
-            for ev in f.evidence[:6]:
+            for ev in f.evidence[: None if verbose else 6]:
                 rendered = ev.render()
                 if rendered:
                     lines.append(f"  - {rendered}")
