@@ -118,9 +118,13 @@ async def liveness(session: Session, url: str) -> Resolution | None:
     if not url:
         return None
     target = url if url.startswith("http") else f"https://{url}"
-    response = await session.get(target, rate=4.0, method="HEAD")
+    permitted, delay = await session.allowed(target)
+    if not permitted:
+        return None             # the site's robots.txt asks tools like this one to stay out
+    rate = 1.0 / delay if delay else 4.0
+    response = await session.get(target, rate=rate, method="HEAD")
     if response is None:
-        response = await session.get(target, rate=4.0)
+        response = await session.get(target, rate=rate)
     if response is None:
         return None
     host = urlparse(str(response.url)).netloc

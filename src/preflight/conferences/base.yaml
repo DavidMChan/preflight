@@ -243,27 +243,47 @@ surface:
      believe, think, know, see, look, make, makes, get, gets, need, needs, want]
 
 # ---------------------------------------------------------------------------
-# Reference verification. Four tiers, and a reference leaves as soon as one
-# answers: cache, then every applicable database concurrently, then a verifier
-# matched to what the citation actually is, then live web search.
+# Reference verification. A paper passes only when a key source confirms it: a
+# record from the DOI registry, the ACL Anthology, arXiv, DBLP, CrossRef,
+# OpenAlex, OpenReview or a publisher's landing page whose title and authors
+# match. Every printed DOI is resolved, and the record's DOI, pages, year,
+# venue and authors are compared against the citation. Web search only finds
+# leads; a lead counts once the key source it names confirms it.
 # ---------------------------------------------------------------------------
 refcheck:
   max_references: 0             # 0 = all
   concurrency: 16               # references in flight
   search_concurrency: 6         # live web searches in flight
   timeout_secs: 6.0             # per HTTP request
-  total_timeout_secs: 120.0     # wall clock for the whole bibliography
+  total_timeout_secs: 150.0     # wall clock for the whole bibliography
   llm_parse: true               # parse entries with a model rather than regexes
-  web_search: true              # the tier that clears real-but-unindexed citations
-  not_found_is_error: false     # a miss is suspicion, never proof
+  web_search: true              # finds leads for what the key sources did not return
+  # A paper passes only when a key source confirms it, and its details must
+  # match the record, so both are errors. A preprint cited in place of its
+  # published version names the right work, and is a warning.
+  not_found_is_error: true
+  details_mismatch_is_error: true   # wrong DOI, arXiv id, pages, year, venue or authors
+  published_version_is_error: false
   max_evidence: 15
+  max_detail_evidence: 0        # 0 = list every miscited reference
   cache_path: ~/.cache/preflight/refcheck.db
-  # Joining CrossRef's polite pool measurably improves latency. Set to your email.
+  # The ACL Anthology's full bibliography, downloaded at most weekly and indexed
+  # locally (about 13 MB). Defaults to acl_anthology.db beside cache_path.
+  acl_anthology: true
+  acl_anthology_path: null
+  acl_anthology_max_age_days: 7
+  arxiv: true                   # export.arxiv.org, batched, one request per 3s
+  dblp: true                    # sparql.dblp.org, batched, 10s crawl delay
+  # Sent in every request's User-Agent, as CrossRef, OpenAlex and arXiv ask.
+  # Set to your email, here or as PREFLIGHT_MAILTO.
   mailto: null
-  semantic_scholar_key: null    # optional; the API throttles hard without one
-  github_token: null            # optional; raises the unauthenticated 60/hour limit
-  # Empty means every non-optional source. Names: crossref_doi, openalex,
-  # crossref, dblp, arxiv_id, semantic_scholar.
+  # OpenAlex needs a key (free) for more than a trickle of requests; without one
+  # it shares a small daily budget with everyone on your network. OPENALEX_API_KEY.
+  openalex_key: null
+  semantic_scholar_key: null    # optional (SEMANTIC_SCHOLAR_API_KEY); throttles hard without
+  github_token: null            # optional (GITHUB_TOKEN); raises the 60/hour limit
+  # Empty means every non-optional source. Names: acl_anthology, crossref,
+  # arxiv, openalex, dblp, openreview, semantic_scholar.
   sources: []
   # Match thresholds. A title alone is not enough: same-bag-of-words titles are
   # real ("Attention Is All You Need" vs "Is Attention All You Need?"), so an

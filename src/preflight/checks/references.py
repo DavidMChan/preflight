@@ -11,6 +11,8 @@ means "fabricated".
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
 from typing import Any
 
 from ..context import CheckContext
@@ -24,34 +26,55 @@ from .llm_checks import _client
 MODULE = "integrations.refcheck"
 
 _SUSPICION = (
-    "This surfaces SUSPICION, NOT PROOF. Bibliographic indexes are incomplete and "
-    "'not found' does not mean fabricated."
+    "Indexes are incomplete, so an unconfirmed reference is not proof of fabrication, but a "
+    "reader must be able to trace every citation."
 )
 
 _STATUS_LABEL = {
     Status.NOT_FOUND: "no match anywhere",
+    Status.UNCONFIRMED: "no key source confirms it",
     Status.AUTHOR_MISMATCH: "authors or year disagree",
     Status.UNRESOLVED: "cited link does not resolve",
     Status.ERROR: "lookup failed",
 }
 
+_FIELD_LABEL = {
+    "doi": "DOI", "arxiv": "arXiv id", "url": "link", "pages": "pages", "year": "year",
+    "venue": "venue", "authors": "authors", "version": "version",
+}
+
+
+def _setting(ctx: CheckContext, key: str, env: str) -> str | None:
+    """A profile value, or the environment variable that supplies it."""
+    value = ctx.conf(f"refcheck.{key}", None) or os.environ.get(env)
+    return str(value) if value else None
+
 
 def _config(ctx: CheckContext) -> RefCheckConfig:
     cache = ctx.conf("refcheck.cache_path", "~/.cache/preflight/refcheck.db")
+    anthology = ctx.conf("refcheck.acl_anthology_path", None)
+    if not anthology and cache:
+        anthology = str(Path(str(cache)).expanduser().parent / "acl_anthology.db")
     settings_cap = getattr(ctx.settings, "hallucinator_max_refs", 0)
     return RefCheckConfig(
         max_references=int(settings_cap or ctx.conf("refcheck.max_references", 0)),
         concurrency=int(ctx.conf("refcheck.concurrency", 16)),
         search_concurrency=int(ctx.conf("refcheck.search_concurrency", 6)),
         timeout=float(ctx.conf("refcheck.timeout_secs", 6.0)),
-        total_timeout=float(ctx.conf("refcheck.total_timeout_secs", 120.0)),
+        total_timeout=float(ctx.conf("refcheck.total_timeout_secs", 150.0)),
         use_llm_parse=bool(ctx.conf("refcheck.llm_parse", True)),
         use_web_search=bool(ctx.conf("refcheck.web_search", True)),
+        use_anthology=bool(ctx.conf("refcheck.acl_anthology", True)),
+        use_arxiv=bool(ctx.conf("refcheck.arxiv", True)),
+        use_dblp=bool(ctx.conf("refcheck.dblp", True)),
         enabled_sources=tuple(str(s) for s in (ctx.conf("refcheck.sources", []) or [])),
-        mailto=ctx.conf("refcheck.mailto", None),
-        semantic_scholar_key=ctx.conf("refcheck.semantic_scholar_key", None),
-        github_token=ctx.conf("refcheck.github_token", None),
+        mailto=_setting(ctx, "mailto", "PREFLIGHT_MAILTO"),
+        semantic_scholar_key=_setting(ctx, "semantic_scholar_key", "SEMANTIC_SCHOLAR_API_KEY"),
+        github_token=_setting(ctx, "github_token", "GITHUB_TOKEN"),
+        openalex_key=_setting(ctx, "openalex_key", "OPENALEX_API_KEY"),
         cache_path=str(cache) if cache else None,
+        anthology_path=str(anthology) if anthology else None,
+        anthology_max_age_days=float(ctx.conf("refcheck.acl_anthology_max_age_days", 7.0)),
         policy=MatchPolicy(
             accept_title=float(ctx.conf("refcheck.accept_title", 0.90)),
             review_title=float(ctx.conf("refcheck.review_title", 0.72)),
@@ -154,10 +177,38 @@ async def check_reference_parsing(ctx: CheckContext) -> Finding:
                   category="references", evidence=evidence)
 
 
+def _entry(verdict: Any) -> str:
+    """How a reader finds the entry: its printed label and its title."""
+    reference = verdict.reference
+    return f"{reference.marker} {reference.label}" if reference.marker else reference.label
+
+
+def _source_notes(ctx: CheckContext, report: Any) -> list[Evidence]:
+    """Sources that refused or failed this run, since they narrow what could be confirmed."""
+    notes: list[Evidence] = []
+    throttled = sorted(set(report.throttled) - set(report.source_errors))
+    if throttled and not _setting(ctx, "mailto", "PREFLIGHT_MAILTO"):
+        hosts = ", ".join(throttled)
+        notes.append(Evidence(
+            detail=f"{hosts} rate-limited this run. Set `refcheck.mailto` in your profile (or "
+                   "PREFLIGHT_MAILTO) to your email address: CrossRef and OpenAlex both serve "
+                   "identified clients from a faster pool."
+        ))
+    elif throttled:
+        notes.append(Evidence(detail="rate-limited by " + ", ".join(throttled)
+                              + "; the affected lookups fell through to slower tiers"))
+    for host, error in sorted(report.source_errors.items()):
+        notes.append(Evidence(detail=f"{host}: {error}"))
+    if report.timed_out:
+        notes.append(Evidence(detail=f"{report.timed_out} reference(s) were not finished within "
+                                     "refcheck.total_timeout_secs"))
+    return notes
+
+
 @register("reference_verification", "Reference verification", module=MODULE, category="references",
           requires=("enable_refcheck",), order=89)
 async def check_reference_verification(ctx: CheckContext) -> Finding:
-    """Verify every reference against databases, its own host, and the live web."""
+    """Confirm every reference against a key source: a record whose title and authors match."""
     data = await _run(ctx)
     report = data["report"]
 
@@ -166,10 +217,11 @@ async def check_reference_verification(ctx: CheckContext) -> Finding:
                         "No references could be parsed, so none were verified.",
                         category="references")
 
-    verified = report.count(Status.VERIFIED)
+    confirmed = report.count(Status.VERIFIED) + report.count(Status.DETAILS_MISMATCH)
     resolved = report.count(Status.RESOLVED)
     unindexed = report.count(Status.UNINDEXED)
-    suspicious = report.suspicious
+    # A failed lookup is not a confirmation either, so it is reported with the rest.
+    unconfirmed = [v for v in report.verdicts if v.is_suspicious or v.status is Status.ERROR]
 
     scope = f"{len(report.verdicts)} reference(s)"
     if report.truncated:
@@ -180,49 +232,137 @@ async def check_reference_verification(ctx: CheckContext) -> Finding:
         f"{f', {report.searched} needed a web search' if report.searched else ''}."
     )
     breakdown = Evidence(
-        detail=f"{verified} verified in a database, {resolved} resolved to a live source, "
+        detail=f"{confirmed} confirmed by a key source, {resolved} resolved to a live source, "
                f"{unindexed} not the kind of thing databases index"
     )
+    notes = _source_notes(ctx, report)
 
-    notes: list[Evidence] = []
-    if report.throttled and not ctx.conf("refcheck.mailto", None):
-        hosts = ", ".join(sorted(report.throttled))
-        notes.append(Evidence(
-            detail=f"{hosts} rate-limited this run. Set `refcheck.mailto` in your profile to your "
-                   "email address: CrossRef and OpenAlex both serve identified clients from a "
-                   "faster pool, which makes this check quicker and more accurate."
-        ))
-    elif report.throttled:
-        notes.append(Evidence(detail="rate-limited by " + ", ".join(sorted(report.throttled))
-                              + "; the affected lookups fell through to slower tiers"))
-
-    if not suspicious:
+    if not unconfirmed:
         return ctx.ok("reference_verification", "Reference verification",
-                      f"Every reference was accounted for. {timing}",
+                      f"Every reference was confirmed. {timing}",
                       category="references", evidence=[breakdown, *notes])
 
     max_evidence = int(ctx.conf("refcheck.max_evidence", 15))
     evidence = [breakdown, *notes]
-    for verdict in suspicious[:max_evidence]:
+    for verdict in unconfirmed[:max_evidence]:
         label = _STATUS_LABEL.get(verdict.status, verdict.status.value)
         detail = f"[{label}]"
         if verdict.source:
             detail += f" via {verdict.source}"
         if verdict.note:
             detail += f" — {verdict.note}"
-        evidence.append(Evidence(detail=detail, quote=verdict.reference.label))
-    if len(suspicious) > max_evidence:
-        evidence.append(Evidence(detail=f"...and {len(suspicious) - max_evidence} more"))
+        evidence.append(Evidence(detail=detail, quote=_entry(verdict)))
+    if len(unconfirmed) > max_evidence:
+        evidence.append(Evidence(detail=f"...and {len(unconfirmed) - max_evidence} more"))
 
-    as_error = bool(ctx.conf("refcheck.not_found_is_error", False))
+    as_error = bool(ctx.conf("refcheck.not_found_is_error", True))
     reporter = ctx.error if as_error else ctx.warn
     return reporter(
         "reference_verification", "Reference verification",
-        f"{len(suspicious)} of {scope} could not be confirmed. {timing} {_SUSPICION}",
+        f"{len(unconfirmed)} of {scope} could not be confirmed by any key source. {timing} "
+        f"{_SUSPICION}",
         category="references", evidence=evidence,
         remedy="Check each flagged entry by hand against the publisher's page, the arXiv listing "
         f"or the cited URL before changing anything. {_SUSPICION} Fix genuinely wrong titles, "
-        "authors or years; leave correct-but-unindexed entries alone.",
-        confidence="low — an index miss is a lead to check, never a verdict"
-        if not as_error else "medium — the profile promoted misses to errors",
+        "authors or years; a real work that no index lists needs a citation a reader can follow "
+        "to it, such as a DOI, arXiv id or URL.",
+        confidence="medium — no key source confirms these, though indexes are incomplete",
+    )
+
+
+_FIELD_ORDER = ("doi", "arxiv", "url", "authors", "pages", "year", "venue", "version")
+
+
+def _ranked(verdicts: list[Any], fields: set[str]) -> list[tuple[Any, list[Any]]]:
+    """Each verdict's discrepancies in ``fields``, most serious entries first."""
+    def order(field: str) -> int:
+        return _FIELD_ORDER.index(field) if field in _FIELD_ORDER else len(_FIELD_ORDER)
+
+    chosen = [(v, sorted((d for d in v.discrepancies if d.field in fields), key=lambda d: order(d.field)))
+              for v in verdicts]
+    chosen = [(v, found) for v, found in chosen if found]
+    return sorted(chosen, key=lambda pair: order(pair[1][0].field))
+
+
+def _listing(ctx: CheckContext, entries: list[tuple[Any, list[Any]]]) -> list[Evidence]:
+    # Every entry is a concrete correction, so all are listed unless the profile caps it.
+    cap = int(ctx.conf("refcheck.max_detail_evidence", 0) or 0) or len(entries)
+    evidence = [
+        Evidence(detail=" · ".join(f"{_FIELD_LABEL.get(d.field, d.field)}: {d.detail}" for d in found),
+                 quote=_entry(verdict))
+        for verdict, found in entries[:cap]
+    ]
+    if len(entries) > cap:
+        evidence.append(Evidence(detail=f"...and {len(entries) - cap} more"))
+    return evidence
+
+
+#: A citation that gets its work wrong. A preprint cited in place of its
+#: published version is right about the work, so it is reported separately.
+_DETAIL_FIELDS = {"doi", "arxiv", "url", "authors", "pages", "year", "venue"}
+
+
+@register("reference_details", "Reference details", module=MODULE, category="references",
+          requires=("enable_refcheck",), order=89)
+async def check_reference_details(ctx: CheckContext) -> Finding:
+    """Compare each confirmed reference against its record: DOI, pages, year, venue, authors."""
+    data = await _run(ctx)
+    report = data["report"]
+
+    if not report.verdicts:
+        return ctx.skip("reference_details", "Reference details",
+                        "No references could be parsed, so none were compared.",
+                        category="references")
+
+    entries = _ranked(report.miscited, _DETAIL_FIELDS)
+    confirmed = report.count(Status.VERIFIED) + report.count(Status.DETAILS_MISMATCH)
+    if not entries:
+        return ctx.ok(
+            "reference_details", "Reference details",
+            f"All {confirmed} confirmed reference(s) match their records: every printed DOI "
+            "resolves to the cited work, and the pages, year, venue and authors agree.",
+            category="references")
+
+    fields = sorted({_FIELD_LABEL.get(d.field, d.field) for _, found in entries for d in found})
+    as_error = bool(ctx.conf("refcheck.details_mismatch_is_error", True))
+    reporter = ctx.error if as_error else ctx.warn
+    return reporter(
+        "reference_details", "Reference details",
+        f"{len(entries)} reference(s) cite a real work with details its record contradicts "
+        f"({', '.join(fields)}).",
+        category="references", evidence=_listing(ctx, entries),
+        remedy="Replace each flagged entry with the record's own citation — the BibTeX from the "
+        "ACL Anthology, the DOI, DBLP or arXiv — rather than correcting fields by hand.",
+        confidence="high — each discrepancy is read off the key source's own record",
+    )
+
+
+@register("reference_versions", "Published versions", module=MODULE, category="references",
+          requires=("enable_refcheck",), order=89)
+async def check_reference_versions(ctx: CheckContext) -> Finding:
+    """Find preprints, and works cited without a venue, that have a published version."""
+    data = await _run(ctx)
+    report = data["report"]
+
+    if not report.verdicts:
+        return ctx.skip("reference_versions", "Published versions",
+                        "No references could be parsed, so none were compared.",
+                        category="references")
+
+    entries = _ranked(report.miscited, {"version"})
+    if not entries:
+        return ctx.ok("reference_versions", "Published versions",
+                      "No preprint is cited in place of a published version.",
+                      category="references")
+
+    as_error = bool(ctx.conf("refcheck.published_version_is_error", False))
+    reporter = ctx.error if as_error else ctx.warn
+    return reporter(
+        "reference_versions", "Published versions",
+        f"{len(entries)} reference(s) cite a preprint, or no venue, for a work that has been "
+        "published.",
+        category="references", evidence=_listing(ctx, entries),
+        remedy="Cite the published version: its venue, year, pages and DOI.",
+        confidence="high — the published version is listed by a key source under the same title "
+        "and authors, or by the preprint's own arXiv record",
     )

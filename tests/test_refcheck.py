@@ -141,12 +141,40 @@ def test_policy_rejects_an_unrelated_title() -> None:
     assert policy.judge(ref, cand)[0] == "reject"
 
 
-def test_exact_identifier_always_accepts() -> None:
+def test_an_identifier_must_lead_to_the_cited_work() -> None:
+    """A printed DOI that belongs to another paper is not confirmation of this one."""
     policy = MatchPolicy()
-    ref = _ref(title="Whatever the extractor produced", doi="10.1/2")
-    cand = Candidate(source="crossref", title="The Real Title", exact_id=True)
+    ref = Reference(raw="[21] Z. Wang et al. RoleLLM: Benchmarking, eliciting, and enhancing "
+                        "role-playing abilities of large language models. Findings of ACL 2024. "
+                        "doi: 10.18653/v1/2024.findings-acl.843.", index=0,
+                    title="RoleLLM: Benchmarking, eliciting, and enhancing role-playing abilities "
+                          "of large language models", doi="10.18653/v1/2024.findings-acl.843")
+    elsewhere = Candidate(source="crossref", exact_id=True, title="Looking Right is Sometimes "
+                          "Right: Investigating the Capabilities of Decoder-only LLMs for Sequence "
+                          "Labeling")
+    assert policy.judge(ref, elsewhere)[0] == "reject"
+
+
+def test_an_identifier_survives_a_garbled_title() -> None:
+    """Extraction can mangle the parsed title; the raw citation still names the work."""
+    policy = MatchPolicy()
+    ref = Reference(raw="I. Sekulić et al. Reliable LLM-based user simulator for task-oriented "
+                        "dialogue systems. In SCI-CHAT 2024, pages 28–40.", index=0,
+                    title="Reliable LLM-based user simulator", doi="10.18653/v1/2024.scichat-1.3")
+    cand = Candidate(source="crossref", exact_id=True,
+                     title="Reliable LLM-based User Simulator for Task-Oriented Dialogue Systems")
     outcome, score, _ = policy.judge(ref, cand)
     assert outcome == "accept" and score == 1.0
+
+
+def test_title_alone_needs_a_closer_match() -> None:
+    """With no authors to compare, a near-miss title is not positive confirmation."""
+    policy = MatchPolicy()
+    ref = _ref(title="Scaling Laws for Neural Language Models Revisited Again")
+    near = Candidate(source="crossref", title="Scaling Laws for Neural Language Models Revisited")
+    assert policy.judge(ref, near)[0] == "review"
+    exact = Candidate(source="crossref", title="Scaling laws for neural language models revisited again")
+    assert policy.judge(ref, exact)[0] == "accept"
 
 
 def test_policy_reviews_a_year_that_is_far_off() -> None:

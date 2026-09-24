@@ -19,11 +19,58 @@ _STOPWORDS = {"a", "an", "the", "of", "for", "and", "on", "in", "to", "with", "v
 _DOI_RE = re.compile(r"\b10\.\d{4,9}/[-._;()/:a-z0-9]+\b", re.IGNORECASE)
 _ARXIV_RE = re.compile(r"\b(?:arxiv[:\s]*)?(\d{4}\.\d{4,5})(?:v\d+)?\b", re.IGNORECASE)
 _YEAR_RE = re.compile(r"\b(19|20)\d{2}\b")
+_DASH = r"(?:-{1,3}|–|—|−|‐|‑)"
+_PAGE = r"[A-Za-z]?\d+"
+_PAGES_LABELLED = re.compile(rf"(?i)(?:\bpages?|\bpp?\.)\s*({_PAGE}(?:\s*{_DASH}\s*{_PAGE})?)")
+_PAGES_JOURNAL = re.compile(rf"\d+\s*\(\s*[\w./-]+\s*\)\s*:\s*({_PAGE}\s*{_DASH}\s*{_PAGE})")
+_PAGE_RANGE = re.compile(rf"^\s*({_PAGE})\s*(?:{_DASH}\s*({_PAGE}))?\s*$")
+_ETAL_RE = re.compile(r"(?i)\bet\.?\s*al\b|\band others\b")
+
+
+def normalise_doi(doi: str | None) -> str | None:
+    """Lowercase a DOI and strip the resolver prefix and trailing punctuation."""
+    if not doi:
+        return None
+    text = re.sub(r"(?i)^(?:https?://(?:dx\.)?doi\.org/|doi:\s*)", "", doi.strip())
+    text = text.rstrip(".,;)]}").lower()
+    return text if text.startswith("10.") and "/" in text else None
+
+
+def compact(text: str) -> str:
+    """Letters and digits only: a key that survives hyphenation, spacing and case."""
+    return re.sub(r"[^a-z0-9]", "", normalise_title(text))
+
+
+def parse_page_range(text: str | None) -> tuple[str, str | None] | None:
+    """``"19--35"`` to ``("19", "35")``, expanding ``"1877-901"`` to ``("1877", "1901")``."""
+    match = _PAGE_RANGE.match(text or "")
+    if not match:
+        return None
+    first, last = match.group(1).lower(), (match.group(2) or "").lower() or None
+    if last and first.isdigit() and last.isdigit() and len(last) < len(first) and int(last) < int(first):
+        last = first[: len(first) - len(last)] + last      # abbreviated last page
+    return first.lstrip("0") or "0", (last.lstrip("0") or "0") if last else None
+
+
+def find_pages(raw: str) -> str | None:
+    """The page range printed in a citation, if it prints one."""
+    match = _PAGES_LABELLED.search(raw or "") or _PAGES_JOURNAL.search(raw or "")
+    return " ".join(match.group(1).split()) if match else None
+
+
+#: Accents that PDF extraction leaves standing on their own beside the letter
+#: they belong to: "Gaši´c" for "Gašić", "Mu¨ller" for "Müller".
+_SPACING_ACCENTS = re.compile("[\u00b4\u0060\u00a8\u00af\u00b8\u02c6\u02c7\u02ca\u02cb"
+                              "\u02d8\u02d9\u02da\u02db\u02dc\u02dd]")
+
+
+def strip_spacing_accents(text: str) -> str:
+    return _SPACING_ACCENTS.sub("", text or "")
 
 
 def normalise_title(title: str) -> str:
     """Lowercase, strip accents and punctuation, collapse whitespace."""
-    text = unicodedata.normalize("NFKD", title or "")
+    text = unicodedata.normalize("NFKD", strip_spacing_accents(title))
     text = "".join(c for c in text if not unicodedata.combining(c))
     text = _PUNCT.sub(" ", text.lower())
     return _SPACE.sub(" ", text).strip()
@@ -216,9 +263,11 @@ def classify(raw: str, *, venue: str | None = None, doi: str | None = None,
 class Status(StrEnum):
     """What we concluded about one reference."""
 
-    VERIFIED = "verified"                # found in a bibliographic database
+    VERIFIED = "verified"                # matches a record in a key source
+    DETAILS_MISMATCH = "details_mismatch"  # the work exists, but the citation misstates it
     RESOLVED = "resolved"                # a non-paper citation whose target exists
     AUTHOR_MISMATCH = "author_mismatch"
+    UNCONFIRMED = "unconfirmed"          # web search reports it, but no key source confirms it
     NOT_FOUND = "not_found"
     UNRESOLVED = "unresolved"            # a non-paper citation we could not reach
     UNINDEXED = "unindexed"              # not a paper, and not expected to be indexed
@@ -227,8 +276,13 @@ class Status(StrEnum):
 
     @property
     def is_suspicious(self) -> bool:
-        """Only statuses that a reader should actually go and check by hand."""
-        return self in {Status.AUTHOR_MISMATCH, Status.NOT_FOUND, Status.UNRESOLVED}
+        """Existence problems: the work itself could not be confirmed.
+
+        A work that exists but is cited with the wrong details is reported
+        separately, through the verdict's discrepancies.
+        """
+        return self in {Status.AUTHOR_MISMATCH, Status.UNCONFIRMED, Status.NOT_FOUND,
+                        Status.UNRESOLVED}
 
 
 @dataclass(slots=True)
@@ -244,6 +298,7 @@ class Reference:
     doi: str | None = None
     arxiv_id: str | None = None
     url: str | None = None
+    pages: str | None = None
     kind: Kind = Kind.UNKNOWN
 
     def classify_kind(self) -> Kind:
@@ -259,6 +314,17 @@ class Reference:
     @property
     def label(self) -> str:
         return self.title or " ".join(self.raw.split())[:90]
+
+    @property
+    def marker(self) -> str | None:
+        """The printed label, such as ``[21]``, so a reader can find the entry."""
+        match = re.match(r"\s*(\[\d{1,4}\])", self.raw)
+        return match.group(1) if match else None
+
+    @property
+    def truncated_authors(self) -> bool:
+        """Whether the citation shortens its author list with "et al."."""
+        return any(_ETAL_RE.search(a) for a in self.authors) or bool(_ETAL_RE.search(self.raw))
 
     @property
     def is_usable(self) -> bool:
@@ -284,6 +350,9 @@ class Reference:
             match = _DOI_RE.search(self.raw)
             if match:
                 self.doi = match.group(0).rstrip(".,;")
+        self.doi = normalise_doi(self.doi)
+        if not self.pages:
+            self.pages = find_pages(self.raw)
         if not self.arxiv_id and "arxiv" in self.raw.lower():
             match = _ARXIV_RE.search(self.raw)
             if match:
@@ -297,9 +366,17 @@ class Reference:
                 self.year = min(years)
 
 
+_PREPRINT_DOI = ("10.48550/", "10.1101/", "10.2139/ssrn", "10.31219/", "10.20944/preprints",
+                 "10.21203/rs.", "10.36227/techrxiv", "10.26434/chemrxiv")
+_PREPRINT_VENUE = re.compile(
+    r"(?i)\barxiv\b|\bcorr\b|biorxiv|medrxiv|\bssrn\b|techrxiv|chemrxiv|research square|"
+    r"\bpreprint\b|submitted to|openreview\.net/archive|not accepted"
+)
+
+
 @dataclass(slots=True)
 class Candidate:
-    """A record a database returned for a reference."""
+    """A record a key source returned for a reference."""
 
     source: str
     title: str
@@ -309,11 +386,74 @@ class Candidate:
     doi: str | None = None
     url: str | None = None
     exact_id: bool = False       # matched by DOI/arXiv id rather than by search
+    pages: str | None = None
+    years: tuple[int, ...] = ()  # other dates the record carries (print, online, v1)
+    preprint: bool | None = None # None: decide from the venue and DOI
+    journal_ref: str | None = None      # arXiv: where the authors say it was published
+    published_doi: str | None = None    # arXiv: the DOI of the published version
+    record_id: str | None = None        # the source's own id, for the report
+
+    @property
+    def is_preprint(self) -> bool:
+        if self.preprint is not None:
+            return self.preprint
+        if (self.doi or "").lower().startswith(_PREPRINT_DOI):
+            return True
+        return bool(_PREPRINT_VENUE.search(self.venue or ""))
+
+    @property
+    def all_years(self) -> set[int]:
+        return {y for y in (self.year, *self.years) if y}
 
     def score(self, reference: Reference) -> float:
         if self.exact_id:
             return 1.0
         return title_similarity(reference.title or reference.raw, self.title)
+
+    def describe(self) -> str:
+        """``Findings of ACL 2024, pp. 14743-14777, doi:10.18653/...`` for a report."""
+        bits = [self.venue or self.source]
+        if self.year:
+            bits.append(str(self.year))
+        if self.pages:
+            bits.append(f"pp. {self.pages}")
+        if self.doi and not self.is_preprint:
+            bits.append(f"doi:{self.doi}")
+        return ", ".join(bits)
+
+
+def title_agrees(reference: Reference, title: str, threshold: float = 0.72) -> bool:
+    """Whether a record found by identifier is the work the citation names.
+
+    A DOI or arXiv id is only as good as the title it resolves to: a citation
+    that prints the wrong DOI must not be verified against whatever paper that
+    DOI happens to belong to. The parsed title can be garbled by extraction, so
+    the raw citation text is consulted too.
+    """
+    if not title:
+        return False
+    if reference.title and title_similarity(reference.title, title) >= threshold:
+        return True
+    wanted = compact(title)
+    if wanted and len(wanted) >= 12 and wanted in compact(reference.raw):
+        return True
+    words = set(normalise_title(title).split()) - _STOPWORDS
+    if len(words) < 3:
+        return False
+    present = set(normalise_title(reference.raw).split())
+    return len(words & present) / len(words) >= 0.85
+
+
+@dataclass(slots=True)
+class Discrepancy:
+    """One way a citation disagrees with the record that confirms it."""
+
+    field: str                   # doi, arxiv, pages, year, venue, authors, version
+    detail: str
+    source: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"field": self.field, "detail": self.detail, "source": self.source}
 
 
 @dataclass(slots=True)
@@ -329,6 +469,7 @@ class Verdict:
     note: str = ""
     url: str | None = None
     checked_sources: tuple[str, ...] = ()
+    discrepancies: list[Discrepancy] = field(default_factory=list)
 
     @property
     def is_suspicious(self) -> bool:
@@ -345,6 +486,7 @@ class Verdict:
             "author_score": round(self.author_score, 3),
             "note": self.note,
             "url": self.url,
+            "discrepancies": [d.to_dict() for d in self.discrepancies],
         }
 
 
@@ -356,16 +498,23 @@ class MatchPolicy:
     review_title: float = 0.72
     accept_author: float = 0.34      # one shared surname out of three is enough
     year_slack: int = 2
+    # With no authors to compare, the title is the only evidence, so it has to
+    # agree more closely before a record counts as confirmation.
+    accept_title_alone: float = 0.95
 
     def judge(self, reference: Reference, candidate: Candidate) -> tuple[str, float, float]:
         """Return (outcome, title score, author score).
 
         Outcomes: ``accept``, ``review`` (send to the model), ``reject``.
         """
-        score = candidate.score(reference)
         authors = author_overlap(reference.authors, candidate.authors)
         if candidate.exact_id:
-            return "accept", 1.0, authors
+            # Found by the identifier the citation printed. That is confirmation
+            # only if the identifier leads to the work the citation names.
+            if title_agrees(reference, candidate.title, self.review_title):
+                return "accept", 1.0, authors
+            return "reject", title_similarity(reference.title or reference.raw, candidate.title), authors
+        score = candidate.score(reference)
         if score < self.review_title:
             return "reject", score, authors
         if reference.year and candidate.year and abs(reference.year - candidate.year) > self.year_slack:
@@ -374,6 +523,8 @@ class MatchPolicy:
             return "review", score, authors
         if score >= self.accept_title:
             if authors >= 0.0 and authors < self.accept_author:
+                return "review", score, authors
+            if authors < 0.0 and score < self.accept_title_alone:
                 return "review", score, authors
             return "accept", score, authors
         return "review", score, authors

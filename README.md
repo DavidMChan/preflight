@@ -4,9 +4,9 @@
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Checks: 104](https://img.shields.io/badge/checks-104-blue)](#checks)
+[![Checks: 111](https://img.shields.io/badge/checks-111-blue)](#checks)
 [![Venues: 9](https://img.shields.io/badge/venues-9-blueviolet)](#conferences)
-[![Tests: 229](https://img.shields.io/badge/tests-229%20passing-brightgreen)](#development)
+[![Tests: 321](https://img.shields.io/badge/tests-321%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -45,7 +45,7 @@ The tool maintains a clear distinction among four categories:
 
 | Category | Basis | Reported as |
 |---|---|---|
-| **Deterministic** | Measurements of the PDF's geometry, fonts and text boxes: page size, margins, page limits, section order, column layout. | `ERROR` — a documented desk-rejection condition, accompanied by the supporting measurement. |
+| **Deterministic** | Measurements of the PDF's geometry, fonts and text boxes: page size, margins, page limits, section order, column layout; and each reference compared against its record in a key source. | `ERROR` — a documented desk-rejection condition, or a citation that no key source confirms or whose record contradicts it, accompanied by the supporting measurement. |
 | **Heuristic** | Pattern matching and model judgement: anonymity leaks, prompt injection, checklist coverage, undersized table text. | `WARNING` — an institution named in related work may be legitimate, so adjudication requires a human reader. |
 | **Advisory** | Reviewer perspectives: triage, experimental design, statistics, figures, prose, ethics. | `WARNING` — assessments of quality and presentation rather than venue requirements. |
 | **Out of scope** | Originality, dual submission, citation coverage, OpenReview metadata, reviewer registration. | `N/A` — enumerated explicitly on every run. |
@@ -147,7 +147,7 @@ number cannot report a desk rejection.
 
 ## Checks
 
-109 checks across 27 modules. Each profile enables a subset; ARR enables 108.
+111 checks across 27 modules. Each profile enables a subset; ARR enables 110.
 
 ### Deterministic — `core.geometry`, `core.fonts`, `core.structure`
 
@@ -219,30 +219,52 @@ reported, and a checklist that is present is validated.
 
 ### Reference verification — `integrations.refcheck`
 
-Every bibliography entry is verified through four tiers, and a reference exits at the first tier
-that resolves it:
+A reference passes only when a key source confirms it: a record whose title and authors match the
+citation. The record is then compared field by field against the citation. Three findings report the
+result:
 
-1. **Cache.** References recur across drafts.
-2. **Bulk databases, concurrently.** CrossRef, OpenAlex and DOI resolution are issued for all
-   references simultaneously under per-host rate limits.
-3. **Routing by cited artifact type.** A repository is verified against the GitHub API, a model
-   card against the Hugging Face Hub, a package against PyPI, and a blog post against its own URL.
-4. **Live web search.** Remaining references are submitted to the model's `web_search` tool under
-   scholarly domain filters and return a citation URL.
+| Check | Severity | Reports |
+|---|---|---|
+| `reference_verification` | `ERROR` | References that no key source confirms. |
+| `reference_details` | `ERROR` | Confirmed references whose record contradicts the citation: a printed DOI or arXiv identifier that is unregistered or belongs to a different work; page ranges; years; venues, including Findings cited as the main conference and a cited venue that no record confirms; authors absent from the record, altered given names, reordered authors, and author lists shortened without "et al.". |
+| `reference_versions` | `WARNING` | A preprint, or a work cited without a venue, whose published version exists. |
 
-Measured on a 62-entry bibliography from a submission:
+The key sources, and the terms under which each is queried:
+
+| Source | Route | Etiquette |
+|---|---|---|
+| DOI registry | CrossRef, then doi.org content negotiation (DataCite and other registrars), then the handle API for existence | CrossRef's published limits: one request per second and one at a time, or three with `mailto` |
+| ACL Anthology | The complete bibliography (`anthology.bib.gz`, 13 MB), indexed locally | Downloaded at most weekly |
+| arXiv | `export.arxiv.org`, titles and identifiers batched into single queries | One request every three seconds over one connection |
+| DBLP | `sparql.dblp.org`, all titles in one query, and first author with year for retitled works | The ten-second crawl delay in its robots.txt; `dblp.org` itself disallows automated access and is not queried |
+| OpenReview | The search API | Its published policy of twenty requests per minute |
+| OpenAlex | The works API | Requires `OPENALEX_API_KEY` beyond a small budget shared per network |
+| Open Library | The search API, for books | One request every two seconds |
+| Publisher pages | `citation_*` metadata on the landing page | Only where the site's robots.txt permits, at its crawl delay |
+
+Every request identifies the tool in its User-Agent, with a contact address when `refcheck.mailto`
+or `PREFLIGHT_MAILTO` is set. Rate and concurrency limits that a host publishes in its response
+headers are adopted for the rest of the run. A repository, model card, package or blog post is
+verified against the thing it is: the GitHub API, the Hugging Face Hub, PyPI, or its own URL.
+
+The model's web search is used only to locate a record. The DOI, arXiv identifier or URL it returns
+is fetched from the key source and matched like any other record; a work that the search reports but
+no key source confirms is reported as unconfirmed.
+
+Measured on a 91-entry bibliography from a submission:
 
 | Measurement | Result |
 |---|---|
-| Wall clock, cold | 62 references in 39s, plus approximately 16s to parse the bibliography |
-| Wall clock, warm | 1.7s, identical verdicts |
-| Resolution | 47 verified in a database · 12 resolved to a live source · 3 author-order discrepancies |
-| False negatives | none |
+| Wall clock, cold | 80s, plus approximately 25s to parse the bibliography |
+| Wall clock, warm | under 1s, all 91 from the cache |
+| Confirmation | 90 by a key source · 1 resolved to a live source · 1 web search |
+| Details | 24 references contradicted by their records, among them two DOIs belonging to other papers, five incorrect page ranges, invented and altered author names, and fifteen preprints or venue-less citations with published versions |
 
-`refcheck.mailto` should be set to a contact address.
-
-An unresolved reference is reported as unverified rather than fabricated, since bibliographic
-indexes are incomplete. It is a warning by default and never an error.
+The cache is keyed on each entry's text, so an edited entry is checked again. An unconfirmed
+reference is reported as unconfirmed rather than fabricated, since indexes are incomplete; it is
+still an error, because a reader must be able to trace every citation. The severities are set by
+`refcheck.not_found_is_error`, `refcheck.details_mismatch_is_error` and
+`refcheck.published_version_is_error`.
 
 ### File and manuscript integrity — `core.markup`, `core.pdf`, `core.citations`, `core.statistics`, `core.abbreviations`, `core.crossrefs`, `core.headings`, `core.figure_quality`
 

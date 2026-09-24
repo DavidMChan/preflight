@@ -108,7 +108,7 @@ def check(
     track: Annotated[str | None, typer.Option("--track", "-t", help="Submission track (e.g. long, short).")] = None,
     llm: Annotated[bool, typer.Option("--llm/--no-llm", help="LLM-backed semantic checks and the Responsible NLP checklist.")] = True,
     scores: Annotated[bool, typer.Option("--scores/--no-scores", help="Reviewer-style scores (needs --llm).")] = True,
-    refcheck: Annotated[bool, typer.Option("--refcheck/--no-refcheck", help="Verify every reference against databases, its own host, and the live web.")] = True,
+    refcheck: Annotated[bool, typer.Option("--refcheck/--no-refcheck", help="Confirm every reference against a key source (DOI registry, ACL Anthology, arXiv, DBLP, OpenReview), and compare its DOI, pages, year, venue and authors.")] = True,
     hallucinator: Annotated[bool, typer.Option("--hallucinator/--no-hallucinator", help="Also run the third-party hallucinator backend (slower; superseded by --refcheck).")] = False,
     offline: Annotated[bool, typer.Option("--offline", help="Deterministic checks only: no model calls, no database lookups.")] = False,
     model: Annotated[str, typer.Option("--model", "-m", help="Model for the LLM-backed checks.")] = DEFAULT_MODEL,
