@@ -4,13 +4,14 @@ module: llm.prose
 category: prose
 order: 1
 context: prose_stats
-description: Does the prose read like a domain expert wrote it, or like generic filler?
+description: Does the prose read like a domain expert wrote it, or like generic filler, overly casual exposition, or imprecise anthropomorphic prose?
 guidance: |
   A reviewer forms an impression of the authors' expertise from HOW the paper is written,
   not just what it claims. Uniform sentence rhythm, stock connectives, hollow wrap-up
-  sentences, and adjectives standing in for numbers all read as generic or AI-smoothed
-  prose, even when the underlying science is sound. This audit is a style lens: it says how
-  to make the prose sound like a domain expert wrote it, without touching the science.
+  sentences, adjectives standing in for numbers, inappropriate informality, and assigning
+  human-like agency to methods, datasets, figures, or results can all make otherwise sound
+  technical prose feel less precise. This audit is a style lens: it says how to make the
+  prose sound like a domain expert wrote it, without touching the science.
 prompt: |
   You are given MEASURED prose statistics: a sentence-length histogram, counts of stock
   connectives ("furthermore", "moreover", "notably", "consequently", "it is worth noting",
@@ -24,7 +25,7 @@ prompt: |
   Also look, in the paper text itself, for:
   - Hollow wrap-up sentences that restate a finding without adding information ("Together,
     these observations suggest...", "These results highlight the effectiveness of our
-    approach.") — flag these when they close a section without a specific number, mechanism,
+    approach.") - flag these when they close a section without a specific number, mechanism,
     or comparison attached.
   - An adjective doing the work a number should do: "high accuracy", "competitive
     performance", "a significant improvement" used where the actual value is available
@@ -36,36 +37,104 @@ prompt: |
   - Negation-first framing ("We do not claim X, but rather Y") where a positive-first
     assertion ("Our contribution is Y; it does not require X.") would read more confident
     and less defensive. Flag this only where it recurs, not for one instance.
+  - Hedges that are obvious, useless or detrimental to clarity ("may not hold for all X", "
+    could be improved with more data", "might be better than Y") where the paper is otherwise m
+    aking a strong claim. Flag only hedges that are vague, unfalsifiable, and attached to
+    no specific claim.
+  - Informal or conversational phrasing that is noticeably out of register for a technical
+    paper. Examples include contractions ("we're", "doesn't"), conversational asides
+    ("of course", "basically", "in a nutshell", "it turns out"), reader-address ("you can
+    see", "notice that"), casual evaluative language ("pretty good", "a lot better",
+    "huge improvement"), slang, rhetorical questions, or spoken-style transitions
+    ("so", "anyway", "now let's look at") where a more precise technical formulation would
+    fit better. Flag only phrasing that is genuinely conspicuous in context, not every trace
+    of plain or accessible language.
+  - Non-human entities given human-like agency, intention, belief, preference, judgment, or
+    volition where the wording obscures the actual causal or procedural relationship.
+    Examples include "the dataset wants...", "the loss encourages the model to...", "the
+    experiment decides...", "the evidence believes...", "the architecture prefers...", or
+    "the results argue that..." when a more literal formulation would be more precise.
+    Recommend naming the actual mechanism or human actor where possible: e.g. "the loss
+    penalizes X", "the optimization objective favors X", "the results provide evidence for
+    X", or "we interpret the results as supporting X."
+
+  For non-human agency, distinguish imprecise anthropomorphism from ordinary technical
+  shorthand. Do NOT flag conventional metonymy or field-standard constructions merely
+  because the grammatical subject is non-human. Expressions such as:
+  - "the model predicts/classifies/generates..."
+  - "the algorithm selects/updates/returns..."
+  - "the loss penalizes..."
+  - "the regularizer encourages sparsity..."
+  - "the data show/indicate..."
+  - "the results suggest/indicate..."
+  - "Figure 2 shows..."
+  - "Table 3 reports..."
+  - "the analysis reveals..."
+  are normally acceptable when the verb accurately describes an operation, statistical
+  relationship, presentation function, or conventional shorthand.
+
+  Flag non-human agency primarily when the verb implies a mental state, intention, social
+  action, subjective judgment, or autonomous choice that the entity does not literally have,
+  or when replacing the construction would materially clarify the mechanism. Prefer a narrow
+  standard: "the objective encourages sparsity" is usually fine; "the objective understands
+  which features matter" is not.
+
+  For informality, distinguish accessible prose from casual prose. Short sentences, active
+  voice, first-person plural, simple vocabulary, and direct statements are not defects.
+  Do not recommend making clear prose more ornate or bureaucratic merely to make it sound
+  "academic." Flag only language whose register is noticeably more conversational,
+  colloquial, promotional, or spoken than the surrounding technical prose.
 
   Rule out hard, and do not flag:
   - Formal technical writing is legitimately uniform and hedged. A narrow sentence-length
     band or heavy use of "we" is not itself a defect.
   - A Related Work or Limitations section is legitimately dense with connectives
-    ("however", "in contrast", "additionally") because it is doing real comparative work —
+    ("however", "in contrast", "additionally") because it is doing real comparative work -
     judge those sections against the paper's connective counts as a whole, not in isolation.
   - Domain terminology and method names are not marketing tone, however unfamiliar they
     sound.
   - A hedge that reflects genuine uncertainty ("this may not hold for languages with
-    different morphology") is good scientific writing, not an AI tell — only flag hedging
+    different morphology") is good scientific writing, not an AI tell - only flag hedging
     that is vague, unfalsifiable, and attached to no specific claim.
   - Passive constructions standard to the field, and standard section-opener conventions
     ("We evaluate...", "We propose...") used once or twice per section.
+  - Clear, plain-language technical prose merely because it is easy to read.
+  - First-person plural ("we") where the authors are genuinely the agents of an action.
+  - Conventional technical subjects such as models, algorithms, objectives, datasets,
+    figures, tables, analyses, and results taking verbs that accurately describe their
+    operation or evidential role.
+  - Mild personification that is entrenched technical shorthand and creates no ambiguity
+    about mechanism or agency.
+  - "Results suggest/indicate/show" by itself. These are conventional evidential
+    constructions and should not be treated as anthropomorphism unless the surrounding
+    wording assigns the results a stronger human-like act such as believing, arguing,
+    insisting, deciding, or preferring.
 
   It is a fully acceptable, common outcome for this audit to return no issues: a paper with
-  moderate, varied connective use and no runaway repeated tic is simply fine, and there is
-  nothing to instruct in that case.
+  moderate, varied connective use, an appropriately formal register, conventional technical
+  shorthand, and no runaway repeated tic is simply fine, and there is nothing to instruct
+  in that case.
 
-  Put a one-line style read in `verdict` (e.g. "Clean, varied prose" or "Readable but leans
-  on a few stock connectives") — never a claim about authorship or AI generation. In
+  Put a one-line style read in `verdict` (e.g. "Clean, varied prose", "Readable but leans
+  on a few stock connectives", or "Mostly precise, with a few conversational or
+  anthropomorphic formulations") - never a claim about authorship or AI generation. In
   `summary`, state plainly that AI-detector-style judgments are unreliable on formal
   technical writing, and that everything here is a style signal about what a reader notices,
   not evidence about who or what wrote the paper. Never suggest or imply the authors used AI
   to write the paper.
 
   If there is a first issue, make it the single tic with the strongest measured count (the
-  connective used most or the longest repeated-opener run), and always recommend cutting it
-  down to a normal level (e.g. "25 -> 11"), never to zero — these are ordinary academic
-  words that a paper should still use sometimes. For every issue, quote the paper verbatim
-  (a wrap-up sentence, an adjective-laden clause, a mission-statement opener) and skip
-  anything you cannot point at with an exact quote.
+  connective used most or the longest repeated-opener run), if such a measured tic exists,
+  and always recommend cutting it down to a normal level (e.g. "25 -> 11"), never to zero -
+  these are ordinary academic words that a paper should still use sometimes. If there is no
+  qualifying measured tic, rank the remaining issues by how conspicuous and repeated they
+  are in the prose.
+
+  For every issue, quote the paper verbatim and skip anything you cannot point at with an
+  exact quote. For an informality issue, identify the specific word or phrase that creates
+  the register mismatch and suggest a more precise alternative. For a non-human-agency
+  issue, identify both the non-human grammatical subject and the agency-bearing verb, then
+  explain briefly what literal mechanism, evidential relationship, or human action the
+  sentence should name instead. Do not flag an entire sentence merely because its subject is
+  non-human.
 max_issues: 6

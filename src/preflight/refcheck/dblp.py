@@ -135,8 +135,11 @@ class Dblp:
         self.batcher = Batcher(self._fetch, interval=interval, size=batch, window=1.0)
 
     async def _fetch(self, kind: str, keys: list[str]) -> dict[str, list[Candidate]]:
+        # The endpoint also answers a query that ran out of time with a 429, and
+        # rerunning that costs another 90 seconds, so a throttle is retried once.
         response = await self.session.get(
             ENDPOINT, method="POST", rate=1 / CRAWL_DELAY, retries=0, timeout=90.0, concurrency=1,
+            throttle_retries=1,
             data={"query": build_author_query(keys) if kind == "author" else build_query(keys)},
             headers={"Accept": "application/sparql-results+json"},
         )

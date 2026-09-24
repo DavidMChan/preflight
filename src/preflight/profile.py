@@ -33,6 +33,9 @@ class TrackSpec:
     name: str
     content_page_limit: int
     description: str = ""
+    # A cap on the whole PDF, for venues that allow end matter past the content
+    # limit but only so much of it (ICASSP's 4 + 1).
+    total_page_limit: int | None = None
 
 
 @dataclass(slots=True)
@@ -183,6 +186,9 @@ def _parse(data: dict[str, Any], key: str, source: str, lineage: tuple[str, ...]
             name=str(tname).lower(),
             content_page_limit=int(tdata["content_page_limit"]),
             description=str(tdata.get("description", "")),
+            total_page_limit=(
+                int(tdata["total_page_limit"]) if tdata.get("total_page_limit") is not None else None
+            ),
         )
 
     default_track = str(conf.get("default_track", next(iter(tracks)))).lower()

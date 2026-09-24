@@ -260,8 +260,11 @@ refcheck:
   web_search: true              # finds leads for what the key sources did not return
   # A paper passes only when a key source confirms it, and its details must
   # match the record, so both are errors. A preprint cited in place of its
-  # published version names the right work, and is a warning.
+  # published version names the right work, and is a warning. So is a work no
+  # key source has but a web search located at a page that answers: a reader
+  # can follow it, though nothing checked its details.
   not_found_is_error: true
+  web_only_is_error: false
   details_mismatch_is_error: true   # wrong DOI, arXiv id, pages, year, venue or authors
   published_version_is_error: false
   max_evidence: 15

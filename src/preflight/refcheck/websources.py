@@ -31,6 +31,8 @@ class Resolution:
     url: str | None = None
     title: str | None = None
     source: str = "web"
+    # The host refused us (403/405/429): the path is served, but nothing on it was read.
+    blocked: bool = False
 
 
 def _strip(name: str) -> str:
@@ -132,7 +134,7 @@ async def liveness(session: Session, url: str) -> Resolution | None:
         return Resolution(True, f"URL resolves ({host})", url=str(response.url), source="url")
     if response.status_code in (403, 405, 429):
         return Resolution(True, f"URL exists but blocked automated access ({response.status_code})",
-                          url=target, source="url")
+                          url=target, source="url", blocked=True)
     if response.status_code in (404, 410):
         return Resolution(False, f"URL returns {response.status_code}", url=target, source="url")
     return None

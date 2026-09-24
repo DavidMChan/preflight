@@ -3,7 +3,8 @@
 Everything here is deterministic (counting, regex, set membership) and every finding is a
 WARNING -- these are pointers for a human to look at, not provable defects. A check that
 fires on a competent paper is worse than no check, so each one is written to require real,
-repeated absence of support before it speaks.
+repeated absence of support before it speaks. The one exception is an abstract over a word
+cap the venue itself sets (``surface.abstract_hard_max_words``), which is a rule, not a style.
 """
 
 from __future__ import annotations
@@ -44,6 +45,20 @@ def check_abstract_present(ctx: CheckContext) -> Finding:
     evidence = [Evidence(detail="abstract word count", measured=float(words),
                          expected=f"{min_words}-{max_words} words (a profile setting, not a universal rule)")]
 
+    # A venue's own cap, unlike the house-style range, is a rule.
+    hard_max = ctx.conf("surface.abstract_hard_max_words", None)
+    if hard_max is not None and words > int(hard_max):
+        return ctx.error(
+            "abstract_present",
+            "Abstract",
+            f"The abstract is {words} words; the venue caps it at {int(hard_max)}.",
+            category="surface",
+            evidence=[Evidence(detail="abstract word count", measured=float(words),
+                               expected=f"<= {int(hard_max)} words")],
+            remedy=f"Cut the abstract to {int(hard_max)} words or fewer, and keep the one entered "
+            "on the submission form identical to it.",
+            confidence="high — words counted in the abstract as extracted from the PDF",
+        )
     if words < min_words:
         return ctx.warn(
             "abstract_present",
@@ -130,6 +145,58 @@ def check_abstract_paragraphs(ctx: CheckContext) -> Finding | None:
         remedy="Merge the abstract into a single paragraph.",
         confidence="medium — inferred from line spacing and indentation",
     )
+
+
+# ---------------------------------------------------------------------------
+# index_terms
+# ---------------------------------------------------------------------------
+
+_INDEX_TERMS_RE = re.compile(r"(?i)^\s*(?:index terms|keywords|key words)\s*[—–:-]+\s*")
+
+
+@register("index_terms", "Index terms", module=MODULE, category="surface", order=40)
+def check_index_terms(ctx: CheckContext) -> Finding | None:
+    """The keyword line under the abstract, for venues that ask for one, and its length."""
+    limit = ctx.conf("surface.index_terms_max", None)
+    if limit is None:
+        return None
+    lines = [ln for ln in ctx.doc.reading_order if ln.page == 1]
+    start = next((i for i, ln in enumerate(lines) if _INDEX_TERMS_RE.match(ln.text)), None)
+    if start is None:
+        return ctx.warn(
+            "index_terms", "Index terms",
+            f"No 'Index Terms' line was found on page 1; the venue asks for up to {limit} "
+            "keywords under the abstract.",
+            category="surface", cfp_key="index_terms",
+            remedy="Add \\begin{keywords} ... \\end{keywords} after the abstract, terms separated "
+            "by commas.",
+            confidence="medium — looked for a line opening 'Index Terms' or 'Keywords'",
+        )
+
+    # The list runs on until the next heading or a break in the leading.
+    heads = {(round(h.bbox[0], 1), round(h.bbox[1], 1)) for h in ctx.doc.headings if h.page == 1}
+    head = lines[start]
+    kept = [head]
+    for ln in lines[start + 1:start + 8]:
+        if ((round(ln.bbox[0], 1), round(ln.bbox[1], 1)) in heads or ln.bbox[1] - kept[-1].bbox[3] > 4.0
+                or abs(ln.bbox[0] - head.bbox[0]) > 20.0):
+            break
+        kept.append(ln)
+    text = _INDEX_TERMS_RE.sub("", " ".join(" ".join(ln.text.split()) for ln in kept))
+    terms = [t.strip(" .") for t in re.split(r"[,;]", text) if t.strip(" .")]
+    evidence = [Evidence(page=1, detail="index terms as printed", quote=text[:160],
+                         measured=float(len(terms)), expected=f"<= {limit} terms")]
+    if len(terms) > int(limit):
+        return ctx.warn(
+            "index_terms", "Index terms",
+            f"The index terms list {len(terms)} keywords; the venue allows up to {limit}.",
+            category="surface", evidence=evidence, cfp_key="index_terms",
+            remedy=f"Keep the {limit} keywords that best place the paper.",
+            confidence="medium — terms are counted by their commas",
+        )
+    return ctx.ok("index_terms", "Index terms",
+                  f"Index terms found with {len(terms)} keyword(s), within the limit of {limit}.",
+                  category="surface", evidence=evidence, cfp_key="index_terms")
 
 
 # ---------------------------------------------------------------------------

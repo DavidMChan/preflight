@@ -44,7 +44,7 @@ from .websources import liveness, needs_web_route, resolve_web
 
 #: Bump when the verdict logic changes, so verdicts reached by older logic are
 #: not served from the cache.
-CACHE_VERSION = "v6"
+CACHE_VERSION = "v8"
 
 SEARCH_DOMAINS = [
     "arxiv.org", "aclanthology.org", "openreview.net", "dl.acm.org", "ieeexplore.ieee.org",
@@ -512,11 +512,32 @@ async def _verify_one(reference: Reference, run: _Run) -> Verdict:
                         note=f"located by web search; {resolution.detail}. {lead.note}",
                         checked_sources=tuple(checked), discrepancies=problems)
         if lead.found:
-            where = f" at {lead.urls[0]}" if lead.urls else ""
+            # How much the search is worth depends on what it points at. A page
+            # that answers, with no record there contradicting the citation, is a
+            # trace a reader can follow. A bare "found", a page that refuses or is
+            # gone, or a record of a different work confirms nothing.
+            if not confirmed:
+                for url in lead.urls[:2]:
+                    resolution = await liveness(run.session, url)
+                    if resolution is not None and resolution.ok and not resolution.blocked:
+                        return Verdict(
+                            reference=reference, status=Status.WEB_ONLY, source="web_search",
+                            matched_title=lead.title, url=resolution.url,
+                            note=f"a web search located it at {resolution.url}, but no key source "
+                                 f"confirms it. {lead.note}",
+                            checked_sources=tuple(checked), discrepancies=problems)
+            if confirmed:
+                other = confirmed[0]
+                why = (f" The record it points to does not match the citation: {other.title!r}, "
+                       f"{other.describe()}.")
+            elif lead.urls:
+                why = f" Nothing could be read at {lead.urls[0]}."
+            else:
+                why = " It gave no page or identifier for the work."
             return Verdict(
                 reference=reference, status=Status.UNCONFIRMED, source="web_search",
                 matched_title=lead.title, url=lead.urls[0] if lead.urls else None,
-                note=f"web search reports it{where}, but no key source confirms it. {lead.note}",
+                note=f"web search reports it, but no key source confirms it.{why} {lead.note}",
                 checked_sources=tuple(checked), discrepancies=problems)
 
     if outcome == "review" and best is not None:

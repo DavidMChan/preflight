@@ -95,6 +95,10 @@ class AsyncLLMClient:
     timeout: float = 120.0
     max_output_tokens: int = 4096
     max_concurrency: int = 8
+    # The SDK retries 429s and 5xx with exponential backoff, honouring the
+    # server's retry-after. Its default of two gives up quickly when a
+    # bibliography's parse and web-search calls share one rate budget.
+    max_retries: int = 5
     _sem_obj: Any = None
     _client_obj: Any = None
 
@@ -117,7 +121,8 @@ class AsyncLLMClient:
             from openai import AsyncOpenAI
         except ImportError as exc:  # pragma: no cover
             raise LLMUnavailable("The `openai` package is not installed.") from exc
-        object.__setattr__(self, "_client_obj", AsyncOpenAI(api_key=self.api_key, timeout=self.timeout))
+        object.__setattr__(self, "_client_obj", AsyncOpenAI(api_key=self.api_key, timeout=self.timeout,
+                                                            max_retries=self.max_retries))
         return self._client_obj
 
     async def aclose(self) -> None:

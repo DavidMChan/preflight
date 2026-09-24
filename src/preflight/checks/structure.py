@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 
+from ..analysis import captions
 from ..context import CheckContext
 from ..document import Heading, Line
 from ..models import Evidence, Finding
@@ -55,8 +56,11 @@ def _first_unlimited(ctx: CheckContext) -> Heading | None:
 
 
 def _line_index(ctx: CheckContext, heading: Heading) -> int | None:
+    # Matched on x as well as y: a heading at the top of the right column shares
+    # its baseline with the left column's first line.
     for i, line in enumerate(ctx.doc.reading_order):
-        if line.page == heading.page and abs(line.bbox[1] - heading.bbox[1]) < 0.6:
+        if (line.page == heading.page and abs(line.bbox[1] - heading.bbox[1]) < 0.6
+                and abs(line.bbox[0] - heading.bbox[0]) < 0.6):
             return i
     return None
 
@@ -72,6 +76,42 @@ def _is_content_line(ctx: CheckContext, line: Line) -> bool:
     return line.bbox[3] > top and line.bbox[1] < bottom
 
 
+def _last_content_page(ctx: CheckContext, kinds: list[str], limit: int) -> tuple[int, list[Evidence]]:
+    """The last page holding page-limited material, wherever the end matter sits.
+
+    Venues such as ICASSP allow only named end matter past the limit. There an
+    early Acknowledgments heading does not stop the count: every section that is
+    not end matter counts, and so does a float set on an extra page. Subsections
+    ("4.1") belong to the section above them.
+    """
+    wanted = {
+        re.sub(r"[^a-z ]", "", alias.lower()).strip()
+        for kind in kinds for alias in _aliases(ctx, kind)
+    }
+    starts = {(h.page, round(h.bbox[0], 1), round(h.bbox[1], 1)): h for h in ctx.doc.headings}
+    section, end_matter = "the main text", False
+    last = 1
+    stray: list[Evidence] = []
+    reported: set[tuple[str, int]] = set()
+    for line in ctx.doc.reading_order:
+        heading = starts.get((line.page, round(line.bbox[0], 1), round(line.bbox[1], 1)))
+        if heading is not None and not (heading.numbering and "." in heading.numbering):
+            section, end_matter = heading.text, heading.normalized in wanted
+        if end_matter or not _is_content_line(ctx, line):
+            continue
+        last = max(last, line.page)
+        if line.page > limit and (section, line.page) not in reported:
+            reported.add((section, line.page))
+            stray.append(Evidence(page=line.page, detail=f"{section!r} continues past page {limit}",
+                                  quote=" ".join(line.text.split())[:80]))
+    for caption in captions(ctx):
+        if caption.page > limit:
+            last = max(last, caption.page)
+            stray.append(Evidence(page=caption.page, detail=f"{caption.name} is set past page {limit}",
+                                  quote=caption.text[:80]))
+    return last, stray
+
+
 @register("page_limit", "Content page limit", module=MODULE, category="structure", order=30)
 def check_page_limit(ctx: CheckContext) -> Finding:
     """Count content pages up to the first unlimited section, not total PDF pages."""
@@ -80,8 +120,21 @@ def check_page_limit(ctx: CheckContext) -> Finding:
         str(k) for k in (ctx.conf("structure.unlimited_after", list(_KIND_ALIAS_KEYS)) or [])
     ]
     marker = _first_unlimited(ctx)
+    anywhere = ctx.conf("structure.content_end", "first_unlimited_section") == "last_content_section"
 
-    if marker is None:
+    if anywhere:
+        content_pages, stray = _last_content_page(ctx, unlimited_kinds, limit)
+        allowed = ", ".join(unlimited_kinds)
+        note = (
+            f"Only end matter ({allowed}) may appear after page {limit}; every other section "
+            "counts toward the limit wherever it sits."
+        )
+        evidence = [
+            Evidence(detail="last page holding page-limited content",
+                     measured=float(content_pages), expected=f"<= {limit} content pages"),
+            *stray[:8],
+        ]
+    elif marker is None:
         # Some venues (including ICRA) count the complete PDF, references and
         # appendices included. Other profiles reach this branch when none of
         # their configured unlimited-section landmarks could be found.
@@ -115,7 +168,13 @@ def check_page_limit(ctx: CheckContext) -> Finding:
         ]
 
     if content_pages > limit:
-        if unlimited_kinds:
+        if anywhere:
+            remedy = (
+                f"Fit everything except {', '.join(unlimited_kinds)} into the first {limit} pages. "
+                "Appendices, figures and tables are content here, not end matter. "
+                "Do not shrink fonts or margins to fit."
+            )
+        elif unlimited_kinds:
             remedy = (
                 "Move material into an unlimited section allowed by this venue, or cut content. "
                 "Do not shrink fonts or margins to fit."
@@ -139,7 +198,8 @@ def check_page_limit(ctx: CheckContext) -> Finding:
             evidence=evidence,
             remedy=remedy,
             confidence=(
-                "high — derived from the position of the first unlimited section, not raw page count"
+                "medium — sections are classified by their detected headings" if anywhere
+                else "high — derived from the position of the first unlimited section, not raw page count"
                 if marker is not None else "high — taken from the complete PDF page count"
             ),
             cfp_key="page_limit",
@@ -156,6 +216,31 @@ def check_page_limit(ctx: CheckContext) -> Finding:
         evidence=evidence,
         cfp_key="page_limit",
     )
+
+
+@register("total_page_limit", "Total page limit", module=MODULE, category="structure", order=30)
+def check_total_page_limit(ctx: CheckContext) -> Finding | None:
+    """The whole PDF, end matter included, against the track's total cap if it has one."""
+    cap = ctx.track.total_page_limit
+    if cap is None:
+        return None
+    pages = ctx.doc.page_count
+    evidence = [Evidence(detail="pages in the PDF", measured=float(pages), expected=f"<= {cap} pages")]
+    if pages > cap:
+        return ctx.error(
+            "total_page_limit", "Total page limit",
+            f"The PDF has {pages} pages; {ctx.track.name} papers may run to {cap} pages in total, "
+            f"end matter included, and only the first {ctx.track.content_page_limit} may hold content. "
+            "Exceeding the total is explicitly a rejection condition.",
+            category="structure", evidence=evidence,
+            remedy="Trim the references or end matter until the whole PDF fits, and remove any "
+            "trailing blank pages.",
+            confidence="high — the PDF's own page count",
+            cfp_key="page_limit",
+        )
+    return ctx.ok("total_page_limit", "Total page limit",
+                  f"{pages} page(s) in total against a cap of {cap} for {ctx.track.name} papers.",
+                  category="structure", evidence=evidence, cfp_key="page_limit")
 
 
 @register("limitations_present", "Limitations section", module=MODULE, category="structure", order=31)

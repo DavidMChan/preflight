@@ -267,7 +267,8 @@ class Status(StrEnum):
     DETAILS_MISMATCH = "details_mismatch"  # the work exists, but the citation misstates it
     RESOLVED = "resolved"                # a non-paper citation whose target exists
     AUTHOR_MISMATCH = "author_mismatch"
-    UNCONFIRMED = "unconfirmed"          # web search reports it, but no key source confirms it
+    UNCONFIRMED = "unconfirmed"          # web search reports it, but nothing it points to confirms it
+    WEB_ONLY = "web_only"                # web search located it at a live page; no key source has it
     NOT_FOUND = "not_found"
     UNRESOLVED = "unresolved"            # a non-paper citation we could not reach
     UNINDEXED = "unindexed"              # not a paper, and not expected to be indexed
@@ -281,8 +282,8 @@ class Status(StrEnum):
         A work that exists but is cited with the wrong details is reported
         separately, through the verdict's discrepancies.
         """
-        return self in {Status.AUTHOR_MISMATCH, Status.UNCONFIRMED, Status.NOT_FOUND,
-                        Status.UNRESOLVED}
+        return self in {Status.AUTHOR_MISMATCH, Status.UNCONFIRMED, Status.WEB_ONLY,
+                        Status.NOT_FOUND, Status.UNRESOLVED}
 
 
 @dataclass(slots=True)

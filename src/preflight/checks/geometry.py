@@ -7,6 +7,7 @@ profile rather than this file.
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from ..context import CheckContext
 from ..document import Line, PageInfo
@@ -16,24 +17,63 @@ from ..registry import register
 MODULE = "core.geometry"
 
 
+def _paper_formats(ctx: CheckContext) -> list[dict[str, Any]]:
+    """Every paper size the venue accepts, primary first, each with its own text block.
+
+    Most venues accept one size. ICASSP accepts US Letter or A4, and on A4 the
+    same 178 x 229 mm block keeps its top-left position, so the right and bottom
+    margins differ with the sheet.
+    """
+    primary: dict[str, Any] = {
+        "page_width_pt": float(ctx.conf("geometry.page_width_pt", 595.0)),
+        "page_height_pt": float(ctx.conf("geometry.page_height_pt", 842.0)),
+        "paper_size_label": str(ctx.conf("geometry.paper_size_label", "A4")),
+        "margin_left_pt": float(ctx.conf("geometry.margin_left_pt", 71.0)),
+        "margin_right_pt": float(ctx.conf("geometry.margin_right_pt", 71.0)),
+        "margin_top_pt": float(ctx.conf("geometry.margin_top_pt", 57.0)),
+        "margin_bottom_pt": float(ctx.conf("geometry.margin_bottom_pt", 62.0)),
+    }
+    formats = [primary]
+    for alt in (ctx.conf("geometry.alternate_page_sizes", {}) or {}).values():
+        if isinstance(alt, dict):
+            formats.append({**primary, **{k: type(primary[k])(v) for k, v in alt.items() if k in primary}})
+    return formats
+
+
+def _format_of(ctx: CheckContext, page: PageInfo) -> dict[str, Any] | None:
+    tol = float(ctx.conf("geometry.page_size_tolerance_pt", 3.0))
+    return next(
+        (f for f in _paper_formats(ctx)
+         if abs(page.width - f["page_width_pt"]) <= tol and abs(page.height - f["page_height_pt"]) <= tol),
+        None,
+    )
+
+
+def page_format(ctx: CheckContext, page: PageInfo) -> dict[str, Any]:
+    """The accepted size a page matches, or the primary one, with its text block."""
+    return _format_of(ctx, page) or _paper_formats(ctx)[0]
+
+
+def _describe(fmt: dict[str, Any]) -> str:
+    return f"{fmt['page_width_pt']:.0f} x {fmt['page_height_pt']:.0f} pt ({fmt['paper_size_label']})"
+
+
 @register("paper_size", "Paper size", module=MODULE, category="format", order=10)
 def check_paper_size(ctx: CheckContext) -> Finding:
     """Compare every page's MediaBox against the style's required dimensions."""
-    want_w = float(ctx.conf("geometry.page_width_pt", 595.0))
-    want_h = float(ctx.conf("geometry.page_height_pt", 842.0))
-    tol = float(ctx.conf("geometry.page_size_tolerance_pt", 3.0))
-    label = ctx.conf("geometry.paper_size_label", "A4")
+    formats = _paper_formats(ctx)
+    label = " or ".join(f["paper_size_label"] for f in formats)
+    expected = " or ".join(_describe(f) for f in formats)
 
     bad: list[Evidence] = []
+    used: list[str] = []
     for page in ctx.doc.pages:
-        if abs(page.width - want_w) > tol or abs(page.height - want_h) > tol:
-            bad.append(
-                Evidence(
-                    page=page.number,
-                    detail=f"{page.width:.1f} x {page.height:.1f} pt",
-                    expected=f"{want_w:.0f} x {want_h:.0f} pt ({label})",
-                )
-            )
+        fmt = _format_of(ctx, page)
+        if fmt is None:
+            bad.append(Evidence(page=page.number, detail=f"{page.width:.1f} x {page.height:.1f} pt",
+                                expected=expected))
+        elif fmt["paper_size_label"] not in used:
+            used.append(fmt["paper_size_label"])
 
     if bad:
         return ctx.error(
@@ -43,13 +83,16 @@ def check_paper_size(ctx: CheckContext) -> Finding:
             "desk-rejection condition and can be rejected without review.",
             category="format",
             evidence=bad[:8],
-            remedy=f"Rebuild the PDF at {label} ({want_w:.0f} x {want_h:.0f} pt). "
+            remedy=f"Rebuild the PDF at {expected}. "
             "In pdflatex this usually means passing the right paper option to the class or geometry package.",
         )
+    fmt = next(f for f in formats if f["paper_size_label"] == used[0])
+    accepted = f", one of the accepted sizes ({label})" if len(formats) > 1 else ""
     return ctx.ok(
         "paper_size",
         "Paper size",
-        f"All {ctx.doc.page_count} pages are {label} ({want_w:.0f} x {want_h:.0f} pt).",
+        f"All {ctx.doc.page_count} pages are {' and '.join(used)} "
+        f"({fmt['page_width_pt']:.0f} x {fmt['page_height_pt']:.0f} pt){accepted}.",
         category="format",
     )
 
@@ -104,10 +147,6 @@ def _systematic_side(violations: list[Evidence]) -> str | None:
 @register("margins", "Margins", module=MODULE, category="format", order=11)
 def check_margins(ctx: CheckContext) -> Finding:
     """Measure the extreme text/image boxes on each page against the style margins."""
-    left = float(ctx.conf("geometry.margin_left_pt", 71.0))
-    right = float(ctx.conf("geometry.margin_right_pt", 71.0))
-    top = float(ctx.conf("geometry.margin_top_pt", 57.0))
-    bottom = float(ctx.conf("geometry.margin_bottom_pt", 62.0))
     tl = float(ctx.conf("geometry.tolerance_left_pt", 2.0))
     tr = float(ctx.conf("geometry.tolerance_right_pt", 4.5))
     tt = float(ctx.conf("geometry.tolerance_top_pt", 1.0))
@@ -120,6 +159,11 @@ def check_margins(ctx: CheckContext) -> Finding:
     violations: list[Evidence] = []
 
     for page in ctx.doc.pages:
+        # A page at an unaccepted size is the paper-size check's to report;
+        # measure it against the primary text block.
+        fmt = page_format(ctx, page)
+        left, right = fmt["margin_left_pt"], fmt["margin_right_pt"]
+        top, bottom = fmt["margin_top_pt"], fmt["margin_bottom_pt"]
         limit_left = left - tl
         limit_right = page.width - (right - tr)
         limit_top = top - tt
@@ -186,6 +230,9 @@ def check_margins(ctx: CheckContext) -> Finding:
             remedy=remedy,
             confidence="high — measured from text bounding boxes; images with white backgrounds may be spurious",
         )
+    fmt = page_format(ctx, ctx.doc.pages[0])
+    left, right = fmt["margin_left_pt"], fmt["margin_right_pt"]
+    top, bottom = fmt["margin_top_pt"], fmt["margin_bottom_pt"]
     return ctx.ok(
         "margins",
         "Margins",

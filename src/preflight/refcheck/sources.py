@@ -15,12 +15,14 @@ and no faster than its crawl delay.
 from __future__ import annotations
 
 import asyncio
+import random
 import re
 import time
 import urllib.robotparser
 from collections.abc import Awaitable, Callable
 from contextlib import suppress
 from dataclasses import dataclass
+from email.utils import parsedate_to_datetime
 from html.parser import HTMLParser
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote, urlencode, urlparse
@@ -36,6 +38,12 @@ if TYPE_CHECKING:
     from .dblp import Dblp
 
 TOOL = "preflight/0.2 (+https://github.com/DavidMChan/preflight)"
+
+#: Retries a throttled request gets, and the most it will sleep in total for
+#: them. A reference whose lookup gives up on a 429 falls through to the next
+#: tier, and can end up reported as missing when the host was only busy.
+THROTTLE_RETRIES = 4
+THROTTLE_WAIT_BUDGET = 90.0
 ROBOTS_TOKEN = "preflight"
 
 
@@ -160,8 +168,11 @@ class Session:
         self.throttled: dict[str, int] = {}
         self.disabled: set[str] = set()
         # Hosts adapt their rate when refused; a host is only abandoned if it
-        # refuses persistently, which means it is not going to answer today.
+        # refuses persistently -- this many times in a row, with no answer in
+        # between -- which means it is not going to answer today. A burst of
+        # 429s from concurrent lookups, followed by answers, is just a busy host.
         self.throttle_budget = 25
+        self._refusals: dict[str, int] = {}
         self.anthology: Anthology | None = None
         self.arxiv: Arxiv | None = None
         self.dblp: Dblp | None = None
@@ -251,13 +262,17 @@ class Session:
     async def get(self, url: str, *, rate: float = 8.0, headers: dict[str, str] | None = None,
                   method: str = "GET", retries: int = 1, timeout: float | None = None,
                   data: dict[str, str] | None = None, concurrency: int = 6,
-                  throttle: tuple[int, ...] = (429, 503)) -> httpx.Response | None:
-        """One request, rate limited per host, with a short backoff on a throttle.
+                  throttle: tuple[int, ...] = (429, 503),
+                  throttle_retries: int = THROTTLE_RETRIES) -> httpx.Response | None:
+        """One request, rate limited per host, retried with backoff when throttled.
 
         A 429 that is not retried is worse than a slow request: the reference
         falls through to the expensive tiers and can end up reported as missing
-        when all that actually happened was a throttle. A host that asks us to
-        come back hours later is taken out of the run instead.
+        when all that actually happened was a throttle. So a throttle gets its
+        own retries, separate from ``retries`` for transport errors, waiting as
+        long as the host asks or else backing off exponentially with jitter, so
+        that lookups refused together do not all return together. A host that
+        asks us to come back more than a minute later is taken out of the run.
         """
         if self._client is None:  # pragma: no cover - misuse
             raise RuntimeError("Session must be used as an async context manager")
@@ -265,7 +280,9 @@ class Session:
         if host in self.disabled:
             return None
         limiter = self.limiter(host, rate)
-        for attempt in range(retries + 1):
+        failures = throttles = 0
+        waited = 0.0
+        while True:
             async with self.slots(host, concurrency):
                 await limiter.acquire()
                 try:
@@ -274,30 +291,33 @@ class Session:
                         timeout=httpx.Timeout(timeout) if timeout else httpx.USE_CLIENT_DEFAULT,
                     )
                 except (TimeoutError, httpx.HTTPError, ValueError, UnicodeError) as exc:
-                    if attempt < retries:
+                    if failures < retries:
+                        failures += 1
                         await asyncio.sleep(0.3)
                         continue
                     self.errors[host] = f"{type(exc).__name__}: {exc}"
                     return None
             self._learn(host, response)
-            if response.status_code in throttle:
-                self.throttled[host] = self.throttled.get(host, 0) + 1
-                limiter.penalise()
-                wait = _retry_after(response)
-                if (wait is not None and wait > 60) or self.throttled[host] >= self.throttle_budget:
-                    self.disabled.add(host)
-                    self.errors[host] = _refusal(host, response, self.throttled[host])
-                    return None
-                if attempt < retries:
-                    # Back off for as long as the host asked, and at least one
-                    # interval at the (now halved) rate.
-                    await asyncio.sleep(min(max(wait or 0.0, 1.0 / limiter.per_second), 60.0))
-                    continue
+            if response.status_code not in throttle:
+                self._refusals[host] = 0
+                limiter.reward()
+                return response
+
+            self.throttled[host] = self.throttled.get(host, 0) + 1
+            self._refusals[host] = self._refusals.get(host, 0) + 1
+            limiter.penalise()
+            wait = _retry_after(response)
+            if (wait is not None and wait > 60) or self._refusals[host] >= self.throttle_budget:
+                self.disabled.add(host)
+                self.errors[host] = _refusal(host, response, self._refusals[host])
+                return None
+            pause = _backoff(throttles, wait, limiter.per_second)
+            if throttles >= throttle_retries or waited + pause > THROTTLE_WAIT_BUDGET:
                 self.errors[host] = f"rate limited ({response.status_code})"
                 return None
-            limiter.reward()
-            return response
-        return None
+            throttles += 1
+            waited += pause
+            await asyncio.sleep(pause)
 
     async def json(self, url: str, *, rate: float = 8.0, headers: dict[str, str] | None = None,
                    concurrency: int = 6) -> Any | None:
@@ -326,14 +346,32 @@ class Session:
 
 
 def _retry_after(response: httpx.Response) -> float | None:
-    """Honour a server's own backoff hint when it gives one."""
-    raw = response.headers.get("Retry-After")
+    """Honour a server's own backoff hint: seconds, or an HTTP date to wait until."""
+    raw = (response.headers.get("Retry-After") or "").strip()
     if not raw:
         return None
     try:
-        return float(raw)
+        return max(0.0, float(raw))
     except ValueError:
+        pass
+    try:
+        when = parsedate_to_datetime(raw)
+    except (TypeError, ValueError, IndexError):
         return None
+    return max(0.0, when.timestamp() - time.time())
+
+
+def _backoff(attempt: int, retry_after: float | None, per_second: float) -> float:
+    """How long to wait before retrying a throttled request.
+
+    The host's own Retry-After when it gives one, plus a little jitter; otherwise
+    an exponential step from one interval at the (already lowered) rate, capped
+    at 30 seconds, drawn from its upper half so refused lookups spread out.
+    """
+    if retry_after is not None:
+        return retry_after + random.uniform(0.0, 1.0)
+    step = min(30.0, max(1.0, 1.0 / per_second) * 2.0 ** attempt)
+    return random.uniform(step / 2.0, step)
 
 
 def _refusal(host: str, response: httpx.Response, count: int) -> str:

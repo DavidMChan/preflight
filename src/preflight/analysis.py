@@ -131,7 +131,9 @@ def title_text(ctx: CheckContext) -> str:
     The first line on the page is usually a running head ("Under review as a
     conference paper at ICLR 2027") or a margin line number, so position alone
     picks the wrong text. The title is the largest type on the page, and it
-    may wrap, so consecutive lines at that size are joined.
+    may wrap, so consecutive lines at that size are joined -- while they keep
+    its weight: spconf (ICASSP) sets the italic author names and the address at
+    the bold title's size.
     """
     cached = ctx.shared.get("analysis_title")
     if isinstance(cached, str):
@@ -146,9 +148,11 @@ def title_text(ctx: CheckContext) -> str:
     if lines:
         largest = max(ln.heading_size for ln in lines)
         picked: list[str] = []
+        weight: bool | None = None
         for ln in sorted(lines, key=lambda ln: (ln.bbox[1], ln.bbox[0])):
-            if abs(ln.heading_size - largest) < 0.5:
+            if abs(ln.heading_size - largest) < 0.5 and weight in (None, ln.bold):
                 picked.append(" ".join(ln.text.split()))
+                weight = ln.bold
             elif picked:
                 break
         title = " ".join(picked)
@@ -168,7 +172,9 @@ def section_text(ctx: CheckContext, aliases: list[str]) -> str:
 def abstract_text(ctx: CheckContext) -> str:
     text = section_text(ctx, ["Abstract"])
     if text:
-        return text
+        # spconf's keyword line ("Index Terms— ...") is not a heading, so it
+        # would otherwise be counted as the abstract's last sentence.
+        return re.split(r"(?i)\b(?:index terms|keywords)\s*[—–:-]", text)[0].strip()
     # IEEE sets the abstract as a bold paragraph opening "Abstract—" with no
     # heading of its own. It runs from that line to the next heading (usually
     # "Index Terms" or "I. INTRODUCTION").

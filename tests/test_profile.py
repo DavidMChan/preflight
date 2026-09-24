@@ -127,7 +127,7 @@ def test_circular_inheritance_is_rejected(tmp_path: Path) -> None:
 
 # -- the US Letter two-column venues --------------------------------------
 
-LETTER_TWO_COLUMN = ("cvpr", "aistats", "icml", "aaai", "icra")
+LETTER_TWO_COLUMN = ("cvpr", "aistats", "icml", "aaai", "icra", "icassp")
 
 
 @pytest.mark.parametrize("key", LETTER_TWO_COLUMN)
@@ -168,6 +168,7 @@ def test_content_page_limits_match_the_published_calls() -> None:
     assert load_profile("icml").track("main").content_page_limit == 8
     assert load_profile("aaai").track("main").content_page_limit == 7
     assert load_profile("icra").track("main").content_page_limit == 8
+    assert load_profile("icassp").track("main").content_page_limit == 4
 
 
 def test_icra_counts_the_complete_pdf_and_enables_papercept_rules() -> None:

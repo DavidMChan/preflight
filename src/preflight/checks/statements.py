@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ..context import CheckContext
-from ..document import Line
+from ..document import Heading, Line
 from ..models import Evidence, Finding, Severity
 from ..registry import register
 
@@ -63,13 +63,21 @@ def _aliases(spec: dict[str, Any]) -> set[str]:
 
 def _heading_indices(ctx: CheckContext) -> list[int]:
     """Reading-order indices of every detected heading line."""
-    marks = {(h.page, round(h.bbox[1], 1)) for h in ctx.doc.headings}
-    return [i for i, ln in enumerate(ctx.doc.reading_order) if (ln.page, round(ln.bbox[1], 1)) in marks]
+    marks = {_mark(h.page, h.bbox) for h in ctx.doc.headings}
+    return [i for i, ln in enumerate(ctx.doc.reading_order) if _mark(ln.page, ln.bbox) in marks]
 
 
-def _line_index(ctx: CheckContext, page: int, y: float) -> int | None:
+def _mark(page: int, bbox: tuple[float, float, float, float]) -> tuple[int, float, float]:
+    # x as well as y: in two columns, a heading atop the right column shares its
+    # baseline with the left column's first line.
+    return page, round(bbox[0], 1), round(bbox[1], 1)
+
+
+def _line_index(ctx: CheckContext, heading: Heading) -> int | None:
     return next(
-        (i for i, ln in enumerate(ctx.doc.reading_order) if ln.page == page and abs(ln.bbox[1] - y) < 0.6),
+        (i for i, ln in enumerate(ctx.doc.reading_order)
+         if ln.page == heading.page and abs(ln.bbox[1] - heading.bbox[1]) < 0.6
+         and abs(ln.bbox[0] - heading.bbox[0]) < 0.6),
         None,
     )
 
@@ -77,7 +85,7 @@ def _line_index(ctx: CheckContext, page: int, y: float) -> int | None:
 def _locate(ctx: CheckContext, stmt: _Statement) -> None:
     heading = ctx.doc.find_heading([str(a) for a in (stmt.spec.get("aliases") or [])])
     if heading is not None:
-        stmt.start = _line_index(ctx, heading.page, heading.bbox[1])
+        stmt.start = _line_index(ctx, heading)
         if stmt.start is not None:
             return
     wanted = _aliases(stmt.spec)
@@ -163,9 +171,32 @@ def _judge(ctx: CheckContext, stmt: _Statement, starts: list[int]) -> Finding:
              for q in leftovers[:4]],
         ))
 
+    # Topics the statement must at least name. A disclosure can be split across
+    # sections ("Acknowledgments", then "Conflicts of Interest"), so every
+    # section under one of the statement's titles is read.
+    required_topics = stmt.spec.get("must_mention") or {}
+    if required_topics:
+        wanted = _aliases(stmt.spec)
+        texts = [body]
+        for heading in ctx.doc.headings:
+            at = _line_index(ctx, heading)
+            if heading.normalized in wanted and at is not None and at != stmt.start:
+                end = min((i for i in starts if i > at), default=len(ctx.doc.reading_order))
+                texts.append(_body_text(ctx.doc.reading_order[at:end]))
+        unmentioned = [topic for topic, pattern in required_topics.items()
+                       if not any(re.search(str(pattern), t, flags=re.IGNORECASE) for t in texts)]
+        if unmentioned:
+            problems.append((
+                Severity.ERROR if stmt.required else Severity.WARNING,
+                f"The {stmt.phrase} never mentions {' or '.join(unmentioned)}, which the venue "
+                "requires it to report, even when there is nothing to disclose.",
+                [Evidence(page=head.page, detail=f"no mention of {topic}", quote=body[:160])
+                 for topic in unmentioned],
+            ))
+
     if stmt.spec.get("before_references"):
         refs = ctx.doc.find_heading([str(a) for a in (ctx.conf("structure.references_aliases", []) or [])])
-        refs_at = None if refs is None else _line_index(ctx, refs.page, refs.bbox[1])
+        refs_at = None if refs is None else _line_index(ctx, refs)
         if refs is not None and refs_at is not None and stmt.start > refs_at:
             problems.append((
                 Severity.WARNING,

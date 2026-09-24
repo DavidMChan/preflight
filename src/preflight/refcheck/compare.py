@@ -26,6 +26,11 @@ from .core import Candidate, Discrepancy, Kind, Reference, parse_page_range, str
 
 _SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
 _ETAL = re.compile(r"(?i)^\s*(?:et\.?\s*al\.?|others|and others|\.\.\.|…)\s*$")
+# An author list split on its commas leaves the conjunction on the last name
+# ("and Madian Khabsa", "& Jane Doe"), and a shortened list can keep its marker
+# on the name before it ("Hugo Touvron and others", "Jane Doe et al.").
+_CONJUNCTION = re.compile(r"(?i)^(?:and|&)\s+(?=\S)")
+_TRAILING_ETAL = re.compile(r"(?i)(?<=\S)[,\s]+(?:et\.?\s*al\.?|and\s+others)\s*$")
 _CORPORATE = re.compile(
     r"(?i)\b(?:team|group|consortium|collaboration|committee|project|organi[sz]ation|"
     r"foundation|institute|university|laborator(?:y|ies)|labs?|inc|ltd|llc|corp(?:oration)?|"
@@ -63,8 +68,11 @@ def _tokens(text: str) -> list[str]:
 
 def split_name(name: str) -> Name | None:
     """Parse "Jane Q. Doe", "Doe, Jane Q." or DBLP's "Jane Doe 0001"."""
-    text = re.sub(r"\s+\d{4}$", "", (name or "").strip())
-    if not text or _ETAL.match(text):
+    if not name or _ETAL.match(name):
+        return None
+    name = _TRAILING_ETAL.sub("", _CONJUNCTION.sub("", name.strip()))
+    text = re.sub(r"\s+\d{4}$", "", name)
+    if not text:
         return None
     if "," in text:
         parts = [p.strip() for p in text.split(",") if p.strip()]

@@ -48,19 +48,24 @@ def _is_body_flow(ctx: CheckContext, line: Line) -> bool:
 def check_body_font_size(ctx: CheckContext) -> Finding:
     """The modal font size over the document should match the style's body size."""
     expected = float(ctx.conf("fonts.body_size_pt", 11.0))
+    # A style may offer more than one body size: spconf's \ninept sets 9pt
+    # against its 10pt default, and both are the official template.
+    sizes = [float(s) for s in (ctx.conf("fonts.body_sizes_pt", None) or [expected])]
     tol = float(ctx.conf("fonts.body_size_tolerance_pt", 0.6))
     measured = ctx.doc.body_font_size
 
     if measured <= 0:
         return ctx.skip("body_font_size", "Body font size", "No extractable text to measure.", category="format")
 
+    wanted = " or ".join(f"{s:.1f} pt" for s in sizes)
     evidence = [Evidence(detail="most common font size across the document",
-                         measured=measured, expected=f"{expected:.1f} pt +/- {tol:.1f}")]
-    if abs(measured - expected) > tol:
+                         measured=measured, expected=f"{wanted} +/- {tol:.1f}")]
+    match = next((s for s in sizes if abs(measured - s) <= tol), None)
+    if match is None:
         return ctx.error(
             "body_font_size",
             "Body font size",
-            f"Body text is set at {measured:.1f} pt but the style requires {expected:.1f} pt. "
+            f"Body text is set at {measured:.1f} pt but the style requires {wanted}. "
             "Font-size violations can be rejected without review.",
             category="format",
             evidence=evidence,
@@ -68,7 +73,7 @@ def check_body_font_size(ctx: CheckContext) -> Finding:
             cfp_key="font_size",
         )
     return ctx.ok("body_font_size", "Body font size",
-                  f"Body text measures {measured:.1f} pt, matching the required {expected:.1f} pt.",
+                  f"Body text measures {measured:.1f} pt, matching the required {match:.1f} pt.",
                   category="format", evidence=evidence)
 
 

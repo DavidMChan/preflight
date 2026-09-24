@@ -95,6 +95,39 @@ per item, in the order given.
 {body}
 --- END ---"""
 
+CONDITIONAL_COVERAGE_SCHEMA = """{
+  "applies": true|false,
+  "applies_reason": "one sentence naming what in the paper settles whether the condition holds",
+  "items": [
+    {"item": "the item exactly as listed", "status": "named"|"blanket"|"unaddressed",
+     "quote": "short verbatim quote from the statement that settles it, or empty"}
+  ],
+  "confidence": "low"|"medium"|"high",
+  "explanation": "one or two sentences"
+}"""
+
+# Sent after the shared paper text, so the provider can serve that prefix from cache.
+CONDITIONAL_COVERAGE_PROMPT = """
+=== STATEMENT CHECK: {title} ===
+The venue requires the paper's {title} to cover a fixed list of items, but only for papers where
+{condition}
+
+Step 1 -- decide from the paper text above whether that condition holds. Set "applies" to false only
+when nothing in the paper meets it; a study that meets it applies even if the paper says no approval
+was needed. When it does not apply, return an empty "items" list.
+
+Step 2 -- only when it applies: {rule} For EACH item below, decide how the statement handles it:
+- "named": the statement names this item (or an unmistakable paraphrase of it) and says where it stands.
+- "blanket": the item is covered only by a catch-all sentence without being named.
+- "unaddressed": nothing in the statement settles this item either way.
+Judge the items only on what the statement says, not on the rest of the paper.
+
+--- ITEMS ---
+{items}
+--- STATEMENT ---
+{body}
+--- END ---"""
+
 INJECTION_SCHEMA = """{
   "is_manipulation": true|false,
   "confidence": "low"|"medium"|"high",

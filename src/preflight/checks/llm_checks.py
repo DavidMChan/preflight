@@ -18,6 +18,8 @@ from ..llm.prompts import (
     ANONYMITY_SCHEMA,
     CANARY_PROMPT,
     CANARY_SYSTEM,
+    CONDITIONAL_COVERAGE_PROMPT,
+    CONDITIONAL_COVERAGE_SCHEMA,
     INJECTION_PROMPT,
     INJECTION_SCHEMA,
     LIMITATIONS_PROMPT,
@@ -123,6 +125,11 @@ async def check_statement_coverage(ctx: CheckContext) -> list[Finding] | None:
 
     Whether a statement exists is the deterministic check's job; whether its
     prose settles every listed item is a reading task only a model can do.
+
+    Some items only bind some papers: ICASSP's ethics items matter for work with
+    human or animal subjects, not for a simulation study. A statement declares
+    that condition as ``must_address_when``; the model then reads the whole paper
+    to decide whether it holds, and a paper it does not reach passes.
     """
     if not _enabled(ctx, "statement_semantics"):
         return None
@@ -135,14 +142,31 @@ async def check_statement_coverage(ctx: CheckContext) -> list[Finding] | None:
         page, body = found
         check_id = f"llm_statement_coverage.{key}"
         title = f"{spec.get('title') or key} coverage (model)"
-        prompt = STATEMENT_COVERAGE_PROMPT.format(
+        fields = dict(
             title=spec.get("title") or key, rule=str(spec.get("must_address_rule", "")).strip(),
             items="\n".join(f"- {i}" for i in items), body=_clip(body),
         )
+        condition = " ".join(str(spec.get("must_address_when", "")).split())
+        if condition:
+            prompt = paper_context(ctx) + CONDITIONAL_COVERAGE_PROMPT.format(condition=condition, **fields)
+            schema = CONDITIONAL_COVERAGE_SCHEMA
+        else:
+            prompt, schema = STATEMENT_COVERAGE_PROMPT.format(**fields), STATEMENT_COVERAGE_SCHEMA
         try:
-            data = await _client(ctx).json(REVIEWER_SYSTEM, prompt, schema_hint=STATEMENT_COVERAGE_SCHEMA)
+            data = await _client(ctx).json(REVIEWER_SYSTEM, prompt, schema_hint=schema)
         except LLMError as exc:
             out.append(ctx.skip(check_id, title, str(exc), category="semantic"))
+            continue
+
+        confidence = f"{data.get('confidence', 'low')} — {_model_note(ctx)}"
+        # Only an explicit "does not apply" excuses the items; a reply that
+        # leaves it out is judged on them like any other.
+        if condition and data.get("applies") is False:
+            reason = str(data.get("applies_reason", "")).strip()
+            out.append(ctx.ok(check_id, title,
+                              f"Not required here: the model judged that this paper does not meet the "
+                              f"condition these items apply to. {reason}".strip(),
+                              category="semantic", confidence=confidence))
             continue
 
         verdicts = {str(v.get("item", "")).strip().lower(): v for v in (data.get("items") or [])
@@ -151,7 +175,6 @@ async def check_statement_coverage(ctx: CheckContext) -> list[Finding] | None:
         status = {i: str(verdicts.get(i.lower(), {}).get("status", "unaddressed")) for i in items}
         unaddressed = [i for i in items if status[i] == "unaddressed"]
         blanket = [i for i in items if status[i] == "blanket"]
-        confidence = f"{data.get('confidence', 'low')} — {_model_note(ctx)}"
         explanation = str(data.get("explanation", "")).strip()
         if not unaddressed and not blanket:
             out.append(ctx.ok(check_id, title,
@@ -206,7 +229,9 @@ def _anonymity_candidates(ctx: CheckContext) -> list[str]:
           category="semantic", requires=("enable_llm",), order=61)
 async def check_anonymity_semantics(ctx: CheckContext) -> Finding | None:
     """Have a model adjudicate the pattern-matcher's anonymity candidates."""
-    if not _enabled(ctx, "anonymity_semantics"):
+    # A venue that does not review blind (ICASSP) wants the names printed; a
+    # model told this is a double-blind submission would report every one.
+    if not _enabled(ctx, "anonymity_semantics") or not ctx.conf("anonymity.enabled", True):
         return None
 
     page1 = ctx.doc.pages[0]

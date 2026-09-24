@@ -4,9 +4,9 @@
 
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Checks: 111](https://img.shields.io/badge/checks-111-blue)](#checks)
-[![Venues: 9](https://img.shields.io/badge/venues-9-blueviolet)](#conferences)
-[![Tests: 321](https://img.shields.io/badge/tests-321%20passing-brightgreen)](#development)
+[![Checks: 117](https://img.shields.io/badge/checks-117-blue)](#checks)
+[![Venues: 10](https://img.shields.io/badge/venues-10-blueviolet)](#conferences)
+[![Tests: 366](https://img.shields.io/badge/tests-366%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -15,8 +15,8 @@ sections, margins, fonts, anonymity, appendix placement, concealed text directed
 reviewers, reference validity, and the venue's responsible-research checklist. Each finding reports
 the specific location and measurement that produced it — `page 5, x=34.0pt, expected >= 69.0pt`.
 
-It includes profiles for ACL Rolling Review, NeurIPS, ICLR, ICML, CVPR, AAAI, AISTATS, ICRA and
-BayLearn. Conference profiles are YAML files; additional venues can be configured without
+It includes profiles for ACL Rolling Review, NeurIPS, ICLR, ICML, CVPR, AAAI, AISTATS, ICRA, ICASSP
+and BayLearn. Conference profiles are YAML files; additional venues can be configured without
 modifying the source code.
 
 ```
@@ -83,6 +83,7 @@ uv run preflight paper.pdf                          # select a conference intera
 uv run preflight paper.pdf -c arr -t short          # ARR short-paper limits
 uv run preflight paper.pdf -c neurips               # a different venue
 uv run preflight paper.pdf -c icra                  # ICRA complete-paper checks
+uv run preflight paper.pdf -c icassp                # ICASSP 4 + 1 pages, author list required
 uv run preflight paper.pdf -c iclr -t camera_ready  # ICLR, 10-page camera-ready limit
 uv run preflight paper.pdf --offline                # deterministic checks only, no network
 uv run preflight tui paper.pdf                      # interactive interface
@@ -123,7 +124,7 @@ Exit codes: `0` clean · `1` errors · `2` warnings under `--strict`, or an inva
 
 ## Conferences
 
-Nine bundled profiles, each selected with `-c`:
+Ten bundled profiles, each selected with `-c`:
 
 | Key | Venue | Tracks (content page limit) | Format |
 |---|---|---|---|
@@ -135,6 +136,7 @@ Nine bundled profiles, each selected with `-c`:
 | `aaai` | AAAI (main technical track) | `main` 7p, and six further tracks | US Letter, two-column, 10pt; reproducibility checklist |
 | `aistats` | AISTATS | `main` 8p · `camera_ready` 9p | US Letter, two-column, 10pt |
 | `icra` | ICRA 2027 (IEEE RAS) | `main` 8p complete paper | US Letter, two-column, 10pt; references included; double-anonymous |
+| `icassp` | ICASSP 2026 (IEEE SPS) | `main` 4p, plus a 5th page of end matter only | US Letter or A4, two-column, 10pt or 9pt; not blind; ethics and conflict-of-interest statements mandatory |
 | `baylearn` | BayLearn Symposium (abstracts) | `abstract` 2p | NeurIPS format, no checklist |
 
 Each profile encodes the most recent author kit published at the time it was written, named in a
@@ -147,20 +149,24 @@ number cannot report a desk rejection.
 
 ## Checks
 
-111 checks across 27 modules. Each profile enables a subset; ARR enables 110.
+117 checks across 27 modules. Each profile enables a subset; ARR enables 116.
 
 ### Deterministic — `core.geometry`, `core.fonts`, `core.structure`
 
 - **Page dimensions** compared against the style specification (A4 for ACL, US Letter for NeurIPS
-  and ICLR).
+  and ICLR). A venue that accepts more than one size (ICASSP: US Letter or A4) gives each its own
+  text block.
 - **Margins**, measured from text and image bounding boxes using the style's tolerances. Line
   numbers in anonymous templates are excluded.
 - **Column layout** — gutter width for two-column venues, and for single-column venues (NeurIPS,
   ICLR) confirmation that the body was not set in columns.
-- **Body font size**, taken as the modal size across the document, and **minimum font size**,
-  reported separately for figure labels, table cells and running prose.
+- **Body font size**, taken as the modal size across the document, against every size the style
+  offers (ICASSP's spconf sets 10pt, or 9pt with `\ninept`), and **minimum font size**, reported
+  separately for figure labels, table cells and running prose.
 - **Content page limit.** The limit applies to content preceding the first venue-approved unlimited
   section. For venues such as ICRA that count references and appendices, every PDF page counts.
+  ICASSP allows only named end matter past the limit, so there every other section, figure and table
+  counts wherever it sits, and a track's `total_page_limit` caps the whole PDF.
 - **Limitations section** — presence, title, position before the references, and absence of new
   methods or results.
 - **Appendix** — venue-specific placement and column layout.
@@ -171,13 +177,18 @@ A profile's `statements:` map declares the sections a venue requires or recommen
 paper — for ICLR, the AI use, ethics and reproducibility statements. Each is located as a heading or
 a bold run-in head, and reported as missing (an error when required, a warning when recommended),
 still holding the template's placeholder text (treated as missing when required), placed after the
-references, or longer than the venue's cap. Statements a venue excludes from the page limit are
+references, longer than the venue's cap, or silent on a topic it must name (`must_mention`: for
+ICASSP, conflicts of interest, even when there are none). Statements a venue excludes from the page limit are
 listed in `structure.unlimited_after`. With `--llm`, a model also confirms that the statement
-settles every item the venue lists; for ICLR, the twelve tasks with required AI disclosure.
+settles every item the venue lists; for ICLR, the twelve tasks with required AI disclosure. A
+venue can say when its items apply (`must_address_when`): ICASSP's ethics items bind only work
+with human or animal subjects, sensitive personal data or a sensitive application, so the model
+first reads the paper to decide, and a paper outside that condition passes.
 
 `core.template` reads the style file's running head, which records the template year and whether
 the camera-ready switch is on: an earlier year's style files, or author names enabled on a
-submission, are errors.
+submission, are errors. For venues that paginate their own proceedings it also reports page numbers
+on the submission, and it checks that the title is set in capitals where the style file does that.
 
 ### Anonymity — `core.anonymity`
 
@@ -187,7 +198,8 @@ phrasing; and PDF metadata, annotations and embedded filenames. URLs within the 
 excluded.
 
 Findings in this module are warnings with a stated confidence, with the exception of an email
-address in the title block.
+address in the title block. Venues that do not review blind (ICASSP) switch the module off and
+instead require an author block: a blank one, or the template's placeholder names, is an error.
 
 ### Concealed content — `core.hidden`
 
@@ -220,12 +232,13 @@ reported, and a checklist that is present is validated.
 ### Reference verification — `integrations.refcheck`
 
 A reference passes only when a key source confirms it: a record whose title and authors match the
-citation. The record is then compared field by field against the citation. Three findings report the
+citation. The record is then compared field by field against the citation. Four findings report the
 result:
 
 | Check | Severity | Reports |
 |---|---|---|
-| `reference_verification` | `ERROR` | References that no key source confirms. |
+| `reference_verification` | `ERROR` | References that no key source confirms and no web search traced to a page. |
+| `reference_verification.web_only` | `WARNING` | References no key source has, but that a web search located at a page that answers; their details are unchecked. |
 | `reference_details` | `ERROR` | Confirmed references whose record contradicts the citation: a printed DOI or arXiv identifier that is unregistered or belongs to a different work; page ranges; years; venues, including Findings cited as the main conference and a cited venue that no record confirms; authors absent from the record, altered given names, reordered authors, and author lists shortened without "et al.". |
 | `reference_versions` | `WARNING` | A preprint, or a work cited without a venue, whose published version exists. |
 
@@ -244,12 +257,17 @@ The key sources, and the terms under which each is queried:
 
 Every request identifies the tool in its User-Agent, with a contact address when `refcheck.mailto`
 or `PREFLIGHT_MAILTO` is set. Rate and concurrency limits that a host publishes in its response
-headers are adopted for the rest of the run. A repository, model card, package or blog post is
+headers are adopted for the rest of the run. A throttled request (429 or 503) is retried up to four
+times, waiting as long as the host's `Retry-After` asks or else backing off exponentially with jitter;
+the host's rate is halved on each refusal and recovers as answers come back. A host is dropped only
+when it asks for a wait of more than a minute, or refuses 25 times in a row. A repository, model card, package or blog post is
 verified against the thing it is: the GitHub API, the Hugging Face Hub, PyPI, or its own URL.
 
 The model's web search is used only to locate a record. The DOI, arXiv identifier or URL it returns
-is fetched from the key source and matched like any other record; a work that the search reports but
-no key source confirms is reported as unconfirmed.
+is fetched from the key source and matched like any other record. A work that no key source confirms
+is found only by web search (a warning) when the search points to a page that answers and no record
+there contradicts the citation. It stays unconfirmed (an error) when the search gives no page or
+identifier, the page refuses or is gone, or the record it points to is a different work.
 
 Measured on a 91-entry bibliography from a submission:
 
@@ -268,13 +286,13 @@ still an error, because a reader must be able to trace every citation. The sever
 
 ### File and manuscript integrity — `core.markup`, `core.pdf`, `core.citations`, `core.statistics`, `core.abbreviations`, `core.crossrefs`, `core.headings`, `core.figure_quality`
 
-The system performs an additional 22 deterministic checks, requiring approximately one second in
+The system performs an additional 23 deterministic checks, requiring approximately one second in
 total and no model-based processing.
 
 | Module | Coverage |
 |---|---|
 | `core.markup` | PDF comment annotations, which also disclose the commenter's name; highlight annotations and `\colorbox`-style highlights; and residual revision markup. |
-| `core.pdf` | Blank pages, non-embedded fonts, encryption, and general file health. |
+| `core.pdf` | Blank pages, non-embedded or unsubset fonts, Type 3 bitmap fonts where a venue discourages them, encryption, file size, and general file health. |
 | `core.citations` | Resolution of every in-text citation to a bibliography entry, and of every entry to a citation. |
 | `core.statistics` | p-values reported as zero (`p = .000`), mixed p-value conventions, and recomputation of "N of M (X%)" statements. |
 | `core.abbreviations` | Expansion at first use, and a single expansion per abbreviation. |
@@ -347,6 +365,7 @@ neurips.yaml       US Letter, single-column, 10pt, NeurIPS checklist mandatory
 └── baylearn.yaml  BayLearn abstracts: NeurIPS format, 2 pages, no checklist
 iclr.yaml          US Letter, single-column, 10pt, 9 pages (10 for camera ready)
 icra.yaml          US Letter, two-column, 10pt, 8 complete pages (references included)
+icassp.yaml        US Letter or A4, two-column, 10pt, 4 pages + 1 of end matter, not blind
 ```
 
 ```yaml
@@ -421,7 +440,7 @@ Conventions observed by the existing checks:
 ## Development
 
 ```bash
-uv run pytest                                  # 229 tests, no network required
+uv run pytest                                  # 366 tests, no network required
 uv run ruff check src tests
 uv run python scripts/try_question.py A1 paper.pdf    # a single checklist item
 ```

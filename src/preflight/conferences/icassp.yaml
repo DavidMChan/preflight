@@ -1,0 +1,367 @@
+# ICASSP 2026 — IEEE International Conference on Acoustics, Speech and Signal
+# Processing.
+#
+# CYCLE: this profile is pinned to the ICASSP 2026 Paper Kit (last updated 17
+# July 2025) and the template archive supplied for it. ICASSP 2026 took place in
+# Barcelona, Spain, 4-8 May 2026; regular papers were due 17 September 2025. The
+# ICASSP 2027 kit (Toronto, 16-21 May 2027; papers due 16 September 2026) was
+# compared against it and repeats every formatting rule below word for word. Its
+# one addition is an ORCiD ID for every author, entered on the submission form.
+#
+# SOURCES:
+#   https://cmsworkshops.com/ICASSP2026/papers/paper_kit.php
+#   https://cmsworkshops.com/ICASSP2026/papers/PaperFormat/Author-PDF-Guide-V32.pdf
+#   https://cmsworkshops.com/ICASSP2026/papers/PaperFormat/spconf.sty
+#   https://cmsworkshops.com/ICASSP2026/papers/PaperFormat/ICASSP2026_Paper_Templates.zip
+#     (spconf.sty, Template.tex, Template.pdf, format.pdf)
+#   https://2026.ieeeicassp.org/sps-policies/
+#   https://2026.ieeeicassp.org/editorial-policies/
+#   https://cmsworkshops.com/ICASSP2027/papers/paper_kit.php
+#
+# NOTE ON NUMBERS: the kit's own format sheet (format.pdf) draws the text block
+# at x=53.86..558.42pt, y=72.0..721.13pt on a 612x792pt page: 178 x 229 mm,
+# 19 mm from the left and 25.4 mm from the top. spconf.sty builds the same block
+# (\oddsidemargin -6.2mm, \textwidth 178mm, \textheight 229mm, \topmargin 0,
+# \columnsep 6mm), and its Template.pdf sets glyphs at x=54.4..559.0pt with
+# descenders to y=723.5pt and a modal 10pt Times. The kit's FAQ says the
+# measurements "are not intended to be followed with extreme precision" and CMS
+# inspects submissions by eye, so margin findings stay warnings, as they are for
+# every venue without a published checker.
+
+conference:
+  key: icassp
+  name: ICASSP 2026 (IEEE International Conference on Acoustics, Speech and Signal Processing)
+  extends: base
+  default_track: main
+  style: "ICASSP/spconf (US Letter or A4, two-column, 10pt or 9pt Times)"
+
+tracks_replace: true
+tracks:
+  main:
+    content_page_limit: 4
+    total_page_limit: 5
+    description: >-
+      Regular and special-session papers: at most 4 pages of technical content,
+      figures and references, plus an optional 5th page holding only references,
+      funding acknowledgements and the Compliance with Ethical Standards
+      statement. Longer papers, or a 5th page with anything else, are rejected.
+
+geometry:
+  page_width_pt: 612.0
+  page_height_pt: 792.0
+  paper_size_label: "US Letter (8.5in x 11in)"
+  margin_left_pt: 53.9      # 19 mm
+  margin_right_pt: 53.6     # 215.9 - 19 - 178 mm
+  margin_top_pt: 72.0       # 25.4 mm ("25 mm (1.0 inch)"); the title page starts lower
+  margin_bottom_pt: 70.9    # 279.4 - 25.4 - 229 mm
+  # Engineering tolerances, not CMS values. spconf's 19.2 mm left margin sets
+  # the right edge 0.6pt past the kit's, and its flush-bottom last line hangs
+  # descenders 2.4pt below the block.
+  tolerance_left_pt: 2.0
+  tolerance_right_pt: 4.5
+  tolerance_top_pt: 2.0
+  tolerance_bottom_pt: 4.0
+  # "A4 paper is also acceptable, but please leave the extra 0.5 inch (12 mm)
+  # empty at the BOTTOM of the page and follow the top and left margins": the
+  # same block, anchored top-left on the taller, narrower sheet.
+  alternate_page_sizes:
+    a4:
+      page_width_pt: 595.0
+      page_height_pt: 842.0
+      paper_size_label: "A4 (210mm x 297mm)"
+      margin_left_pt: 53.9    # 19 mm
+      margin_right_pt: 36.9   # 210 - 19 - 178 mm
+      margin_top_pt: 72.0
+      margin_bottom_pt: 120.8 # 297 - 25.4 - 229 mm
+
+columns:
+  expected_columns: 2
+  column_gap_pt: 17.0       # 6 mm between two 86 mm columns
+  min_gap_pt: 12.0
+
+fonts:
+  body_size_pt: 10.0
+  # spconf's default is 10pt; its \ninept option sets 9pt. Both are the template.
+  body_sizes_pt: [10.0, 9.0]
+  # "Use a font size that is no smaller than 9 points throughout the paper,
+  # including figure captions." spconf's own footnotes and \thanks come out at
+  # 8pt; the template text asks for 9pt footnotes, so those are reported too.
+  min_font_size_pt: 9.0
+  allowed_font_substrings:
+    - NimbusRomNo9L
+    - NimbusRoman
+    - TeXGyreTermes
+    - TimesNewRoman
+    - Times-Roman
+    - Times
+    - CMR
+    - SFRM
+    - LMRoman
+
+structure:
+  limitations_required: false
+  # Only these may sit on the 5th page. Wherever they appear, every other
+  # section, figure and table counts toward the four content pages, so an
+  # early acknowledgment cannot end the count and an appendix is content.
+  unlimited_after: [references, acknowledgments, ethics]
+  content_end: last_content_section
+  acknowledgments_aliases:
+    [Acknowledgments, Acknowledgements, Acknowledgment, Acknowledgement,
+     Funding, Funding Acknowledgments, Funding Acknowledgements,
+       Funding Acknowledgment, Funding Acknowledgement,
+     Acknowledgments and Funding, Funding and Conflicts of Interest,
+     Conflicts of Interest, Conflict of Interest, Competing Interests,
+     Declaration of Competing Interests]
+  ethics_aliases:
+    [Compliance with Ethical Standards, Compliance with Ethics Standards,
+     Compliance with Ethical Standard, Ethical Standards, Ethics Statement,
+     Ethical Considerations, Ethical Statement]
+  appendix_must_follow_references: false
+  appendix_must_be_two_column: true
+
+# Checked by core.statements (presence) and, with --llm, llm_statement_coverage.
+statements:
+  ethical_compliance:
+    title: Compliance with Ethical Standards section
+    requirement: required
+    # The policy names the section; a differently titled ethics section is
+    # reported as missing so the author renames it.
+    aliases:
+      [Compliance with Ethical Standards, Compliance with Ethics Standards,
+       Compliance with Ethical Standard]
+    why: >-
+      ICASSP requires every paper to report on compliance with ethical standards in a
+      separate section entitled "Compliance with Ethical Standards", "irrespective of
+      whether ethical approval was needed for the study". It may sit on the 5th page.
+    remedy: >-
+      Add a section titled "Compliance with Ethical Standards". For a study with human or
+      animal subjects, state the approval or waiver by an institutional review board or
+      ethics committee; otherwise say why none was needed, e.g. "This is a numerical
+      simulation study for which no ethical approval was required."
+    # Every paper needs the section (checked above), but only some need it to
+    # say more than "no approval was required". The model reads the paper to
+    # decide, and passes the rest without judging their statement's items.
+    must_address_when: >-
+      the work involves human or animal subjects: an experiment, listening test (MOS or
+      preference ratings), user study, annotation or crowdsourcing task, or recording or data
+      collection with people or animals; analysis of clinical, physiological, biometric or
+      other sensitive personal data, even from an existing dataset; or a sensitive
+      application such as voice cloning or deepfakes, speaker or face identification,
+      surveillance, emotion or deception detection, or medical diagnosis. Simulations,
+      theoretical work, and standard public benchmark corpora used as released do not meet
+      it on their own.
+    must_address_rule: >-
+      a study with human and/or animal subjects must state its formal review and approval, or
+      review and waiver, by an appropriate institutional review board or ethics committee; work
+      with openly licensed human-subject data may instead say that its license makes approval
+      unnecessary, and investigators without an ethics committee should follow the Declaration
+      of Helsinki (ICASSP 2026 Author Policies).
+    must_address:
+      - The human or animal subjects, or the sensitive data or application, that the work involves
+      - The approval or waiver by an institutional review board or ethics committee, or why none was required
+  funding_disclosure:
+    title: Funding and conflict-of-interest disclosure
+    requirement: required
+    aliases:
+      [Acknowledgments, Acknowledgements, Acknowledgment, Acknowledgement,
+       Funding, Funding Acknowledgments, Funding Acknowledgements,
+       Funding Acknowledgment, Funding Acknowledgement,
+       Acknowledgments and Funding, Funding and Conflicts of Interest,
+       Conflicts of Interest, Conflict of Interest, Competing Interests,
+       Declaration of Competing Interests]
+    why: >-
+      ICASSP requires the paper to report real or potential conflicts of interest "or the
+      absence thereof", and to disclose every agency or individual that funded the work,
+      in the acknowledgments section. That section may sit on the 5th page. A funding
+      footnote on the title page does not state the absence of conflicts.
+    remedy: >-
+      Add an Acknowledgments section naming every funding source and any personal,
+      financial or employment relationship that could appear to bias the work, or stating
+      that there are none, e.g. "No funding was received for conducting this study. The
+      authors have no relevant financial or non-financial interests to disclose."
+    # Funding can legitimately sit in the title-page \thanks footnote, so only
+    # the conflict-of-interest report is required to appear here.
+    must_mention:
+      conflicts of interest: 'conflicts? of interest|competing interests?|\binterests? to (?:disclose|declare)|financial (?:or|and) non-?financial|\bCOI\b'
+    must_address_rule: >-
+      it must disclose every agency or individual that provided financial support and any
+      real or potential conflict of interest, or state that there are none (ICASSP 2026
+      Author Policies).
+    must_address:
+      - Sources of financial support for the work, or that there were none
+      - Real or potential conflicts of interest, or that there are none
+
+anonymity:
+  # "ICASSP does not perform blind reviews, so be sure to include the author list
+  # in your submitted paper." A blank author list fails inspection instead.
+  enabled: false
+  require_author_block: true
+  # Title and authors fill the top 50 mm of the block from 35 mm down; the
+  # abstract heading follows about 12 mm later.
+  title_block_height_pt: 260.0
+  author_placeholders:
+    - 'Author\(s\) Name\(s\)'
+    - 'Author Affiliation\(s\)'
+    - '^\s*Name of author'
+    - 'Address - Line \d'
+    - '\bAnonymous\b'
+    - '\bAuthor-(?:one|two|three|four)\b'
+    - '\bSchool [A-D]-[A-D]\b'
+
+template:
+  forbid_page_numbers: true
+  title_all_caps: true
+
+surface:
+  # "Each paper should contain an abstract of approximately 100 to 150 words."
+  # The abstract is capped at 200 words: longer is an error, and anything up to
+  # the cap is accepted, so the 150 in the guidance does not warn.
+  abstract_min_words: 100
+  abstract_max_words: 200
+  abstract_hard_max_words: 200
+  index_terms_max: 5
+
+pdf:
+  # IEEE Xplore: "All fonts, including the standard (base) fonts, must be
+  # embedded and subsetted in the PDF." Type 3 fonts are "highly discouraged",
+  # not forbidden, so they warn under type3_fonts rather than fail embedding.
+  require_base14_embedding: true
+  require_font_subsetting: true
+  discourage_type3_fonts: true
+  max_file_size_mb: 5
+
+llm:
+  # Review is single-blind, so the names in the title block are required, not a
+  # leak. The model-backed anonymity check is left out of the base list.
+  checks: [limitations_semantics, injection_semantics, statement_semantics]
+
+figure_quality:
+  # IEEE's PDF guide: 300 dpi for greyscale and colour (600 for monochrome).
+  min_dpi: 300.0
+
+structure_note: >-
+  ICASSP allows four pages of technical content, figures and references and an
+  optional fifth page holding only references, funding acknowledgements and the
+  Compliance with Ethical Standards statement. Anything else on page five, or a
+  sixth page, is rejected. Review is not blind: the author list must be printed.
+
+severity:
+  # Explicit rejection or inspection-failure conditions in the kit.
+  page_limit: error
+  total_page_limit: error
+  font_embedding: error
+  pdf_health: error
+  page_numbers: error
+  author_block: error
+  # The FAQ says the kit's measurements "are not intended to be followed with
+  # extreme precision", and inspection is visual. Keep bounding-box findings
+  # advisory.
+  margins: warning
+
+cfp:
+  page_limit: >-
+    "Papers may be no longer than 5 pages, including all text, figures, and references,
+    and the 5th page may contain only references, funding acknowledgements, and a
+    Compliance with Ethical Standards statement." Up to 4 pages may hold technical
+    content. "Any documents that exceed the 5 page limit or have a 5th page containing
+    anything other than references, funding acknowledgements, or a Compliance with Ethical
+    Standards statement, will be rejected."
+  paper_size: >-
+    Submissions "must have either 'US Letter' or 'A4' sized pages". On A4, keep the top
+    and left margins and leave the extra space at the bottom.
+  margins: >-
+    All text and figures must sit in a 178 x 229 mm (7 x 9 in) image area, 19 mm from the
+    left and 25 mm from the top (35 mm on the title page), in two 86 mm columns 6 mm
+    apart. "Any text or other material outside the margins specified below will not be
+    accepted", though the FAQ says the measurements are not meant to be followed with
+    extreme precision.
+  font_size: >-
+    "Use a font size that is no smaller than 9 points throughout the paper, including
+    figure captions." spconf sets 10pt body text by default and 9pt with \ninept.
+    Times-Roman or Computer Modern is strongly encouraged.
+  pdf_fonts: >-
+    IEEE Xplore requires every font, the base fonts included, to be embedded and subset;
+    fonts embedded in full or not at all are "NOT OK". Type 3 bitmap fonts are "highly
+    discouraged".
+  pdf_health: >-
+    PDFs must not have document protection or security enabled, must be in first-page-first
+    order, and may be at most 5 MB (exceptions by request to the paper submission support).
+  page_numbers: >-
+    "Do not put page numbers on your document." Page numbers on the uploaded file are one
+    of the most common reasons a submission fails inspection.
+  title_format: >-
+    "The paper title must appear in boldface letters and should be in ALL CAPITALS. Do not
+    use LaTeX math notation ($x_y$) in the title."
+  author_block: >-
+    "ICASSP does not perform blind reviews, so be sure to include the author list in your
+    submitted paper." The authors on the PDF must match the submission form exactly in
+    number and order; a blank author list fails inspection.
+  abstract_present: >-
+    "Each paper should contain an abstract of approximately 100 to 150 words that appears
+    at the beginning of the document", identical to the abstract entered on the
+    submission form. The abstract may not exceed 200 words.
+  index_terms: >-
+    "INDEX TERMS (KEYWORDS): Enter up to 5 keywords separated by commas."
+  references_position: >-
+    References are numbered and cited in square brackets per the IEEE Citation Guidelines.
+    They may fill the optional 5th page.
+  statement.ethical_compliance: >-
+    "Authors should include a statement on ethical compliance in a separate section
+    entitled 'Compliance with Ethical Standards' in their manuscript. This section can
+    appear on the fifth page of the paper." It is required "irrespective of whether
+    ethical approval was needed for the study".
+  statement.funding_disclosure: >-
+    "Authors should disclose any real or potential conflict of interest in the
+    acknowledgments section of the paper. This section can appear on the references page
+    of the paper." Reporting conflicts, "or the absence thereof, is required in the
+    paper".
+
+unverifiable:
+  - id: submission_form_match
+    title: PDF and submission form agree
+    message: >-
+      CMS inspects every upload against the web form: the title must match, and the author
+      list must match exactly in names, number and order. The abstract should be identical
+      to the one entered on the form. The 2027 kit adds that every author must have an
+      ORCiD ID and that a mismatched author list means automatic withdrawal. None of the
+      form data is in the PDF.
+  - id: author_paper_cap
+    title: Nine papers per author
+    message: >-
+      No author may appear on more than nine papers, counting co-located workshops,
+      challenges and demos. That is a count across submissions, not a property of one PDF.
+  - id: relation_to_prior_work
+    title: Relation to prior work
+    message: >-
+      The template requires a discussion of how the contribution relates to prior work. It
+      may be a numbered section or appear elsewhere in the body, so whether it is present
+      is a reading judgement rather than a heading to find.
+  - id: originality
+    title: Originality and prior publication
+    message: >-
+      Papers are screened with iThenticate for plagiarism and self-plagiarism before review.
+      Preprints on arXiv, TechRxiv or the authors' own sites do not count as prior
+      publication. Establishing either needs cross-paper matching the PDF cannot provide.
+  - id: dual_submission
+    title: Simultaneous submission
+    message: >-
+      Multiple simultaneous submissions of a paper are not permitted, and all authors must
+      declare it original and submitted only to ICASSP. Nothing in the PDF shows where else
+      it is under review.
+  - id: copyright_form
+    title: IEEE electronic copyright form
+    message: >-
+      The IEEE eCF must be completed before the paper goes to reviewers. It is linked from
+      the upload confirmation page, not stored in the PDF.
+  - id: file_name
+    title: File name
+    message: >-
+      The kit asks for the file to be named after the first author's last name
+      ("smith.pdf"). The upload's name is chosen at submission time.
+  - id: registration_and_presentation
+    title: Registration and presentation
+    message: >-
+      Each accepted paper needs an author registered at a non-student rate by the author
+      registration deadline, and must be presented on site by one of its authors. Papers
+      not presented are withdrawn from IEEE Xplore. These are future commitments, not PDF
+      properties.

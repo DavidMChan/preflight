@@ -30,6 +30,9 @@ _DEFAULT_BASE14 = [
     "Symbol", "ZapfDingbats",
 ]
 
+# A subset font's /BaseFont carries a six-capital tag: "EHAANJ+NimbusRomNo9L-Regu".
+_SUBSET_TAG = re.compile(r"^[A-Z]{6}\+")
+
 
 def _ignore_pattern(ctx: CheckContext) -> re.Pattern[str]:
     return re.compile(str(ctx.conf("fonts.ignore_small_text_regex", r"^\s*\d{1,4}\s*$")))
@@ -87,14 +90,17 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
     which can shift line breaks, hide glyphs, or trip a publisher's ingestion
     pipeline. Type 3 glyphs live in PDF content streams (CharProcs), so there is
     no separate font file to embed. They are normally exempt, but profiles for
-    publishers such as IEEE/PaperCept can prohibit them explicitly.
+    publishers such as IEEE/PaperCept can prohibit them explicitly. IEEE Xplore
+    also wants every font *subset*, which a full embedding is not.
     """
     base14 = {str(s).lower() for s in (ctx.conf("pdf.base14_fonts", _DEFAULT_BASE14) or [])}
     require_base14 = bool(ctx.conf("pdf.require_base14_embedding", False))
     forbid_type3 = bool(ctx.conf("pdf.forbid_type3_fonts", False))
+    require_subset = bool(ctx.conf("pdf.require_font_subsetting", False))
     raw = ctx.doc.doc
 
     missing: dict[str, set[int]] = {}
+    full: dict[str, set[int]] = {}
     type3: dict[str, set[int]] = {}
     seen: dict[str, str] = {}  # simple name -> subtype, for the report
     all_fonts: dict[str, set[int]] = {}
@@ -122,8 +128,10 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
                 embedded = True  # cannot prove absence; don't false-positive
             if not embedded:
                 missing.setdefault(simple, set()).add(page.number)
+            elif require_subset and not _SUBSET_TAG.match(basefont):
+                full.setdefault(simple, set()).add(page.number)
 
-    if missing or type3:
+    if missing or full or type3:
         evidence = [
             Evidence(
                 detail=f"font {name!r} ({seen.get(name, '?')}) is not embedded",
@@ -134,17 +142,26 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
         ]
         evidence.extend(
             Evidence(
+                detail=f"font {name!r} ({seen.get(name, '?')}) is embedded in full, not subset",
+                page=min(pages),
+                expected=f"an embedded subset, named with a six-letter tag such as ABCDEF+{name}",
+            )
+            for name, pages in sorted(full.items())
+        )
+        evidence.extend(
+            Evidence(
                 detail=f"font {name!r} is a forbidden Type 3 bitmap font",
                 page=min(pages),
                 expected="Type 1, TrueType, or another scalable embedded font",
             )
             for name, pages in sorted(type3.items())
         )
-        pages_all = sorted({p for pages in missing.values() for p in pages})
-        pages_all = sorted({*pages_all, *(p for pages in type3.values() for p in pages)})
+        pages_all = sorted({p for group in (missing, full, type3) for pages in group.values() for p in pages})
         issues = []
         if missing:
             issues.append(f"{len(missing)} unembedded font(s)")
+        if full:
+            issues.append(f"{len(full)} font(s) embedded but not subset")
         if type3:
             issues.append(f"{len(type3)} Type 3 font(s)")
         return ctx.warn(
@@ -170,8 +187,49 @@ def check_font_embedding(ctx: CheckContext) -> Finding:
     return ctx.ok(
         "font_embedding",
         "Font embedding",
-        f"All {len(all_fonts)} non-standard font(s) referenced in the document are embedded.",
+        f"All {len(all_fonts)} non-standard font(s) referenced in the document are embedded"
+        f"{' and subset' if require_subset else ''}.",
         category="format",
+        cfp_key="pdf_fonts",
+    )
+
+
+@register("type3_fonts", "Type 3 fonts", module=MODULE, category="format", order=91)
+def check_type3_fonts(ctx: CheckContext) -> Finding | None:
+    """Bitmap Type 3 fonts, where the publisher discourages them without forbidding them.
+
+    A venue that forbids them outright reports them under ``font_embedding``
+    instead, so this stays silent there rather than saying it twice.
+    """
+    if not ctx.conf("pdf.discourage_type3_fonts", False) or ctx.conf("pdf.forbid_type3_fonts", False):
+        return None
+    found: dict[str, set[int]] = {}
+    for page in ctx.doc.pages:
+        try:
+            fonts = ctx.doc.doc[page.number - 1].get_fonts(full=True)
+        except Exception:  # pragma: no cover - defensive
+            continue
+        for _xref, _ext, subtype, basefont, *_rest in fonts:
+            if subtype == "Type3":
+                found.setdefault(basefont or "unnamed Type 3 font", set()).add(page.number)
+
+    if not found:
+        return ctx.ok("type3_fonts", "Type 3 fonts", "No Type 3 bitmap fonts in the PDF.",
+                      category="format", cfp_key="pdf_fonts")
+    pages_all = sorted({p for pages in found.values() for p in pages})
+    return ctx.warn(
+        "type3_fonts", "Type 3 fonts",
+        f"{len(found)} Type 3 font(s) on page(s) {', '.join(str(p) for p in pages_all[:10])}"
+        f"{'...' if len(pages_all) > 10 else ''}. They are usually low-resolution bitmaps that "
+        "blur when zoomed or printed, and the venue strongly discourages them.",
+        category="format",
+        evidence=[Evidence(page=min(pages), detail=f"Type 3 font {name!r}",
+                           expected="Type 1 or TrueType")
+                  for name, pages in sorted(found.items())][:10],
+        remedy="Type 3 fonts usually arrive inside figures: in matplotlib set "
+        "rcParams['pdf.fonttype'] = 42 and re-export; with dvips, pass -Ppdf so it uses Type 1 "
+        "Computer Modern.",
+        confidence="high — read from the PDF's font dictionaries",
         cfp_key="pdf_fonts",
     )
 
@@ -224,6 +282,14 @@ def check_pdf_health(ctx: CheckContext) -> Finding:
             problems.append(Evidence(detail=f"{len(bookmarks)} PDF bookmark(s) found",
                                      expected="no document bookmarks"))
 
+    max_mb = ctx.conf("pdf.max_file_size_mb", None)
+    path = getattr(ctx.doc, "path", None)
+    if max_mb is not None and path is not None:
+        size_mb = path.stat().st_size / 1_000_000
+        if size_mb > float(max_mb):
+            problems.append(Evidence(detail=f"the file is {size_mb:.1f} MB", measured=round(size_mb, 2),
+                                     expected=f"<= {float(max_mb):g} MB"))
+
     zero_area: list[PageInfo] = [p for p in ctx.doc.pages if p.width <= 0 or p.height <= 0]
     for p in zero_area:
         problems.append(Evidence(page=p.number, detail="zero-area MediaBox",
@@ -239,8 +305,8 @@ def check_pdf_health(ctx: CheckContext) -> Finding:
             category="format",
             evidence=problems[:10],
             remedy="Regenerate the PDF from source rather than editing the container directly; "
-            "remove encryption, embedded links and bookmarks, and use the PDF version required by "
-            "the publisher's ingestion pipeline.",
+            "remove encryption, embedded links and bookmarks, downsample oversized images, and use "
+            "the PDF version required by the publisher's ingestion pipeline.",
             cfp_key="pdf_health",
         )
     return ctx.ok(

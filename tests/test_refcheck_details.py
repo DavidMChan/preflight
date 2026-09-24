@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import gzip
+import time
 from pathlib import Path
 
 import httpx
@@ -425,18 +426,119 @@ def test_robots_txt_is_honoured_for_publisher_pages() -> None:
     assert requested == ["/robots.txt"]            # the page itself was never requested
 
 
+def _throttled_session(monkeypatch, statuses: list[int], headers: dict[str, str] | None = None,
+                       **get_kwargs):
+    """Serve ``statuses`` in order from one host; return (response, session, sleeps)."""
+    from preflight.refcheck import sources
+
+    sleeps: list[float] = []
+
+    async def no_wait(delay: float) -> None:
+        sleeps.append(delay)
+
+    monkeypatch.setattr(sources.asyncio, "sleep", no_wait)
+    queue = list(statuses)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        status = queue.pop(0) if queue else 200
+        return httpx.Response(status, headers=headers if status == 429 else None, json={})
+
+    async def main():
+        async with sources.Session() as session:
+            session._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+            response = await session.get("https://api.example.org/works", rate=100.0, **get_kwargs)
+            return response, session
+
+    response, session = asyncio.run(main())
+    return response, session, sleeps
+
+
+def test_a_throttled_request_is_retried_until_it_is_answered(monkeypatch) -> None:
+    response, session, sleeps = _throttled_session(monkeypatch, [429, 429, 503, 200])
+    assert response is not None and response.status_code == 200
+    assert session.throttled["api.example.org"] == 3
+    assert "api.example.org" not in session.errors
+    assert len(sleeps) == 3 and sleeps[2] >= sleeps[0] / 2   # exponential, with jitter
+
+
+def test_retry_after_is_honoured_as_seconds_or_a_date(monkeypatch) -> None:
+    from email.utils import formatdate
+
+    from preflight.refcheck.sources import _retry_after
+
+    _, _, sleeps = _throttled_session(monkeypatch, [429, 200], headers={"Retry-After": "7"})
+    assert 7.0 <= sleeps[0] <= 8.0
+    dated = httpx.Response(429, headers={"Retry-After": formatdate(time.time() + 30, usegmt=True)})
+    assert 25.0 <= _retry_after(dated) <= 31.0
+    assert _retry_after(httpx.Response(429, headers={"Retry-After": "soon"})) is None
+
+
+def test_a_persistent_throttle_gives_up_as_unknown(monkeypatch) -> None:
+    from preflight.refcheck.sources import THROTTLE_RETRIES
+
+    response, session, sleeps = _throttled_session(monkeypatch, [429] * 20)
+    assert response is None
+    assert len(sleeps) == THROTTLE_RETRIES
+    assert session.errors["api.example.org"] == "rate limited (429)"
+    assert "api.example.org" not in session.disabled          # busy, not gone
+
+
+def test_a_host_asking_for_a_long_wait_is_dropped_at_once(monkeypatch) -> None:
+    response, session, sleeps = _throttled_session(monkeypatch, [429, 200],
+                                                   headers={"Retry-After": "3600"})
+    assert response is None and sleeps == []
+    assert "api.example.org" in session.disabled
+    assert "60 minutes" in session.errors["api.example.org"]
+
+
+def test_only_consecutive_refusals_count_against_a_host(monkeypatch) -> None:
+    """A burst of 429s that ends in an answer resets the count toward abandoning the host."""
+    from preflight.refcheck import sources
+
+    async def no_wait(delay: float) -> None:
+        return None
+
+    monkeypatch.setattr(sources.asyncio, "sleep", no_wait)
+    queue = [429, 429, 200, 429, 429, 200]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(queue.pop(0) if queue else 200, json={})
+
+    async def main():
+        async with sources.Session() as session:
+            session.throttle_budget = 3
+            session._client = httpx.AsyncClient(transport=httpx.MockTransport(handler))
+            answers = [await session.get("https://api.example.org/w", rate=100.0) for _ in range(2)]
+            return answers, session
+
+    answers, session = asyncio.run(main())
+    assert [a.status_code for a in answers] == [200, 200]
+    assert session.throttled["api.example.org"] == 4 and not session.disabled
+
+
+def test_the_model_client_retries_rate_limits() -> None:
+    from preflight.llm.client import AsyncLLMClient
+
+    client = AsyncLLMClient(api_key="sk-test")
+    assert client._client().max_retries == client.max_retries == 5
+
+
 # ---------------------------------------------------------------------------
 # The engine: positive confirmation only
 # ---------------------------------------------------------------------------
 
-def _engine_run(monkeypatch, references, *, sources=(), resolve=None, client=None):
+def _engine_run(monkeypatch, references, *, sources=(), resolve=None, client=None, live=None):
     from preflight.refcheck import engine
     from preflight.refcheck.sources import DoiLookup, SourceSpec
 
     async def fake_resolve(session, doi):
         return resolve(doi) if resolve else DoiLookup(None)
 
+    async def fake_liveness(session, url):
+        return live(url) if live else None     # never the network: nothing could be read
+
     monkeypatch.setattr(engine, "resolve_doi", fake_resolve)
+    monkeypatch.setattr(engine, "liveness", fake_liveness)
     specs = tuple(SourceSpec(name, fetch) for name, fetch in sources)
     monkeypatch.setattr(engine, "_select_sources", lambda config: specs)
     config = engine.RefCheckConfig(use_web_search=client is not None, cache_path=None,
@@ -495,13 +597,13 @@ class _FakeSearch:
 
     available = True
 
-    def __init__(self, url: str) -> None:
+    def __init__(self, url: str | None) -> None:
         self.url = url
 
     async def web_search(self, *args, **kwargs):
         return ({"found": True, "confidence": "high", "matched_title": "A Paper",
                  "record_url": self.url, "doi": None, "arxiv_id": None,
-                 "note": "found it"}, [self.url])
+                 "note": "found it"}, [self.url] if self.url else [])
 
 
 def test_web_search_alone_does_not_confirm_a_paper(monkeypatch) -> None:
@@ -512,6 +614,50 @@ def test_web_search_alone_does_not_confirm_a_paper(monkeypatch) -> None:
     [verdict] = report.verdicts
     assert verdict.status is Status.UNCONFIRMED and verdict.is_suspicious
     assert "no key source confirms it" in verdict.note
+    assert "Nothing could be read at https://example.com/paper" in verdict.note
+
+
+def _paper_nobody_indexes() -> Reference:
+    return Reference(raw="A. B. A paper nobody indexes at all. In ICML, 2023.", index=0,
+                     title="A paper nobody indexes at all", authors=["A. B."], kind=Kind.PAPER)
+
+
+def test_a_web_search_that_reaches_a_live_page_is_web_only(monkeypatch) -> None:
+    from preflight.refcheck.websources import Resolution
+
+    report = _engine_run(monkeypatch, [_paper_nobody_indexes()],
+                         client=_FakeSearch("https://lab.example.edu/papers/x.pdf"),
+                         live=lambda url: Resolution(True, "URL resolves", url=url, source="url"))
+    [verdict] = report.verdicts
+    assert verdict.status is Status.WEB_ONLY and verdict.is_suspicious
+    assert verdict.url == "https://lab.example.edu/papers/x.pdf"
+    assert "located it at https://lab.example.edu/papers/x.pdf" in verdict.note
+
+
+@pytest.mark.parametrize("case", ["no page", "blocked page", "different work"])
+def test_a_web_search_that_confirms_nothing_stays_unconfirmed(monkeypatch, case: str) -> None:
+    """A bare "found", a page that refuses us, or a record of another work are not a trace."""
+    from preflight.refcheck import engine
+    from preflight.refcheck.websources import Resolution
+
+    other = Candidate(source="proceedings.mlr.press", title="An Entirely Different Paper",
+                      authors=["C. D."], year=2021)
+
+    async def fake_confirm(session, url, reference):
+        return [other] if case == "different work" else []
+
+    monkeypatch.setattr(engine, "confirm_url", fake_confirm)
+    url = None if case == "no page" else "https://proceedings.mlr.press/v139/x"
+    blocked = Resolution(True, "URL exists but blocked automated access (403)", url=url, blocked=True)
+    report = _engine_run(monkeypatch, [_paper_nobody_indexes()], client=_FakeSearch(url),
+                         live=lambda u: blocked if case == "blocked page" else
+                         Resolution(True, "URL resolves", url=u))
+    [verdict] = report.verdicts
+    assert verdict.status is Status.UNCONFIRMED, verdict.note
+    expected = {"no page": "gave no page or identifier",
+                "blocked page": "Nothing could be read",
+                "different work": "'An Entirely Different Paper'"}[case]
+    assert expected in verdict.note
 
 
 def test_a_web_search_lead_is_confirmed_at_its_source(monkeypatch) -> None:
@@ -623,6 +769,25 @@ def test_nicknames_and_detached_accents_are_the_same_person() -> None:
     # ...but a different person with the same surname is still reported.
     assert compare_authors(["Todd Henighan"], [["Tom Henighan"]], truncated=False) == [
         "Todd Henighan should be Tom Henighan"]
+
+
+def test_list_conjunctions_and_truncation_markers_are_not_part_of_a_name() -> None:
+    """A list split on commas keeps "and" on its last name; that is the same person."""
+    assert split_name("and Madian Khabsa").given == ("madian",)
+    assert split_name("& Jane Doe").raw == "Jane Doe"
+    assert split_name("Hugo Touvron and others").surname == "touvron"
+    assert split_name("Jane Doe et al.").surname == "doe"
+    assert split_name("and others") is None
+    assert split_name("Anderson Smith").given == ("anderson",)
+    llama_guard = ["Hakan Inan", "Kartikeya Upasani", "Jianfeng Chi", "Madian Khabsa"]
+    assert compare_authors(["Hakan Inan", "Kartikeya Upasani", "Jianfeng Chi", "and Madian Khabsa"],
+                           [llama_guard], truncated=False) == []
+    assert compare_authors(["Nina Panickssery", "and Alexander Matt Turner"],
+                           [["Nina Panickssery", "Alexander Turner"]], truncated=False) == []
+    assert compare_authors(["Hakan Inan and others"], [llama_guard], truncated=True) == []
+    # ...but a wrong name after the conjunction is still reported, without the "and".
+    assert compare_authors(["Hakan Inan", "and Martin Khabsa"], [["Hakan Inan", "Madian Khabsa"]],
+                           truncated=False) == ["Martin Khabsa should be Madian Khabsa"]
 
 
 def test_a_cited_venue_is_looked_for_when_only_the_preprint_is_found(monkeypatch) -> None:
@@ -786,9 +951,14 @@ def _findings(clean_paper: Path, verdicts: list) -> dict:
     ctx.shared["refcheck_report"] = {"entries": ["x"] * len(verdicts),
                                      "references": [v.reference for v in verdicts],
                                      "report": RefCheckReport(verdicts=verdicts)}
+    found: dict = {}
     try:
-        return {check.__name__: asyncio.run(check(ctx)) for check in
-                (check_reference_verification, check_reference_details, check_reference_versions)}
+        for check in (check_reference_verification, check_reference_details, check_reference_versions):
+            result = asyncio.run(check(ctx))
+            results = result if isinstance(result, list) else [result]
+            found[check.__name__] = results[0]
+            found.update({f.check_id: f for f in results})
+        return found
     finally:
         ctx.doc.close()
 
@@ -810,6 +980,26 @@ def test_wrong_details_and_unconfirmed_papers_are_errors(clean_paper: Path) -> N
     assert details.evidence[0].quote == "[21] RoleLLM"
     # ...it is its own finding, and a warning.
     assert found["check_reference_versions"].severity is Severity.WARNING
+
+
+def test_a_reference_found_only_by_web_search_is_a_warning(clean_paper: Path) -> None:
+    from preflight.models import Severity
+    from preflight.refcheck.core import Verdict
+
+    traced = Verdict(Reference(raw="[7] z", index=0, title="A lab report"), Status.WEB_ONLY,
+                     source="web_search", note="a web search located it at https://x.edu/r.pdf")
+    found = _findings(clean_paper, [traced])
+    assert found["reference_verification"].severity is Severity.PASS
+    web = found["reference_verification.web_only"]
+    assert web.severity is Severity.WARNING
+    assert "[found only by web search]" in web.evidence[0].detail
+
+    # Beside a reference nobody can find, each keeps its own severity.
+    missing = Verdict(Reference(raw="[3] y", index=1, title="A paper nobody has"), Status.NOT_FOUND)
+    found = _findings(clean_paper, [traced, missing])
+    assert found["reference_verification"].severity is Severity.ERROR
+    assert "1 of 2 reference(s)" in found["reference_verification"].message
+    assert found["reference_verification.web_only"].severity is Severity.WARNING
 
 
 def test_a_preprint_with_a_published_version_is_only_a_warning(clean_paper: Path) -> None:

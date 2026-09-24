@@ -33,6 +33,7 @@ _SUSPICION = (
 _STATUS_LABEL = {
     Status.NOT_FOUND: "no match anywhere",
     Status.UNCONFIRMED: "no key source confirms it",
+    Status.WEB_ONLY: "found only by web search",
     Status.AUTHOR_MISMATCH: "authors or year disagree",
     Status.UNRESOLVED: "cited link does not resolve",
     Status.ERROR: "lookup failed",
@@ -207,8 +208,13 @@ def _source_notes(ctx: CheckContext, report: Any) -> list[Evidence]:
 
 @register("reference_verification", "Reference verification", module=MODULE, category="references",
           requires=("enable_refcheck",), order=89)
-async def check_reference_verification(ctx: CheckContext) -> Finding:
-    """Confirm every reference against a key source: a record whose title and authors match."""
+async def check_reference_verification(ctx: CheckContext) -> Finding | list[Finding]:
+    """Confirm every reference against a key source: a record whose title and authors match.
+
+    A reference that no key source has, but that a web search located at a page
+    that answers, is reported apart from the rest and as a warning: a reader can
+    follow it to the work, which is not true of one nobody can find.
+    """
     data = await _run(ctx)
     report = data["report"]
 
@@ -222,6 +228,8 @@ async def check_reference_verification(ctx: CheckContext) -> Finding:
     unindexed = report.count(Status.UNINDEXED)
     # A failed lookup is not a confirmation either, so it is reported with the rest.
     unconfirmed = [v for v in report.verdicts if v.is_suspicious or v.status is Status.ERROR]
+    web_only = [v for v in unconfirmed if v.status is Status.WEB_ONLY]
+    unconfirmed = [v for v in unconfirmed if v.status is not Status.WEB_ONLY]
 
     scope = f"{len(report.verdicts)} reference(s)"
     if report.truncated:
@@ -234,30 +242,23 @@ async def check_reference_verification(ctx: CheckContext) -> Finding:
     breakdown = Evidence(
         detail=f"{confirmed} confirmed by a key source, {resolved} resolved to a live source, "
                f"{unindexed} not the kind of thing databases index"
+               + (f", {len(web_only)} found only by web search" if web_only else "")
     )
     notes = _source_notes(ctx, report)
+    max_evidence = int(ctx.conf("refcheck.max_evidence", 15))
+    extra = [_web_only(ctx, web_only, scope, max_evidence)] if web_only else []
 
     if not unconfirmed:
-        return ctx.ok("reference_verification", "Reference verification",
-                      f"Every reference was confirmed. {timing}",
-                      category="references", evidence=[breakdown, *notes])
+        summary = (f"Every reference was found, {len(web_only)} of them only by a web search "
+                   "(reported separately)." if web_only else "Every reference was confirmed.")
+        return [ctx.ok("reference_verification", "Reference verification", f"{summary} {timing}",
+                       category="references", evidence=[breakdown, *notes]), *extra]
 
-    max_evidence = int(ctx.conf("refcheck.max_evidence", 15))
-    evidence = [breakdown, *notes]
-    for verdict in unconfirmed[:max_evidence]:
-        label = _STATUS_LABEL.get(verdict.status, verdict.status.value)
-        detail = f"[{label}]"
-        if verdict.source:
-            detail += f" via {verdict.source}"
-        if verdict.note:
-            detail += f" — {verdict.note}"
-        evidence.append(Evidence(detail=detail, quote=_entry(verdict)))
-    if len(unconfirmed) > max_evidence:
-        evidence.append(Evidence(detail=f"...and {len(unconfirmed) - max_evidence} more"))
+    evidence = [breakdown, *notes, *_listed(unconfirmed, max_evidence)]
 
     as_error = bool(ctx.conf("refcheck.not_found_is_error", True))
     reporter = ctx.error if as_error else ctx.warn
-    return reporter(
+    return [reporter(
         "reference_verification", "Reference verification",
         f"{len(unconfirmed)} of {scope} could not be confirmed by any key source. {timing} "
         f"{_SUSPICION}",
@@ -267,6 +268,36 @@ async def check_reference_verification(ctx: CheckContext) -> Finding:
         "authors or years; a real work that no index lists needs a citation a reader can follow "
         "to it, such as a DOI, arXiv id or URL.",
         confidence="medium — no key source confirms these, though indexes are incomplete",
+    ), *extra]
+
+
+def _listed(verdicts: list[Any], cap: int) -> list[Evidence]:
+    evidence = []
+    for verdict in verdicts[:cap]:
+        label = _STATUS_LABEL.get(verdict.status, verdict.status.value)
+        detail = f"[{label}]"
+        if verdict.source:
+            detail += f" via {verdict.source}"
+        if verdict.note:
+            detail += f" — {verdict.note}"
+        evidence.append(Evidence(detail=detail, quote=_entry(verdict)))
+    if len(verdicts) > cap:
+        evidence.append(Evidence(detail=f"...and {len(verdicts) - cap} more"))
+    return evidence
+
+
+def _web_only(ctx: CheckContext, verdicts: list[Any], scope: str, cap: int) -> Finding:
+    """References a web search traced to a live page that no key source lists."""
+    as_error = bool(ctx.conf("refcheck.web_only_is_error", False))
+    reporter = ctx.error if as_error else ctx.warn
+    return reporter(
+        "reference_verification.web_only", "References found only by web search",
+        f"{len(verdicts)} of {scope} were located by a web search at a page that answers, but no "
+        "key source confirms them, so their titles, authors and years are unchecked.",
+        category="references", evidence=_listed(verdicts, cap),
+        remedy="Open each page to confirm it is the work cited, and give the entry a DOI, arXiv id "
+        "or URL a reader can follow, since no bibliographic index lists it.",
+        confidence="medium — the page exists, but nothing on it was matched against the citation",
     )
 
 

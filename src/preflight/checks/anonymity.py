@@ -132,6 +132,71 @@ def _looks_like_person(text: str, ctx: CheckContext) -> bool:
     return all(_NAME_RE.match(p) and len(p.split()) <= max_words for p in parts)
 
 
+@register("author_block", "Author block", module=MODULE, category=CATEGORY, order=29)
+def check_author_block(ctx: CheckContext) -> Finding | None:
+    """Venues that do not review blind want the author list printed on the PDF.
+
+    There a blank author block, or the template's placeholder names left in
+    place, fails the format inspection just as a leaked name fails a blind one.
+    """
+    if _enabled(ctx) or not ctx.conf("anonymity.require_author_block", False):
+        return None
+    lines = sorted(_title_block_lines(ctx), key=lambda ln: (ln.bbox[1], ln.bbox[0]))
+    abstract = ctx.doc.find_heading(["Abstract"])
+    if abstract is not None and abstract.page == 1:
+        lines = [ln for ln in lines if ln.bbox[1] < abstract.bbox[1] - 0.6]
+    if not lines:
+        return ctx.skip("author_block", "Author block", "No title block was found on page 1.",
+                        category=CATEGORY, cfp_key="author_block")
+
+    # The title is the leading run at the largest size. spconf sets names and
+    # addresses at that same size, so boldness is what ends the title.
+    largest = max(ln.heading_size for ln in lines)
+    start = next(i for i, ln in enumerate(lines) if abs(ln.heading_size - largest) < 0.5)
+    end = start
+    while (end < len(lines) and abs(lines[end].heading_size - largest) < 0.5
+           and lines[end].bold == lines[start].bold):
+        end += 1
+    authors = lines[end:]
+
+    placeholders = [re.compile(str(p), re.IGNORECASE)
+                    for p in _conf_list(ctx, "anonymity.author_placeholders", ())]
+    left = [
+        Evidence(page=1, detail="template placeholder in the author block",
+                 quote=" ".join(ln.text.split()), bbox=ln.bbox)
+        for ln in authors if any(p.search(ln.text) for p in placeholders)
+    ]
+    if left:
+        return ctx.error(
+            "author_block", "Author block",
+            f"The author block still holds the template's placeholder text ({len(left)} line(s)). "
+            "This venue does not review blind: the PDF must name every author, in the order "
+            "entered on the submission form.",
+            category=CATEGORY, evidence=left[:6], cfp_key="author_block",
+            remedy="Replace the placeholder names and affiliations with the real author list.",
+            confidence="high — the template's own wording",
+        )
+    if not authors:
+        return ctx.error(
+            "author_block", "Author block",
+            "No author names or affiliations were found between the title and the abstract. "
+            "This venue does not review blind, and a blank author list fails its format inspection.",
+            category=CATEGORY, cfp_key="author_block",
+            evidence=[Evidence(page=1, detail="title block",
+                               quote=" ".join(" ".join(ln.text.split()) for ln in lines)[:160])],
+            remedy="Print the authors and affiliations under the title (\\name{} and \\address{} "
+            "in spconf), matching the submission form in number and order.",
+            confidence="medium — the author block is read as the text between the title and abstract",
+        )
+    return ctx.ok(
+        "author_block", "Author block",
+        f"An author block of {len(authors)} line(s) follows the title.",
+        category=CATEGORY, cfp_key="author_block",
+        evidence=[Evidence(page=1, detail="first author-block line",
+                           quote=" ".join(authors[0].text.split())[:120])],
+    )
+
+
 @register("anonymity_title_block", "Anonymous title block", module=MODULE,
           category=CATEGORY, order=30)
 def check_title_block(ctx: CheckContext) -> Finding:
