@@ -13,7 +13,8 @@ def _report() -> Report:
     report.add(Finding("page_limit", "Content page limit", Severity.ERROR, "too long",
                        evidence=[Evidence(page=9, detail="first unlimited section", measured=9.0,
                                           expected="<= 8")], remedy="cut"))
-    report.add(Finding("margins", "Margins", Severity.PASS, "fine"))
+    report.add(Finding("margins", "Margins", Severity.PASS, "fine", uses=()))
+    report.add(Finding("llm_anonymity", "Anonymity (model)", Severity.PASS, "fine", uses=("llm",)))
     report.scores = {"model": "m", "dimensions": {"clarity": {"score": 4, "justification": "ok"}}}
     return report
 
@@ -24,7 +25,10 @@ def test_save_and_reload_round_trips(tmp_path: Path) -> None:
 
     loaded = cache.load(saved)
     assert loaded is not None
-    assert loaded.counts() == {"error": 1, "warning": 0, "pass": 1, "skipped": 0, "unverifiable": 0}
+    assert loaded.counts() == {"error": 1, "warning": 0, "pass": 2, "skipped": 0, "unverifiable": 0}
+    modes = {f.check_id: f.mode for f in loaded.findings}
+    # A finding recorded before tagging has no mode, rather than a guessed one.
+    assert modes == {"page_limit": None, "margins": "offline", "llm_anonymity": "LLM"}
     finding = next(f for f in loaded.findings if f.check_id == "page_limit")
     assert finding.severity is Severity.ERROR
     assert finding.remedy == "cut"

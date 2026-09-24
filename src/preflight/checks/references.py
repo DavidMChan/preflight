@@ -11,13 +11,15 @@ means "fabricated".
 
 from __future__ import annotations
 
+import functools
 import os
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from ..context import CheckContext
 from ..llm.client import AsyncLLMClient
-from ..models import Evidence, Finding
+from ..models import LLM, NETWORK, Evidence, Finding
 from ..refcheck import RefCheckConfig, bibliography_lines, parse_entries, segment, verify
 from ..refcheck.core import MatchPolicy, Status
 from ..registry import register
@@ -100,6 +102,7 @@ async def _run(ctx: CheckContext) -> dict[str, Any]:
     if client is None or not config.use_llm_parse:
         client = None
     references = await parse_entries(ctx, entries, client or AsyncLLMClient(api_key=None))
+    parsed_by_model = client is not None and client.available and bool(entries)
     if client is None and ctx.settings.enable_llm:
         client = _client(ctx)      # still allowed for the web-search tier
 
@@ -119,13 +122,31 @@ async def _run(ctx: CheckContext) -> dict[str, Any]:
         except Exception:
             pass
 
-    result = {"entries": entries, "references": references, "report": report}
+    # A cached verdict may rest on a web search from an earlier run.
+    searched = report.searched or any("web_search" in v.checked_sources for v in report.verdicts)
+    uses = (NETWORK, LLM) if parsed_by_model or searched else (NETWORK,)
+    result = {"entries": entries, "references": references, "report": report, "uses": uses}
     ctx.shared["refcheck_report"] = result
     return result
 
 
+def _tagged(check: Callable[[CheckContext], Awaitable[Any]]) -> Callable[[CheckContext], Awaitable[Any]]:
+    """Mark a check's findings with what the shared run reached: key sources always,
+    and a model only if one parsed the bibliography or searched for a reference."""
+    @functools.wraps(check)
+    async def run(ctx: CheckContext) -> Any:
+        result = await check(ctx)
+        uses = (ctx.shared.get("refcheck_report") or {}).get("uses")
+        if uses is not None:
+            for finding in result if isinstance(result, list) else [result]:
+                finding.uses = uses
+        return result
+    return run
+
+
 @register("reference_parsing", "Bibliography parsing", module=MODULE, category="references",
-          requires=("enable_refcheck",), order=88)
+          requires=("enable_refcheck",), uses=(NETWORK, LLM), order=88)
+@_tagged
 async def check_reference_parsing(ctx: CheckContext) -> Finding:
     """Report how much of the bibliography could be read into structured records."""
     data = await _run(ctx)
@@ -207,7 +228,8 @@ def _source_notes(ctx: CheckContext, report: Any) -> list[Evidence]:
 
 
 @register("reference_verification", "Reference verification", module=MODULE, category="references",
-          requires=("enable_refcheck",), order=89)
+          requires=("enable_refcheck",), uses=(NETWORK, LLM), order=89)
+@_tagged
 async def check_reference_verification(ctx: CheckContext) -> Finding | list[Finding]:
     """Confirm every reference against a key source: a record whose title and authors match.
 
@@ -319,7 +341,7 @@ def _listing(ctx: CheckContext, entries: list[tuple[Any, list[Any]]]) -> list[Ev
     # Every entry is a concrete correction, so all are listed unless the profile caps it.
     cap = int(ctx.conf("refcheck.max_detail_evidence", 0) or 0) or len(entries)
     evidence = [
-        Evidence(detail=" · ".join(f"{_FIELD_LABEL.get(d.field, d.field)}: {d.detail}" for d in found),
+        Evidence(detail=" · ".join(f"{_FIELD_LABEL.get(d.field, d.field)}: {d.describe()}" for d in found),
                  quote=_entry(verdict))
         for verdict, found in entries[:cap]
     ]
@@ -334,7 +356,8 @@ _DETAIL_FIELDS = {"doi", "arxiv", "url", "authors", "pages", "year", "venue"}
 
 
 @register("reference_details", "Reference details", module=MODULE, category="references",
-          requires=("enable_refcheck",), order=89)
+          requires=("enable_refcheck",), uses=(NETWORK, LLM), order=89)
+@_tagged
 async def check_reference_details(ctx: CheckContext) -> Finding:
     """Compare each confirmed reference against its record: DOI, pages, year, venue, authors."""
     data = await _run(ctx)
@@ -362,14 +385,16 @@ async def check_reference_details(ctx: CheckContext) -> Finding:
         f"{len(entries)} reference(s) cite a real work with details its record contradicts "
         f"({', '.join(fields)}).",
         category="references", evidence=_listing(ctx, entries),
-        remedy="Replace each flagged entry with the record's own citation — the BibTeX from the "
-        "ACL Anthology, the DOI, DBLP or arXiv — rather than correcting fields by hand.",
+        remedy="Look up the record named beside each entry. If it is the version you cite, "
+        "replace the entry with that record's own citation — the BibTeX from the ACL Anthology, "
+        "the DOI, DBLP or arXiv — rather than correcting fields by hand.",
         confidence="high — each discrepancy is read off the key source's own record",
     )
 
 
 @register("reference_versions", "Published versions", module=MODULE, category="references",
-          requires=("enable_refcheck",), order=89)
+          requires=("enable_refcheck",), uses=(NETWORK, LLM), order=89)
+@_tagged
 async def check_reference_versions(ctx: CheckContext) -> Finding:
     """Find preprints, and works cited without a venue, that have a published version."""
     data = await _run(ctx)

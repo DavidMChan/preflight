@@ -55,3 +55,27 @@ def test_add_accepts_none_and_iterables() -> None:
     report.add(None)
     report.add([Finding("a", "A", Severity.PASS, "ok"), Finding("b", "B", Severity.PASS, "ok")])
     assert len(report.findings) == 2
+
+
+def test_the_report_tags_each_finding_offline_online_or_llm() -> None:
+    from rich.console import Console
+
+    from preflight.report import print_report, to_markdown
+
+    report = Report(pdf_path="p.pdf", conference="iclr", track="main",
+                    meta={"llm_model": "gpt-x", "refcheck": True})
+    report.add(Finding("margins", "Margins", Severity.PASS, "fine", uses=()))
+    report.add(Finding("reference_details", "Reference details", Severity.ERROR, "wrong",
+                       uses=("network", "llm")))
+    report.add(Finding("rnlp_c1", "C1", Severity.UNVERIFIABLE, "not checkable", uses=()))
+
+    console = Console(record=True, width=200)
+    print_report(report, console)
+    text = console.export_text()
+    assert "Reference details  [reference_details]  online + LLM" in text
+    assert "Margins  [margins]  offline" in text
+    assert "[rnlp_c1]  offline" not in text          # never checked, so no tag
+    assert "LLM — read by gpt-x" in text
+
+    markdown = to_markdown(report)
+    assert "- **Reference details** (`reference_details`, online + LLM) — wrong" in markdown

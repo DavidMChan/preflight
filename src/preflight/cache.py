@@ -148,6 +148,7 @@ def load(path: Path) -> Report | None:
                 remedy=raw.get("remedy"),
                 confidence=raw.get("confidence"),
                 cfp_reference=raw.get("cfp_reference"),
+                uses=tuple(raw["uses"]) if isinstance(raw.get("uses"), list) else None,
                 evidence=[
                     Evidence(
                         page=ev.get("page"),

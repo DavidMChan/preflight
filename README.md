@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Checks: 117](https://img.shields.io/badge/checks-117-blue)](#checks)
 [![Venues: 10](https://img.shields.io/badge/venues-10-blueviolet)](#conferences)
-[![Tests: 366](https://img.shields.io/badge/tests-366%20passing-brightgreen)](#development)
+[![Tests: 374](https://img.shields.io/badge/tests-374%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -23,10 +23,11 @@ modifying the source code.
 ╭──────────────────────────────────────────────────────────────────────────────╮
 │ ARR pre-flight (long): 0 errors, 3 warnings, 21 passed                       │
 ╰────────────────────────── /Users/you/papers/submission.pdf ──────────────────╯
+Tags: offline — read from the PDF alone · online — bibliographic lookups · LLM — read by gpt-5.6-luna
 
 Errors — likely desk rejection
 
-✗ ERROR Content page limit  [page_limit]
+✗ ERROR Content page limit  [page_limit]  offline
       Main content appears to run through page 9; long papers allow 8. Content runs up
       to the 'Limitations' heading on page 10. Exceeding the page limit is explicitly a
       desk-rejection condition.
@@ -52,6 +53,18 @@ The tool maintains a clear distinction among four categories:
 
 A successful result indicates that the PDF-checkable rules pass. It should not be interpreted as
 confirmation that the submission is fully compliant, and the report states this.
+
+Every finding is also tagged with how it was reached, beside its check id:
+
+| Tag | Meaning |
+|---|---|
+| `offline` | Read from the PDF alone. The result is the same on every run and needs no network. |
+| `online` | Bibliographic lookups: the key sources that confirm each reference. No model is involved. |
+| `LLM` | Part of the paper was sent to a model, and the finding reports its judgement. |
+| `online + LLM` | The reference checks when a model parsed the bibliography or searched for a reference. The comparison against each record is still read off the record itself. |
+
+The tag records what the run actually used: with `--no-llm`, or without an API key, the reference
+checks report `online`. `preflight checks` lists the tag for every check.
 
 ---
 
@@ -104,7 +117,7 @@ uv run preflight show --list                    # enumerate cached runs
 
 ```bash
 uv run preflight conferences                    # list bundled profiles
-uv run preflight checks -c arr                  # list the checks a profile runs
+uv run preflight checks -c arr                  # the checks a profile runs: offline, online or LLM
 uv run preflight paper.pdf --json report.json --markdown report.md
 uv run preflight *.pdf --quiet --strict         # batch processing
 ```
@@ -239,7 +252,7 @@ result:
 |---|---|---|
 | `reference_verification` | `ERROR` | References that no key source confirms and no web search traced to a page. |
 | `reference_verification.web_only` | `WARNING` | References no key source has, but that a web search located at a page that answers; their details are unchecked. |
-| `reference_details` | `ERROR` | Confirmed references whose record contradicts the citation: a printed DOI or arXiv identifier that is unregistered or belongs to a different work; page ranges; years; venues, including Findings cited as the main conference and a cited venue that no record confirms; authors absent from the record, altered given names, reordered authors, and author lists shortened without "et al.". |
+| `reference_details` | `ERROR` | Confirmed references whose record contradicts the citation: a printed DOI or arXiv identifier that is unregistered or belongs to a different work; page ranges; years; venues, including Findings cited as the main conference and a cited venue that no record confirms; authors absent from the record, altered given names, reordered authors, and author lists shortened without "et al.". Names are compared without regard to case or punctuation. Each discrepancy names the record that contradicts it, by its DOI or failing that its page, so it can be looked up. |
 | `reference_versions` | `WARNING` | A preprint, or a work cited without a venue, whose published version exists. |
 
 The key sources, and the terms under which each is queried:

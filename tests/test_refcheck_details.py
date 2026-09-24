@@ -156,9 +156,25 @@ def test_correct_author_lists_pass() -> None:
     assert compare_authors(["Zhu Qi", "Zhang Zheng"], [["Qi Zhu", "Zheng Zhang"]], truncated=False) == []
 
 
+def test_a_surname_is_compared_whole_and_without_case() -> None:
+    """Gymnasium: every record prints "Arjun KG", the citation "Arjun Kg"."""
+    record = ["Markus Krimmel", "Arjun KG", "Rodrigo Perez-Vicente"]
+    assert split_name("Arjun KG").surname == split_name("Arjun Kg").surname == "kg"
+    assert split_name("Jane DOE").surname == "doe"
+    for arjun in ("Arjun Kg", "ARJUN KG", "arjun kg", "KG, Arjun", "Arjun K. G.", "KG Arjun"):
+        cited = ["Markus Krimmel", arjun, "Rodrigo Perez-Vicente"]
+        assert compare_authors(cited, [record], truncated=False) == [], arjun
+    # ...but a different name is still reported.
+    assert compare_authors(["Markus Krimmel", "Arjun Kh", "Rodrigo Perez-Vicente"], [record],
+                           truncated=False) == ["Arjun Kh is not an author (the record has Arjun KG)"]
+
+
 def test_a_silently_shortened_author_list_is_reported() -> None:
     problems = compare_authors(CONVLAB_AUTHORS[:3], [CONVLAB_AUTHORS], truncated=False)
     assert problems == ["the citation lists 3 of the record's 10 authors without 'et al.'"]
+    # A company listed among the record's authors is not a person the citation left out.
+    assert compare_authors(CONVLAB_AUTHORS, [["Physical Intelligence", *CONVLAB_AUTHORS]],
+                           truncated=False) == []
 
 
 # ---------------------------------------------------------------------------
@@ -194,6 +210,34 @@ def test_wrong_pages_are_reported() -> None:
     record = _acl(title="Reliable LLM-based User Simulator", pages="19-35", year=2024,
                   venue="Proceedings of the 1st Workshop on Simulating Conversational Intelligence")
     assert _report(ref, [record]) == {"pages": "pages 28–40; the record has 19-35"}
+
+
+def test_a_discrepancy_names_the_record_to_follow_up() -> None:
+    """Wrong pages or year point at the record that contradicts them, by DOI where it has one."""
+    ref = Reference(raw="x", index=0, title="Making the V in VQA matter", pages="6904–6913",
+                    year=2017, venue="Proceedings of the IEEE conference on computer vision and "
+                                     "pattern recognition")
+    no_doi = Candidate(source="dblp", title="Making the V in VQA matter", venue="CVPR", year=2017,
+                       pages="6325-6334", url="https://dblp.org/rec/conf/cvpr/GoyalKSBP17")
+    with_doi = Candidate(source="crossref", title="Making the V in VQA matter", venue="CVPR",
+                         year=2017, pages="6325-6334", doi="10.1109/cvpr.2017.670")
+    (pages,) = compare(ref, [no_doi, with_doi])
+    assert (pages.source, pages.record) == ("crossref", "doi:10.1109/cvpr.2017.670")
+    assert pages.describe() == ("pages 6904–6913; the record has 6325-6334 "
+                                "(crossref, doi:10.1109/cvpr.2017.670)")
+
+    # With no DOI anywhere, the record's own page is the pointer.
+    ref.pages, ref.year = None, 2018
+    (year,) = compare(ref, [no_doi])
+    assert year.field == "year"
+    assert year.record == "https://dblp.org/rec/conf/cvpr/GoyalKSBP17"
+    assert year.describe().endswith("(dblp, https://dblp.org/rec/conf/cvpr/GoyalKSBP17)")
+
+    # Authors are measured against one record, and name it.
+    ref.year, ref.authors = None, ["Yash Goyal", "Tejas Knot"]
+    with_doi.authors = ["Yash Goyal", "Tejas Khot"]
+    (authors,) = compare(ref, [no_doi, with_doi])
+    assert authors.field == "authors" and authors.record == "doi:10.1109/cvpr.2017.670"
 
 
 def test_matching_details_report_nothing() -> None:
@@ -697,7 +741,8 @@ def test_discrepancies_survive_the_cache(tmp_path: Path) -> None:
 
     ref = Reference(raw="x", index=0)
     verdict = Verdict(reference=ref, status=Status.DETAILS_MISMATCH,
-                      discrepancies=[Discrepancy("pages", "pages 1-2; the record has 3-4", "dblp")])
+                      discrepancies=[Discrepancy("pages", "pages 1-2; the record has 3-4", "dblp",
+                                                 "doi:10.1/x")])
     with Store(tmp_path / "c.db") as store:
         _remember(store, "k", verdict)
         restored = _from_cache(ref, store.get("k"))
@@ -933,7 +978,7 @@ def test_an_entry_of_unknown_kind_is_not_excused(monkeypatch) -> None:
     assert report.verdicts[0].status is Status.NOT_FOUND and report.verdicts[0].is_suspicious
 
 
-def _findings(clean_paper: Path, verdicts: list) -> dict:
+def _findings(clean_paper: Path, verdicts: list, uses: tuple = ("network",)) -> dict:
     """Run the three reference checks over a prepared report."""
     from preflight.checks.references import (
         check_reference_details,
@@ -950,7 +995,7 @@ def _findings(clean_paper: Path, verdicts: list) -> dict:
                        settings=Settings())
     ctx.shared["refcheck_report"] = {"entries": ["x"] * len(verdicts),
                                      "references": [v.reference for v in verdicts],
-                                     "report": RefCheckReport(verdicts=verdicts)}
+                                     "report": RefCheckReport(verdicts=verdicts), "uses": uses}
     found: dict = {}
     try:
         for check in (check_reference_verification, check_reference_details, check_reference_versions):
@@ -980,6 +1025,27 @@ def test_wrong_details_and_unconfirmed_papers_are_errors(clean_paper: Path) -> N
     assert details.evidence[0].quote == "[21] RoleLLM"
     # ...it is its own finding, and a warning.
     assert found["check_reference_versions"].severity is Severity.WARNING
+
+
+def test_the_record_is_listed_beside_each_wrong_detail(clean_paper: Path) -> None:
+    from preflight.refcheck.core import Verdict
+
+    wrong = Verdict(Reference(raw="[5] x", index=0, title="GQA"), Status.DETAILS_MISMATCH,
+                    discrepancies=[Discrepancy("pages", "pages 6693–6702; the record has 6700-6709",
+                                               "dblp", "doi:10.1109/cvpr.2019.00686")])
+    details = _findings(clean_paper, [wrong])["check_reference_details"]
+    assert details.evidence[0].detail == ("pages: pages 6693–6702; the record has 6700-6709 "
+                                          "(dblp, doi:10.1109/cvpr.2019.00686)")
+
+
+def test_reference_findings_say_whether_a_model_was_used(clean_paper: Path) -> None:
+    from preflight.models import LLM, NETWORK
+    from preflight.refcheck.core import Verdict
+
+    verdict = Verdict(Reference(raw="[1] x", index=0, title="T"), Status.VERIFIED)
+    for uses, mode in (((NETWORK,), "online"), ((NETWORK, LLM), "online + LLM")):
+        found = _findings(clean_paper, [verdict], uses=uses)
+        assert {f.mode for f in found.values()} == {mode}
 
 
 def test_a_reference_found_only_by_web_search_is_a_warning(clean_paper: Path) -> None:

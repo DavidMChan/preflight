@@ -44,7 +44,7 @@ from .websources import liveness, needs_web_route, resolve_web
 
 #: Bump when the verdict logic changes, so verdicts reached by older logic are
 #: not served from the cache.
-CACHE_VERSION = "v8"
+CACHE_VERSION = "v10"
 
 SEARCH_DOMAINS = [
     "arxiv.org", "aclanthology.org", "openreview.net", "dl.acm.org", "ieeexplore.ieee.org",
@@ -737,6 +737,7 @@ def _from_cache(reference: Reference, data: dict[str, Any]) -> Verdict:
         note=str(data.get("note") or "") + " (cached)",
         url=data.get("url"),
         checked_sources=tuple(data.get("checked_sources") or ()),
-        discrepancies=[Discrepancy(str(d.get("field")), str(d.get("detail")), d.get("source"))
+        discrepancies=[Discrepancy(str(d.get("field")), str(d.get("detail")), d.get("source"),
+                                   d.get("record"))
                        for d in data.get("discrepancies") or [] if isinstance(d, dict)],
     )

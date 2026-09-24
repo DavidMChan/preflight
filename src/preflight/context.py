@@ -62,6 +62,7 @@ class CheckContext:
         remedy: str | None = None,
         confidence: str | None = None,
         cfp_key: str | None = None,
+        uses: tuple[str, ...] | None = None,
     ) -> Finding:
         return Finding(
             check_id=check_id,
@@ -73,6 +74,7 @@ class CheckContext:
             remedy=remedy,
             confidence=confidence,
             cfp_reference=self.cfp(cfp_key or check_id),
+            uses=uses,
         )
 
     def ok(self, check_id: str, title: str, message: str, **kw: Any) -> Finding:

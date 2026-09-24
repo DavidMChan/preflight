@@ -70,3 +70,47 @@ def test_a_crashing_check_does_not_sink_the_report(clean_paper: Path, monkeypatc
     assert "boom" in finding.message
     # ...and the rest of the run still happened.
     assert len(report.findings) > 10
+
+
+def test_every_check_says_whether_it_is_offline_online_or_a_model() -> None:
+    from preflight.models import LLM, NETWORK
+
+    registry = load_builtin_checks()
+    for check in registry:
+        if "enable_llm" in check.requires:
+            assert LLM in check.uses, f"{check.id} calls a model but is not marked LLM"
+        if {"enable_refcheck", "enable_hallucinator"} & set(check.requires):
+            assert NETWORK in check.uses, f"{check.id} looks references up but is not marked online"
+        if not check.requires:
+            assert check.mode == "offline", check.id
+    assert registry.checks["llm_anonymity"].mode == "LLM"
+    assert registry.checks["reference_details"].mode == "online + LLM"
+    assert registry.checks["margins"].mode == "offline"
+
+
+def test_an_offline_run_tags_every_finding_offline(clean_paper: Path) -> None:
+    report = run_checks(clean_paper, "arr", "long", Settings.offline())
+    assert {f.mode for f in report.findings} == {"offline"}
+    assert all(f.to_dict()["mode"] == "offline" for f in report.findings)
+
+
+def test_a_model_the_check_can_do_without_is_not_claimed(clean_paper: Path) -> None:
+    from preflight.context import CheckContext
+    from preflight.document import Document
+    from preflight.profile import load_profile
+
+    registry = load_builtin_checks()
+    profile = load_profile("arr")
+    doc = Document(clean_paper)
+    try:
+        def uses(check_id: str, settings: Settings) -> str:
+            ctx = CheckContext(doc=doc, profile=profile, track=profile.track("long"), settings=settings)
+            return registry.checks[check_id].uses_in(ctx)
+
+        assert uses("reference_details", Settings(openai_api_key="k")) == ("network", "llm")
+        assert uses("reference_details", Settings(enable_llm=False)) == ("network",)
+        assert uses("reference_details", Settings(openai_api_key=None)) == ("network",)
+        # A check that is nothing but a model call stays one, even when it cannot run.
+        assert uses("llm_anonymity", Settings(openai_api_key=None)) == ("llm",)
+    finally:
+        doc.close()

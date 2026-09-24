@@ -51,6 +51,17 @@ _SEVERITY_GLYPH = {
 }
 
 
+#: What a check reaches beyond the PDF. A check that reaches neither is offline.
+NETWORK = "network"     # bibliographic databases and the pages they point to
+LLM = "llm"             # a language model reads part of the paper
+
+
+def mode_label(uses: tuple[str, ...]) -> str:
+    """``offline``, ``online``, ``LLM`` or ``online + LLM``."""
+    parts = [label for key, label in ((NETWORK, "online"), (LLM, "LLM")) if key in uses]
+    return " + ".join(parts) or "offline"
+
+
 @dataclass(slots=True)
 class Evidence:
     """A precise, author-actionable pointer back into the PDF.
@@ -147,10 +158,16 @@ class Finding:
     remedy: str | None = None
     confidence: str | None = None
     cfp_reference: str | None = None
+    uses: tuple[str, ...] | None = None     # NETWORK, LLM; None when not recorded
 
     @property
     def is_blocking(self) -> bool:
         return self.severity is Severity.ERROR
+
+    @property
+    def mode(self) -> str | None:
+        """How the check reached its result: ``offline``, ``online``, ``LLM``, ``online + LLM``."""
+        return None if self.uses is None else mode_label(self.uses)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -162,6 +179,8 @@ class Finding:
             "remedy": self.remedy,
             "confidence": self.confidence,
             "cfp_reference": self.cfp_reference,
+            "uses": list(self.uses) if self.uses is not None else None,
+            "mode": self.mode,
             "evidence": [e.to_dict() for e in self.evidence],
         }
 

@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .context import CheckContext
-from .models import Finding, Severity
+from .models import LLM, NETWORK, Finding, Severity, mode_label
 
 CheckFn = Callable[[CheckContext], Any]
 """``(ctx) -> Finding | Iterable[Finding] | None``, or a coroutine returning one."""
@@ -32,6 +32,22 @@ class Check:
     order: int = 100
     aggregate: bool = False             # runs last; reads what the others left behind
     concurrent: bool | None = None      # None = auto (True for async checks)
+    uses: tuple[str, ...] = ()          # NETWORK, LLM; empty for a check that reads only the PDF
+
+    @property
+    def mode(self) -> str:
+        return mode_label(self.uses)
+
+    def uses_in(self, ctx: CheckContext) -> tuple[str, ...]:
+        """What this check can have reached in this run.
+
+        A model the check can do without (the reference checker parses and
+        searches with one when it may) is not counted when the run has none.
+        """
+        has_model = ctx.settings.enable_llm and bool(ctx.settings.openai_api_key)
+        if LLM in self.uses and "enable_llm" not in self.requires and not has_model:
+            return tuple(u for u in self.uses if u != LLM)
+        return self.uses
 
     @property
     def is_async(self) -> bool:
@@ -61,7 +77,7 @@ class Check:
         try:
             result = self.fn(ctx)
         except Exception as exc:  # a broken check must not sink the report
-            return [self._crash(exc)]
+            return [self._crash(ctx, exc)]
         return self._finish(ctx, result)
 
     async def arun(self, ctx: CheckContext) -> list[Finding]:
@@ -74,25 +90,30 @@ class Check:
             else:
                 result = self.fn(ctx)
         except Exception as exc:
-            return [self._crash(exc)]
+            return [self._crash(ctx, exc)]
         return self._finish(ctx, result)
 
-    def _crash(self, exc: Exception) -> Finding:
+    def _crash(self, ctx: CheckContext, exc: Exception) -> Finding:
         return Finding(
             check_id=self.id,
             title=self.title,
             severity=Severity.SKIPPED,
             category=self.category,
             message=f"Check failed to run: {type(exc).__name__}: {exc}",
+            uses=self.uses_in(ctx),
         )
 
     def _finish(self, ctx: CheckContext, result: Any) -> list[Finding]:
         if result is None:
             return []
         findings = [result] if isinstance(result, Finding) else list(result)
-        # A venue may soften or harden a shared check without forking it.
         for f in findings:
+            # A venue may soften or harden a shared check without forking it.
             f.severity = ctx.profile.severity_for(f.check_id, f.severity)
+            # Every finding says whether it came from the PDF alone, a network
+            # lookup or a model. A check that knows more precisely has said so.
+            if f.uses is None:
+                f.uses = self.uses_in(ctx)
         return findings
 
 
@@ -135,11 +156,17 @@ def register(
     order: int = 100,
     aggregate: bool = False,
     concurrent: bool | None = None,
+    uses: tuple[str, ...] | None = None,
 ) -> Callable[[CheckFn], CheckFn]:
     """Register a check as part of ``module`` (e.g. ``"acl.geometry"``).
 
     Profiles switch whole modules on and off, so a module is the unit of reuse
     between conferences.
+
+    ``uses`` says what the check reaches beyond the PDF (:data:`~.models.NETWORK`,
+    :data:`~.models.LLM`). Left out, it follows from ``requires``: a check that
+    needs ``enable_llm`` calls a model, one that needs the reference checker
+    makes network lookups, and anything else reads only the PDF.
     """
 
     def decorator(fn: CheckFn) -> CheckFn:
@@ -155,11 +182,22 @@ def register(
                 order=order,
                 aggregate=aggregate,
                 concurrent=concurrent,
+                uses=uses if uses is not None else _uses_from(requires),
             )
         )
         return fn
 
     return decorator
+
+
+#: The settings flag a check requires, and what it therefore reaches.
+_FLAG_USES = {"enable_llm": LLM, "enable_scores": LLM, "enable_refcheck": NETWORK,
+              "enable_hallucinator": NETWORK}
+
+
+def _uses_from(requires: tuple[str, ...]) -> tuple[str, ...]:
+    reached = {_FLAG_USES[flag] for flag in requires if flag in _FLAG_USES}
+    return tuple(u for u in (NETWORK, LLM) if u in reached)
 
 
 def load_builtin_checks() -> Registry:
@@ -183,6 +221,8 @@ def describe() -> list[dict[str, Any]]:
             "category": c.category,
             "description": c.description,
             "requires": list(c.requires),
+            "uses": list(c.uses),
+            "mode": c.mode,
         }
         for c in REGISTRY
     ]

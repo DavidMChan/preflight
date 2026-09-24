@@ -317,6 +317,7 @@ def list_checks(
     table = Table(title=f"Checks{f' for {profile.name}' if profile else ''}", title_justify="left")
     table.add_column("Module", style="cyan")
     table.add_column("Check", style="bold")
+    table.add_column("Runs")
     table.add_column("Needs")
     table.add_column("What it does", overflow="fold")
 
@@ -325,8 +326,11 @@ def list_checks(
             if not profile.module_enabled(entry["module"]) or not profile.check_enabled(entry["id"]):
                 continue
         needs = ", ".join(r.replace("enable_", "--") for r in entry["requires"]) or "—"
-        table.add_row(entry["module"], entry["id"], needs, entry["description"])
+        table.add_row(entry["module"], entry["id"], entry["mode"], needs, entry["description"])
     console.print(table)
+    console.print("[dim]Runs: offline reads the PDF alone; online queries bibliographic sources; "
+                  "LLM sends part of the paper to a model. The reference checks use a model only "
+                  "when --llm is on.[/dim]")
 
 
 def main() -> None:

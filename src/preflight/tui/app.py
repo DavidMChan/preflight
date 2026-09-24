@@ -25,7 +25,7 @@ from textual.widgets.tree import TreeNode
 from ..context import Settings
 from ..models import Finding, Progress, Report, Severity
 from ..profile import Profile
-from ..report import LABELS, STYLES, headline, render_scores, to_markdown
+from ..report import LABELS, STYLES, headline, mode_style, modes_line, render_scores, shows_mode, to_markdown
 from ..runner import run_checks
 
 _SECTIONS = [
@@ -167,7 +167,10 @@ class PreflightApp(App[None]):
                 expand=severity in (Severity.ERROR, Severity.WARNING),
             )
             for finding in findings:
-                node = branch.add_leaf(Text(finding.title, style=STYLES[severity]), data=finding.check_id)
+                leaf = Text(finding.title, style=STYLES[severity])
+                if shows_mode(finding):
+                    leaf.append(f"  {finding.mode}", style=f"dim {mode_style(finding)}")
+                node = branch.add_leaf(leaf, data=finding.check_id)
                 if first is None and severity in (Severity.ERROR, Severity.WARNING):
                     first = node
         tree.focus()
@@ -193,7 +196,12 @@ class PreflightApp(App[None]):
         head.append(f"{finding.severity.glyph} {LABELS[finding.severity]}  ", style=style)
         head.append(finding.title, style="bold")
         parts.append(head)
-        parts.append(Text(f"{finding.check_id} · {finding.category}\n", style="dim"))
+        ids = Text(f"{finding.check_id} · {finding.category}", style="dim")
+        if shows_mode(finding):
+            ids.append(" · ", style="dim")
+            ids.append(str(finding.mode), style=mode_style(finding))
+        ids.append("\n")
+        parts.append(ids)
         parts.append(Text(finding.message))
 
         if finding.evidence:
@@ -220,6 +228,9 @@ class PreflightApp(App[None]):
 
     def _overview(self, report: Report) -> Group:
         parts: list[object] = [Panel(headline(report), border_style="green" if not report.errors else "red")]
+        modes = modes_line(report)
+        if modes is not None:
+            parts.append(modes)
         if report.scores:
             parts.append(render_scores(report))
         meta = report.meta

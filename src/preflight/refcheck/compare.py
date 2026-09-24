@@ -33,7 +33,7 @@ _CONJUNCTION = re.compile(r"(?i)^(?:and|&)\s+(?=\S)")
 _TRAILING_ETAL = re.compile(r"(?i)(?<=\S)[,\s]+(?:et\.?\s*al\.?|and\s+others)\s*$")
 _CORPORATE = re.compile(
     r"(?i)\b(?:team|group|consortium|collaboration|committee|project|organi[sz]ation|"
-    r"foundation|institute|university|laborator(?:y|ies)|labs?|inc|ltd|llc|corp(?:oration)?|"
+    r"foundation|institute|university|laborator(?:y|ies)|labs?|inc|ltd|llc|corp(?:oration)?|intelligence|"
     r"research|deepmind|openai|anthropic|google|meta|microsoft|nvidia|mistral|xai)\b"
 )
 
@@ -46,6 +46,11 @@ class Name:
     given: tuple[str, ...]
     surname: str
 
+    @property
+    def letters(self) -> str:
+        """The whole name as one run of letters: "Arjun K. G." and "Arjun KG" agree."""
+        return "".join(self.given) + self.surname
+
 
 def _fold(text: str) -> str:
     text = unicodedata.normalize("NFKD", strip_spacing_accents(text))
@@ -53,16 +58,22 @@ def _fold(text: str) -> str:
     return text.replace("ł", "l").replace("Ł", "L").replace("ø", "o").replace("Ø", "O")
 
 
-def _tokens(text: str) -> list[str]:
-    """Lowercased name parts. Capitalised initials run together ("ZY") are split."""
+def _words(text: str) -> list[str]:
+    return [w for w in re.split(r"[^A-Za-z0-9]+", _fold(text)) if w]
+
+
+def _given(words: list[str]) -> list[str]:
+    """Lowercased given names. Capitalised initials run together ("ZY") are split.
+
+    Only given names are read this way. A surname is compared whole and without
+    case: "Arjun KG" and "Arjun Kg" both have the surname "kg".
+    """
     out: list[str] = []
-    for token in re.split(r"[^A-Za-z0-9]+", _fold(text)):
-        if not token:
-            continue
-        if token.isupper() and 1 < len(token) <= 3:
-            out.extend(token.lower())            # "ZY" is two initials, not a name
+    for word in words:
+        if word.isupper() and 1 < len(word) <= 3:
+            out.extend(word.lower())             # "ZY" is two initials, not a name
         else:
-            out.append(token.lower())
+            out.append(word.lower())
     return out
 
 
@@ -80,16 +91,16 @@ def split_name(name: str) -> Name | None:
             last, first = parts[0], parts[2]
         else:
             last, first = parts[0], " ".join(parts[1:])
-        surname_tokens, given = _tokens(last), _tokens(first)
+        surname_words, given = _words(last), _given(_words(first))
         given = [g for g in given if g not in _SUFFIXES]
     else:
-        tokens = _tokens(text)
-        while tokens and tokens[-1] in _SUFFIXES:
-            tokens.pop()
-        surname_tokens, given = tokens[-1:], tokens[:-1]
-    if not surname_tokens:
+        words = _words(text)
+        while words and words[-1].lower() in _SUFFIXES:
+            words.pop()
+        surname_words, given = words[-1:], _given(words[:-1])
+    if not surname_words:
         return None
-    return Name(raw=" ".join(name.split()), given=tuple(given), surname=surname_tokens[-1])
+    return Name(raw=" ".join(name.split()), given=tuple(given), surname=surname_words[-1].lower())
 
 
 #: Short forms a record and a citation can legitimately disagree on.
@@ -133,9 +144,10 @@ def _is_person(name: str) -> bool:
 
 
 def _swapped(cited: Name, record: Name) -> bool:
-    """Family-name-first order: "Wang Zekun" for "Zekun Wang"."""
+    """Family-name-first order: "Wang Zekun" for "Zekun Wang", "KG Arjun" for "Arjun KG"."""
     return bool(cited.given and record.given
-                and cited.surname == record.given[0] and record.surname == cited.given[0])
+                and cited.surname in (record.given[0], "".join(record.given))
+                and record.surname in (cited.given[0], "".join(cited.given)))
 
 
 def _align(cited: list[Name], record: list[Name], variants: dict[str, list[tuple[str, ...]]],
@@ -148,6 +160,8 @@ def _align(cited: list[Name], record: list[Name], variants: dict[str, list[tuple
         same = [j for j, r in enumerate(record) if j not in used and r.surname == person.surname]
         if not same:
             same = [j for j, r in enumerate(record) if j not in used and _swapped(person, r)]
+        if not same:
+            same = [j for j, r in enumerate(record) if j not in used and r.letters == person.letters]
         if not same:
             unmatched.append(i)
             continue
@@ -163,7 +177,8 @@ def _align(cited: list[Name], record: list[Name], variants: dict[str, list[tuple
 
     for i, j in pairs:
         person, match = cited[i], record[j]
-        if _swapped(person, match) or given_compatible(person.given, match.given):
+        if person.letters == match.letters or _swapped(person, match) \
+                or given_compatible(person.given, match.given):
             continue
         if any(given_compatible(person.given, g) for g in variants.get(person.surname, [])):
             continue                            # another record of the work spells it this way
@@ -182,21 +197,30 @@ def _align(cited: list[Name], record: list[Name], variants: dict[str, list[tuple
 
 def compare_authors(cited: list[str], records: list[list[str]], truncated: bool) -> list[str]:
     """Problems with the cited authors, against the record they fit best."""
+    return _author_problems(cited, records, truncated)[0]
+
+
+def _author_problems(cited: list[str], records: list[list[str]],
+                     truncated: bool) -> tuple[list[str], int | None]:
+    """The problems, and the index of the record they were measured against."""
     people = [n for n in (split_name(a) for a in cited if _is_person(a)) if n is not None]
-    versions = [[n for n in (split_name(a) for a in record) if n is not None] for record in records]
-    versions = [v for v in versions if v]
+    # People against people: a record that lists "Physical Intelligence" among its
+    # authors has not been cited short by one.
+    versions = [(i, [n for n in (split_name(a) for a in record if _is_person(a)) if n is not None])
+                for i, record in enumerate(records)]
+    versions = [(i, v) for i, v in versions if v]
     if not people or not versions:
-        return []
+        return [], None
     variants: dict[str, list[tuple[str, ...]]] = {}
-    for version in versions:
+    for _, version in versions:
         for person in version:
             variants.setdefault(person.surname, []).append(person.given)
-    best: list[str] | None = None
-    for version in versions:
+    best: tuple[list[str], int | None] | None = None
+    for i, version in versions:
         problems = _align(people, version, variants, truncated)
-        if best is None or len(problems) < len(best):
-            best = problems
-    return best or []
+        if best is None or len(problems) < len(best[0]):
+            best = problems, i
+    return best or ([], None)
 
 
 # ---------------------------------------------------------------------------
@@ -292,6 +316,11 @@ def _best_published(records: list[Candidate]) -> Candidate:
     return max(records, key=lambda r: (bool(r.venue), bool(r.doi), bool(r.pages), r.year or 0))
 
 
+def _followed_up(records: list[Candidate]) -> Candidate:
+    """Of records that agree on a discrepancy, the one a reader can look up by DOI."""
+    return next((r for r in records if r.doi), records[0])
+
+
 def compare(reference: Reference, records: list[Candidate]) -> list[Discrepancy]:
     """Everything the confirming records contradict in the citation."""
     if not records:
@@ -331,7 +360,7 @@ def compare(reference: Reference, records: list[Candidate]) -> list[Discrepancy]
             ):
                 out.append(Discrepancy(
                     "venue", f"cited in {reference.venue}; the record has {recognised[0].venue}",
-                    source=recognised[0].source))
+                    source=recognised[0].source, record=recognised[0].link))
             else:
                 for marker in sorted(_MARKERS):
                     pool = [venue_tags(r.venue) for r in matching_venue if _primary(venue_tags(r.venue))]
@@ -339,7 +368,7 @@ def compare(reference: Reference, records: list[Candidate]) -> list[Discrepancy]
                         record = next(r for r in matching_venue if _primary(venue_tags(r.venue)))
                         out.append(Discrepancy(
                             "venue", f"cited in {reference.venue}; the record has {record.venue}",
-                            source=record.source))
+                            source=record.source, record=record.link))
                         break
         elif _primary(cited_tags):
             out.append(Discrepancy(
@@ -351,21 +380,27 @@ def compare(reference: Reference, records: list[Candidate]) -> list[Discrepancy]
         answers = [(r, _pages_agree(reference.pages, r.pages)) for r in pool if r.pages]
         answers = [(r, ok) for r, ok in answers if ok is not None]
         if answers and not any(ok for _, ok in answers):
-            record = answers[0][0]
+            record = _followed_up([r for r, _ in answers])
             out.append(Discrepancy("pages", f"pages {reference.pages}; the record has {record.pages}",
-                                   source=record.source))
+                                   source=record.source, record=record.link))
 
     if reference.year and pool:
-        years = set().union(*(r.all_years for r in pool))
+        dated = [r for r in pool if r.all_years]
+        years = set().union(*(r.all_years for r in dated))
         if years:
             ok = reference.year >= min(years) if preprint_cited else reference.year in years
             if not ok:
                 shown = "/".join(str(y) for y in sorted(years))
+                record = _followed_up(dated)
                 out.append(Discrepancy("year", f"year {reference.year}; the record has {shown}",
-                                       source=pool[0].source))
+                                       source=record.source, record=record.link))
 
-    problems = compare_authors(reference.authors, [r.authors for r in records if r.authors],
-                               truncated=reference.truncated_authors)
+    listed = [r for r in records if r.authors]
+    problems, which = _author_problems(reference.authors, [r.authors for r in listed],
+                                       truncated=reference.truncated_authors)
     if problems:
-        out.append(Discrepancy("authors", "; ".join(problems)))
+        record = listed[which] if which is not None else None
+        out.append(Discrepancy("authors", "; ".join(problems),
+                               source=record.source if record else None,
+                               record=record.link if record else None))
     return out

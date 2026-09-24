@@ -8,7 +8,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from .models import Finding, Report, Severity
+from .models import LLM, NETWORK, Finding, Report, Severity
 
 STYLES: dict[Severity, str] = {
     Severity.ERROR: "bold red",
@@ -37,6 +37,34 @@ _SECTION_TITLES = {
 }
 
 
+def mode_style(finding: Finding) -> str:
+    """A model's reading stands out from a measurement; a lookup sits between."""
+    uses = finding.uses or ()
+    return "magenta" if LLM in uses else "cyan" if NETWORK in uses else "green"
+
+
+def shows_mode(finding: Finding) -> bool:
+    # "Not checkable from the PDF" items were never checked, offline or otherwise.
+    return finding.mode is not None and finding.severity is not Severity.UNVERIFIABLE
+
+
+def modes_line(report: Report) -> Text | None:
+    """The key to each finding's tag, and what this run was allowed to reach."""
+    if not any(f.uses is not None for f in report.findings):
+        return None                     # a run cached before findings were tagged
+    meta = report.meta
+    online = meta.get("refcheck") or meta.get("hallucinator")
+    model = meta.get("llm_model")
+    text = Text("Tags: ", style="dim")
+    text.append("offline", style="green")
+    text.append(" — read from the PDF alone · ", style="dim")
+    text.append("online", style="cyan")
+    text.append(" — bibliographic lookups" + ("" if online else " (off this run)") + " · ", style="dim")
+    text.append("LLM", style="magenta")
+    text.append(f" — read by {model}" if model else " — a model's reading (off this run)", style="dim")
+    return text
+
+
 def headline(report: Report) -> Text:
     counts = report.counts()
     errors, warnings = counts["error"], counts["warning"]
@@ -59,6 +87,8 @@ def render_finding(finding: Finding, *, verbose: bool = False) -> Group:
     head.append(f"{LABELS[finding.severity]:<5} ", style=style)
     head.append(f"{finding.title}", style="bold")
     head.append(f"  [{finding.check_id}]", style="dim")
+    if shows_mode(finding):
+        head.append(f"  {finding.mode}", style=mode_style(finding))
 
     body: list[Text] = [Text(finding.message, style="" if finding.severity is not Severity.SKIPPED else "dim")]
 
@@ -92,6 +122,9 @@ def print_report(
     console.print()
     console.print(Panel(headline(report), border_style="red" if report.errors else "green",
                         subtitle=report.pdf_path, subtitle_align="right"))
+    modes = modes_line(report)
+    if modes is not None:
+        console.print(modes)
 
     for severity in _ORDER:
         findings = [f for f in report.sorted_findings() if f.severity is severity]
@@ -165,13 +198,17 @@ def to_markdown(report: Report) -> str:
         f"**{counts['error']} errors, {counts['warning']} warnings, {counts['pass']} passed**",
         "",
     ]
+    modes = modes_line(report)
+    if modes is not None:
+        lines += [f"_{modes.plain}_", ""]
     for severity in _ORDER:
         findings = [f for f in report.sorted_findings() if f.severity is severity]
         if not findings:
             continue
         lines += [f"## {_SECTION_TITLES[severity]}", ""]
         for f in findings:
-            lines.append(f"- **{f.title}** (`{f.check_id}`) — {f.message}")
+            tag = f", {f.mode}" if shows_mode(f) else ""
+            lines.append(f"- **{f.title}** (`{f.check_id}`{tag}) — {f.message}")
             for ev in f.evidence[:6]:
                 rendered = ev.render()
                 if rendered:

@@ -411,6 +411,11 @@ class Candidate:
             return 1.0
         return title_similarity(reference.title or reference.raw, self.title)
 
+    @property
+    def link(self) -> str | None:
+        """Where a reader can look this record up: its DOI, or failing that its page."""
+        return f"doi:{self.doi}" if self.doi else self.url
+
     def describe(self) -> str:
         """``Findings of ACL 2024, pp. 14743-14777, doi:10.18653/...`` for a report."""
         bits = [self.venue or self.source]
@@ -452,9 +457,19 @@ class Discrepancy:
     field: str                   # doi, arxiv, pages, year, venue, authors, version
     detail: str
     source: str | None = None
+    record: str | None = None    # the contradicting record's DOI or page, to follow up
+
+    def describe(self) -> str:
+        """The detail, with the record it was read from: ``...; the record has 19-35
+        (dblp, doi:10.1109/cvpr.2017.670)``."""
+        if not self.record:
+            return self.detail
+        where = f"{self.source}, {self.record}" if self.source else self.record
+        return f"{self.detail} ({where})"
 
     def to_dict(self) -> dict[str, Any]:
-        return {"field": self.field, "detail": self.detail, "source": self.source}
+        return {"field": self.field, "detail": self.detail, "source": self.source,
+                "record": self.record}
 
 
 @dataclass(slots=True)
