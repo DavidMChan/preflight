@@ -239,7 +239,7 @@ class PreflightApp(App[None]):
         info = Text()
         for key in ("profile_name", "profile_lineage", "modules", "checks_run", "page_count",
                     "page_size_pt", "body_font_size_pt", "dominant_font", "content_page_limit"):
-            if key in meta:
+            if meta.get(key) is not None:
                 info.append(f"{key.replace('_', ' ')}: ", style="dim")
                 info.append(f"{meta[key]}\n")
         parts.append(Panel(info, title="Document", title_align="left", border_style="blue"))

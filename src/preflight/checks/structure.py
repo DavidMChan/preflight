@@ -113,9 +113,11 @@ def _last_content_page(ctx: CheckContext, kinds: list[str], limit: int) -> tuple
 
 
 @register("page_limit", "Content page limit", module=MODULE, category="structure", order=30)
-def check_page_limit(ctx: CheckContext) -> Finding:
+def check_page_limit(ctx: CheckContext) -> Finding | None:
     """Count content pages up to the first unlimited section, not total PDF pages."""
     limit = ctx.track.content_page_limit
+    if limit is None:
+        return None     # a track with no page limit (arXiv)
     unlimited_kinds = [
         str(k) for k in (ctx.conf("structure.unlimited_after", list(_KIND_ALIAS_KEYS)) or [])
     ]
@@ -227,11 +229,13 @@ def check_total_page_limit(ctx: CheckContext) -> Finding | None:
     pages = ctx.doc.page_count
     evidence = [Evidence(detail="pages in the PDF", measured=float(pages), expected=f"<= {cap} pages")]
     if pages > cap:
+        content = ctx.track.content_page_limit
         return ctx.error(
             "total_page_limit", "Total page limit",
             f"The PDF has {pages} pages; {ctx.track.name} papers may run to {cap} pages in total, "
-            f"end matter included, and only the first {ctx.track.content_page_limit} may hold content. "
-            "Exceeding the total is explicitly a rejection condition.",
+            "end matter included"
+            + (f", and only the first {content} may hold content. " if content is not None else ". ")
+            + "Exceeding the total is explicitly a rejection condition.",
             category="structure", evidence=evidence,
             remedy="Trim the references or end matter until the whole PDF fits, and remove any "
             "trailing blank pages.",
@@ -406,12 +410,13 @@ def check_references_position(ctx: CheckContext) -> Finding:
         str(k) for k in (ctx.conf("structure.unlimited_after", list(_KIND_ALIAS_KEYS)) or [])
     ]
     limit_note = (
-        "are excluded from the content page limit"
+        "" if ctx.track.content_page_limit is None
+        else " and are excluded from the content page limit"
         if "references" in unlimited_kinds
-        else "count toward the complete-paper page limit"
+        else " and count toward the complete-paper page limit"
     )
     return ctx.ok("references_position", "References placement",
-                  f"References begin on page {references.page} and {limit_note}.",
+                  f"References begin on page {references.page}{limit_note}.",
                   category="structure",
                   evidence=[Evidence(page=references.page, detail=f"heading {references.text!r}")],
                   cfp_key="references_position")

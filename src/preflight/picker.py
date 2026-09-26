@@ -45,7 +45,7 @@ def _choices() -> list[Choice]:
             profile = load_profile(key)
         except ProfileError:  # pragma: no cover - a broken bundled profile
             continue
-        tracks = ", ".join(f"{n} ({s.content_page_limit}p)" for n, s in profile.tracks.items())
+        tracks = ", ".join(f"{n} ({s.limit_label})" for n, s in profile.tracks.items())
         out.append(Choice(key, profile.name, tracks))
     return out
 
@@ -54,7 +54,8 @@ def _track_choices(profile: Profile) -> list[Choice]:
     # The bundled descriptions run to a paragraph, which is too much for a row;
     # the page limit is the fact that decides the choice.
     return [
-        Choice(name, f"{spec.content_page_limit} content pages")
+        Choice(name, "no page limit" if spec.content_page_limit is None
+               else f"{spec.content_page_limit} content pages")
         for name, spec in profile.tracks.items()
     ]
 

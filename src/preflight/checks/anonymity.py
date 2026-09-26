@@ -134,7 +134,7 @@ def _looks_like_person(text: str, ctx: CheckContext) -> bool:
 
 @register("author_block", "Author block", module=MODULE, category=CATEGORY, order=29)
 def check_author_block(ctx: CheckContext) -> Finding | None:
-    """Venues that do not review blind want the author list printed on the PDF.
+    """Venues that do not review blind, and arXiv, want the author list printed on the PDF.
 
     There a blank author block, or the template's placeholder names left in
     place, fails the format inspection just as a leaked name fails a blind one.
@@ -170,8 +170,8 @@ def check_author_block(ctx: CheckContext) -> Finding | None:
         return ctx.error(
             "author_block", "Author block",
             f"The author block still holds the template's placeholder text ({len(left)} line(s)). "
-            "This venue does not review blind: the PDF must name every author, in the order "
-            "entered on the submission form.",
+            "This venue does not accept anonymous papers: the PDF must name every author, in the "
+            "order entered on the submission form.",
             category=CATEGORY, evidence=left[:6], cfp_key="author_block",
             remedy="Replace the placeholder names and affiliations with the real author list.",
             confidence="high — the template's own wording",
@@ -180,7 +180,8 @@ def check_author_block(ctx: CheckContext) -> Finding | None:
         return ctx.error(
             "author_block", "Author block",
             "No author names or affiliations were found between the title and the abstract. "
-            "This venue does not review blind, and a blank author list fails its format inspection.",
+            "This venue does not accept anonymous papers, and a blank author list fails its format "
+            "inspection.",
             category=CATEGORY, cfp_key="author_block",
             evidence=[Evidence(page=1, detail="title block",
                                quote=" ".join(" ".join(ln.text.split()) for ln in lines)[:160])],

@@ -303,7 +303,7 @@ def list_conferences() -> None:
     table.add_column("Tracks (content page limit)")
     for key in available_profiles():
         profile = load_profile(key)
-        tracks = ", ".join(f"{name} ({spec.content_page_limit}p)" for name, spec in profile.tracks.items())
+        tracks = ", ".join(f"{name} ({spec.limit_label})" for name, spec in profile.tracks.items())
         table.add_row(key, profile.name, " <- ".join(profile.lineage[1:]) or "—", tracks)
     console.print(table)
     console.print("[dim]Use any of these with -c, or pass a path to your own YAML profile.[/dim]")

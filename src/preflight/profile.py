@@ -31,11 +31,18 @@ class TrackSpec:
     """One submission type within a conference (long paper, short paper, demo...)."""
 
     name: str
-    content_page_limit: int
+    # None for a track with no page limit at all (arXiv). The key must still be
+    # written out, as `content_page_limit: null`, so a forgotten one is caught.
+    content_page_limit: int | None
     description: str = ""
     # A cap on the whole PDF, for venues that allow end matter past the content
     # limit but only so much of it (ICASSP's 4 + 1).
     total_page_limit: int | None = None
+
+    @property
+    def limit_label(self) -> str:
+        """``8p`` for a listing, or ``no limit``."""
+        return "no limit" if self.content_page_limit is None else f"{self.content_page_limit}p"
 
 
 @dataclass(slots=True)
@@ -184,7 +191,9 @@ def _parse(data: dict[str, Any], key: str, source: str, lineage: tuple[str, ...]
             raise ProfileError(f"{source}: track {tname!r} needs a `content_page_limit`")
         tracks[str(tname).lower()] = TrackSpec(
             name=str(tname).lower(),
-            content_page_limit=int(tdata["content_page_limit"]),
+            content_page_limit=(
+                int(tdata["content_page_limit"]) if tdata["content_page_limit"] is not None else None
+            ),
             description=str(tdata.get("description", "")),
             total_page_limit=(
                 int(tdata["total_page_limit"]) if tdata.get("total_page_limit") is not None else None

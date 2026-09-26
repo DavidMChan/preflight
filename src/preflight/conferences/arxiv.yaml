@@ -1,0 +1,193 @@
+# arXiv — a preprint posting, not a venue.
+#
+# arXiv imposes no template, page limit or blind review, so this profile runs
+# none of the format checks: no paper size, margins, columns, font sizes or
+# families, running heads or page counts. What it keeps is everything that reads
+# the paper itself -- reference verification, hidden or machine-directed text,
+# editing markup left in the file, citations, cross-references, statistics,
+# figures, prose -- and, with --llm, the reviewer-perspective audits and scores.
+#
+# The one arXiv rule it adds is the reverse of anonymity. arXiv takes no
+# anonymous submissions, and the commonest way to post one is to upload the
+# review build of a conference template ("Anonymous Author(s)"). So the author
+# block must be filled in, as it must at ICASSP.
+#
+# arXiv's format page also asks for 10-14pt type and 1-inch margins, but in
+# practice it accepts papers set in any conference template, so those stay
+# unchecked here. Its other asks -- no highlighted text, margin notes or referee
+# remarks -- are what core.markup looks for. It also asks for no line numbers;
+# nothing counts them, but in the ML templates they come only with the review
+# build, which the author-block placeholders catch.
+#
+# SOURCES (read 26 Sep 2026):
+#   https://info.arxiv.org/help/policies/format_requirements.html
+#   https://info.arxiv.org/help/submit_pdf.html
+#   https://info.arxiv.org/help/prep.html
+#   https://blog.arxiv.org/2025/10/31/attention-authors-updated-practice-for-review-articles-and-position-papers-in-arxiv-cs-category/
+
+conference:
+  key: arxiv
+  name: arXiv preprint (no format rules)
+  extends: base
+  default_track: preprint
+  style: "Any template, any length; authors named"
+
+# Every module base.yaml offers except the three that measure the page against a
+# template. Listed in full rather than inherited, so a format module added to
+# base later does not start policing preprints; test_arxiv_runs_every_base_module_but_format
+# fails until a new base module is either listed here or excluded on purpose.
+modules_replace: true
+modules:
+  - core.structure              # references placement; page limits are off (no limit below)
+  - core.anonymity              # only the author block: arXiv wants authors named
+  - core.hidden
+  - core.prose
+  - core.figures
+  - core.surface
+  - core.markup
+  - core.pdf
+  - core.citations
+  - core.statistics
+  - core.abbreviations
+  - core.crossrefs
+  - core.headings
+  - core.statements             # arXiv declares none; kept for profiles that extend this one
+  - core.figure_quality
+  - core.unverifiable
+  - integrations.refcheck
+  - integrations.hallucinator
+  - llm.semantic
+  - llm.prose
+  - llm.review
+  - llm.audit
+
+tracks_replace: true
+tracks:
+  preprint:
+    content_page_limit: null
+    description: >-
+      Preprint — no page limit, template or anonymity rule. The paper must name its
+      authors, and should be the final build rather than a conference review build.
+
+disabled_checks:
+  # A Limitations section, its placement and its content are ACL's rules.
+  - limitations_present
+  - limitations_position
+  - limitations_scope
+  # Double-blind checks. A preprint is expected to name its authors, so each of
+  # these would report a skip on every run; author_block replaces them.
+  - anonymity_title_block
+  - anonymity_emails
+  - anonymity_orcids
+  - anonymity_urls
+  - anonymity_self_reference
+  - anonymity_metadata
+
+structure:
+  limitations_required: false
+  # No rule orders the appendix against the bibliography.
+  appendix_must_follow_references: false
+
+anonymity:
+  enabled: false
+  require_author_block: true
+  # Conference templates put up to a dozen author lines above the abstract, and
+  # the block is cut at the Abstract heading anyway, so reach well down the page.
+  title_block_height_pt: 400.0
+  # What each ML template prints in its review build. Anchored to the start of the
+  # line and case-sensitive, so a paper about anonymity cannot trip them.
+  author_placeholders:
+    # NeurIPS "Anonymous Author(s)", ICML "Anonymous Authors", ICLR "Anonymous
+    # authors", AAAI "Anonymous submission", ACL/CVPR "Anonymous ACL submission"
+    - '^\s*(?-i:Anonymous (?:Authors?|authors?|submission|[A-Z]{2,}\b))'
+    - '(?-i:Paper under double-blind review)'          # ICLR
+    - '^\s*(?-i:Affiliation|Address|email)\s*$'       # NeurIPS's placeholder lines
+    - '^\s*(?-i:Paper ID)\b'                           # CVPR, ICCV
+
+llm:
+  # Limitations, anonymity and statement coverage are venue rules arXiv does not
+  # have. Injection adjudication stays: hidden prompts aimed at LLM reviewers have
+  # turned up in arXiv preprints.
+  checks: [injection_semantics]
+
+surface:
+  # arXiv refuses an abstract over 1920 characters on the submission form. That
+  # is about 275 words of prose, so the warning fires where the form would.
+  abstract_max_words: 275
+
+pdf:
+  # "Make sure that all standard and non-standard fonts are included and that
+  # outline (TrueType/Type1) rather than bitmap (Type3) fonts are used." Only
+  # the Type 3 half is added to the defaults: arXiv's own ID stamp is set in an
+  # unembedded Times-Roman, and it posts papers whose figures leave Helvetica
+  # unembedded, so requiring the base-14 fonts would flag nearly every paper.
+  discourage_type3_fonts: true
+
+cfp:
+  author_block: >-
+    arXiv's format requirements list "Title and authorship (no anonymous submissions)".
+    A placeholder such as "Anonymous Author(s)" means the review build of a conference
+    template was uploaded; rebuild with its preprint or final option (for example
+    \usepackage[preprint]{neurips_2026}, \iclrfinalcopy, \usepackage[accepted]{icml2026}
+    or \usepackage[final]{acl}), which also removes the line numbers arXiv asks you not to
+    include. A submission that misses these requirements "may be returned to you for
+    correction".
+  pdf_fonts: >-
+    arXiv asks that "all standard and non-standard fonts are included and that outline
+    (TrueType/Type1) rather than bitmap (Type3) fonts are used", and may reject a PDF whose
+    non-standard fonts are not embedded.
+  hidden_text: >-
+    arXiv asks for machine-readable text for discovery, and the paper is read by people and
+    by the tools that index and review it. Text hidden from the human reader, or addressed
+    to an automated reviewer, has no legitimate place in a preprint.
+  references_position: >-
+    arXiv's format requirements ask for "Complete references".
+
+unverifiable:
+  - id: tex_source
+    title: TeX source rather than this PDF
+    message: >-
+      arXiv compiles TeX/LaTeX papers from source, and "a PDF file created from a TeX/LaTeX
+      file will typically be rejected". What arXiv posts is its own build, so confirm the
+      source compiles on arXiv's TeX Live and renders the same as the PDF checked here.
+  - id: submission_metadata
+    title: Title, authors and abstract on the form
+    message: >-
+      The submission form's metadata is separate from the PDF: an abstract over 1920
+      characters is refused, and titles and author names must not be in all capitals,
+      every author must be listed (no "et al."), and affiliations go in parentheses.
+  - id: public_links
+    title: Code and data links resolve publicly
+    message: >-
+      arXiv requires links to code or datasets to resolve to a publicly available repository.
+      An anonymised review mirror (anonymous.4open.science and the like) expires; replace it
+      with the permanent link. The PDF lists links but cannot say what is behind them.
+  - id: review_and_position_papers
+    title: Review and position papers in cs
+    message: >-
+      Since 31 October 2025 the CS category accepts review (survey) articles and position
+      papers only after they have been accepted at a peer-reviewed journal or conference,
+      with the journal reference and DOI in the metadata; workshop review does not count.
+      Whether this paper is one of those, and has been accepted, is not in the PDF.
+  - id: license
+    title: Licence and copyright statements
+    message: >-
+      The licence is chosen at submission, and a copyright statement in the paper must not
+      prohibit or impair arXiv's redistribution licence. Whether a notice does is a legal
+      reading, not a measurement.
+  - id: moderation
+    title: Category, endorsement and moderation
+    message: >-
+      Moderators judge scholarly content and category fit, may reclassify the paper, and may
+      require an endorsement before a first submission to a category. None of this is a
+      property of the file.
+  - id: citation_coverage
+    title: Coverage of relevant prior work
+    message: >-
+      Whether all relevant work is cited requires literature retrieval and judgement, not
+      PDF inspection.
+  - id: authorship
+    title: Correct authorship
+    message: >-
+      The PDF can show that authors are named, but not that all and only substantial
+      contributors are listed, in the order on the submission form.

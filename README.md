@@ -5,8 +5,8 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-3776ab?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Checks: 117](https://img.shields.io/badge/checks-117-blue)](#checks)
-[![Venues: 10](https://img.shields.io/badge/venues-10-blueviolet)](#conferences)
-[![Tests: 376](https://img.shields.io/badge/tests-376%20passing-brightgreen)](#development)
+[![Venues: 11](https://img.shields.io/badge/venues-11-blueviolet)](#conferences)
+[![Tests: 394](https://img.shields.io/badge/tests-394%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -16,8 +16,9 @@ reviewers, reference validity, and the venue's responsible-research checklist. E
 the specific location and measurement that produced it — `page 5, x=34.0pt, expected >= 69.0pt`.
 
 It includes profiles for ACL Rolling Review, NeurIPS, ICLR, ICML, CVPR, AAAI, AISTATS, ICRA, ICASSP
-and BayLearn. Conference profiles are YAML files; additional venues can be configured without
-modifying the source code.
+and BayLearn, and an arXiv profile that drops every format rule but keeps the reference,
+integrity and reviewer checks. Conference profiles are YAML files; additional venues can be
+configured without modifying the source code.
 
 ```
 ╭──────────────────────────────────────────────────────────────────────────────╮
@@ -97,6 +98,7 @@ uv run preflight paper.pdf -c arr -t short          # ARR short-paper limits
 uv run preflight paper.pdf -c neurips               # a different venue
 uv run preflight paper.pdf -c icra                  # ICRA complete-paper checks
 uv run preflight paper.pdf -c icassp                # ICASSP 4 + 1 pages, author list required
+uv run preflight paper.pdf -c arxiv                 # arXiv: no format rules, authors named
 uv run preflight paper.pdf -c iclr -t camera_ready  # ICLR, 10-page camera-ready limit
 uv run preflight paper.pdf --offline                # deterministic checks only, no network
 uv run preflight paper.pdf --minimal                # the first few lines of each finding
@@ -142,7 +144,7 @@ It opens verbose; `preflight tui --minimal` opens collapsed.
 
 ## Conferences
 
-Ten bundled profiles, each selected with `-c`:
+Eleven bundled profiles, each selected with `-c`:
 
 | Key | Venue | Tracks (content page limit) | Format |
 |---|---|---|---|
@@ -156,6 +158,7 @@ Ten bundled profiles, each selected with `-c`:
 | `icra` | ICRA 2027 (IEEE RAS) | `main` 8p complete paper | US Letter, two-column, 10pt; references included; double-anonymous |
 | `icassp` | ICASSP 2026 (IEEE SPS) | `main` 4p, plus a 5th page of end matter only | US Letter or A4, two-column, 10pt or 9pt; not blind; ethics and conflict-of-interest statements mandatory |
 | `baylearn` | BayLearn Symposium (abstracts) | `abstract` 2p | NeurIPS format, no checklist |
+| `arxiv` | arXiv preprint | `preprint`, no page limit | Any template, size or length; no Limitations or anonymity rules; authors must be named |
 
 Each profile encodes the most recent author kit published at the time it was written, named in a
 note at the top of the file. `cvpr`, `aistats` and `icml` carry 2026 numbers and `aaai` carries
@@ -216,8 +219,11 @@ phrasing; and PDF metadata, annotations and embedded filenames. URLs within the 
 excluded.
 
 Findings in this module are warnings with a stated confidence, with the exception of an email
-address in the title block. Venues that do not review blind (ICASSP) switch the module off and
-instead require an author block: a blank one, or the template's placeholder names, is an error.
+address in the title block. Venues that do not review blind (ICASSP), and arXiv, switch the module
+off and instead require an author block: a blank one, or the template's placeholder names, is an
+error. For arXiv the placeholders are those each ML template prints in its review build
+("Anonymous Author(s)", "Paper under double-blind review"), since uploading that build is the
+usual way an anonymous paper reaches arXiv.
 
 ### Concealed content — `core.hidden`
 
@@ -384,6 +390,7 @@ neurips.yaml       US Letter, single-column, 10pt, NeurIPS checklist mandatory
 iclr.yaml          US Letter, single-column, 10pt, 9 pages (10 for camera ready)
 icra.yaml          US Letter, two-column, 10pt, 8 complete pages (references included)
 icassp.yaml        US Letter or A4, two-column, 10pt, 4 pages + 1 of end matter, not blind
+arxiv.yaml         no format rules or page limit; content, integrity and reference checks
 ```
 
 ```yaml
@@ -414,11 +421,14 @@ uv run preflight paper.pdf -c ./myvenue.yaml
 Three mechanisms make modules reusable across venues:
 
 - **`modules`** determines which check modules run, composed along the inheritance chain.
+  `modules_replace: true` starts from an empty set instead; `arxiv.yaml` uses it to list every
+  base module except the three that measure the page against a template.
 - **`severity`** remaps a check's failure severity per venue. `PASS` and `SKIPPED` are never
   rewritten, as an override expresses the significance of a failure rather than its occurrence.
 - **`disabled_checks`** removes an individual check while retaining the remainder of its module.
 
-Numeric tolerances are defined in the profile rather than in Python.
+Numeric tolerances are defined in the profile rather than in Python. A track with no page limit
+says so explicitly, with `content_page_limit: null`; leaving the key out is still an error.
 
 ---
 
@@ -458,7 +468,7 @@ Conventions observed by the existing checks:
 ## Development
 
 ```bash
-uv run pytest                                  # 366 tests, no network required
+uv run pytest                                  # 394 tests, no network required
 uv run ruff check src tests
 uv run python scripts/try_question.py A1 paper.pdf    # a single checklist item
 ```
