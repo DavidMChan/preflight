@@ -30,6 +30,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from dataclasses import replace as _replace
+from datetime import date
 from typing import Any
 
 from ..llm.client import AsyncLLMClient, LLMError
@@ -44,7 +45,7 @@ from .websources import liveness, needs_web_route, resolve_web
 
 #: Bump when the verdict logic changes, so verdicts reached by older logic are
 #: not served from the cache.
-CACHE_VERSION = "v11"
+CACHE_VERSION = "v12"
 
 SEARCH_DOMAINS = [
     "arxiv.org", "aclanthology.org", "openreview.net", "dl.acm.org", "ieeexplore.ieee.org",
@@ -149,8 +150,9 @@ def _dedup_key(reference: Reference) -> str:
 
 
 def _cache_key(reference: Reference) -> str:
-    """The citation's own text, minus its label: any edit to the entry re-checks it."""
-    text = re.sub(r"^\s*\[\d{1,4}\]\s*", "", reference.raw)
+    """The citation's own text, minus its label, and where it links: any edit to the
+    entry re-checks it."""
+    text = re.sub(r"^\s*\[\d{1,4}\]\s*", "", reference.raw) + " ".join(reference.links)
     digest = hashlib.sha1(re.sub(r"\s+", "", text.lower()).encode()).hexdigest()[:24]
     return f"{CACHE_VERSION}:{digest}"
 
@@ -329,6 +331,13 @@ async def _identifiers(reference: Reference, run: _Run,
             problems.append(Discrepancy(
                 "doi", f"DOI {reference.doi} belongs to a different work: {_cite(record)}",
                 source=record.source))
+        elif lookup.exists is False and lookup.registrant and _recent(reference):
+            venue = f" ({reference.venue})" if reference.venue else ""
+            problems.append(Discrepancy(
+                "registration", f"DOI {reference.doi} is not registered yet: doi.org has no record "
+                "of it, though its prefix belongs to an active registrant, and publishers can "
+                f"register DOIs weeks after the proceedings appear. Until it is, the cited venue{venue} "
+                "cannot be confirmed", source="doi.org"))
         elif lookup.exists is False:
             problems.append(Discrepancy(
                 "doi", f"DOI {reference.doi} is not registered; doi.org has no record of it",
@@ -363,6 +372,11 @@ async def _identifiers(reference: Reference, run: _Run,
                 "url", f"the ACL Anthology link ({ident}) is a different paper: {_cite(record)}",
                 source="acl_anthology"))
     return found, problems
+
+
+def _recent(reference: Reference) -> bool:
+    """Cited as from this year or last: recent enough that its DOI may not be registered yet."""
+    return reference.year is not None and reference.year >= date.today().year - 1
 
 
 def _cite(record: Candidate) -> str:
@@ -580,7 +594,9 @@ def _conclude(reference: Reference, accepted: list[Candidate], problems: list[Di
         if problem.field == "doi" and correct_doi:
             discrepancies[index] = _replace(problem, detail=f"{problem.detail}; this work's DOI is "
                                                             f"{correct_doi}")
-    discrepancies.extend(compare(reference, records))
+    # A DOI awaiting registration already says the venue cannot be confirmed yet.
+    pending = any(d.field == "registration" for d in discrepancies)
+    discrepancies.extend(compare(reference, records, venue_pending=pending))
 
     primary = max(records, key=lambda r: (r.exact_id, not r.is_preprint, bool(r.pages)))
     _, score, authors = policy.judge(reference, primary)
@@ -708,7 +724,10 @@ async def _confirm(reference: Reference, lead: _Lead, run: _Run) -> list[Candida
 
 
 def _remember(store: Store, key: str, verdict: Verdict) -> None:
-    positive = verdict.status in {Status.VERIFIED, Status.RESOLVED, Status.DETAILS_MISMATCH}
+    # A DOI awaiting registration is kept only as long as a miss, so the verdict
+    # is reached again soon after the publisher registers it.
+    positive = verdict.status in {Status.VERIFIED, Status.RESOLVED, Status.DETAILS_MISMATCH} \
+        and not any(d.field == "registration" for d in verdict.discrepancies)
     store.put(key, {
         "status": verdict.status.value,
         "source": verdict.source,

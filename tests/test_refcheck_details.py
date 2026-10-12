@@ -92,6 +92,43 @@ def test_doi_hyphen_at_a_line_break_is_kept() -> None:
     assert not _continues_url("10.18653/v1/2024.findings-emnlp.218.", "https://aclanthology.org/x")
 
 
+def test_identifiers_are_read_from_an_entrys_links() -> None:
+    """ACL's style prints no DOI: the title links to it. What the entry prints still wins."""
+    raw = "J. Doe. 2026. A title. In Proceedings of Interspeech 2026, pages 1–5."
+    linked = Reference(raw=raw, index=0, links=["https://doi.org/10.21437/Interspeech.2026-913"])
+    linked.scavenge()
+    assert linked.doi == "10.21437/interspeech.2026-913" and linked.url is None
+
+    printed = Reference(raw=raw + " doi:10.1234/printed", index=0,
+                        links=["https://doi.org/10.1234/linked"])
+    printed.scavenge()
+    assert printed.doi == "10.1234/printed"
+
+    others = Reference(raw=raw, index=0, links=["https://arxiv.org/abs/2507.13264",
+                                                "https://doi.org/10.1016/S0004-3702%2899%2900052-1",
+                                                "https://github.com/org/repo"])
+    others.scavenge()
+    assert others.arxiv_id == "2507.13264"
+    assert others.doi == "10.1016/s0004-3702(99)00052-1"
+    assert others.url == "https://github.com/org/repo"
+
+
+def test_an_entrys_links_are_those_laid_over_its_lines() -> None:
+    from preflight.document import Line, Span
+    from preflight.refcheck.parse import _links_on
+
+    def line(y: float, page: int = 10) -> Line:
+        span = Span(text="x", bbox=(70, y, 290, y + 9), font="tiro", size=9.0, color=0, flags=0,
+                    page=page)
+        return Line(spans=[span], bbox=span.bbox, page=page)
+
+    title = "https://doi.org/10.21437/Interspeech.2026-913"
+    areas = [(10, (120, 100.5, 290, 108.5), title), (10, (70, 110.5, 200, 118.5), title),
+             (10, (70, 130.5, 200, 138.5), "https://doi.org/10.1/next-entry"),
+             (11, (70, 100.5, 200, 108.5), "https://doi.org/10.1/next-page")]
+    assert _links_on([line(100), line(110)], areas) == [title]
+
+
 def test_openreview_mirrors_of_arxiv_are_preprints() -> None:
     """OpenReview imports DBLP, whose venue for arXiv is "CoRR 2025"."""
     from preflight.refcheck.sources import _openreview_candidate
@@ -663,6 +700,62 @@ def test_an_unregistered_doi_is_reported(monkeypatch) -> None:
     assert "is not registered" in verdict.discrepancies[0].detail
 
 
+@pytest.mark.parametrize("age, registrant, field", [
+    (0, True, "registration"),     # assigned at the conference, registered weeks later
+    (1, True, "registration"),
+    (3, True, "doi"),              # long enough ago that it should be registered
+    (0, False, "doi"),             # a prefix nobody was issued
+    (0, None, "doi"),              # the prefix lookup failed
+])
+def test_a_recent_doi_awaiting_registration_is_pending(monkeypatch, age, registrant, field) -> None:
+    """ISCA assigns Interspeech DOIs at the conference and registers them weeks later."""
+    from datetime import date
+
+    from preflight.refcheck.sources import DoiLookup
+
+    year = date.today().year - age
+    title = "Silence is golden: Mitigating hallucinations via layer-weighted vector steering"
+    venue = f"Proceedings of Interspeech {year}"
+    ref = Reference(raw=f"T. Lin. {year}. {title}. In {venue}, pages 920–925.", index=0,
+                    title=title, authors=["Tsung-En Lin"], year=year, venue=venue,
+                    doi=f"10.21437/interspeech.{year}-1421", kind=Kind.PAPER)
+
+    async def arxiv(session, reference):
+        return [Candidate(source="arxiv", title=title, authors=["Tsung-En Lin"], year=year,
+                          venue="arXiv", preprint=True)]
+
+    report = _engine_run(monkeypatch, [ref], sources=[("arxiv", arxiv)],
+                         resolve=lambda doi: DoiLookup(False, registrant=registrant))
+    [verdict] = report.verdicts
+    fields = [d.field for d in verdict.discrepancies]
+    if field == "registration":
+        # One note: the venue cannot be confirmed because the DOI is not registered yet.
+        assert fields == ["registration"]
+        assert "not registered yet" in verdict.discrepancies[0].detail
+        assert venue in verdict.discrepancies[0].detail
+    else:
+        assert fields == ["doi", "venue"]
+        assert "is not registered;" in verdict.discrepancies[0].detail
+
+
+def test_a_pending_doi_is_cached_like_a_miss() -> None:
+    from preflight.refcheck import engine
+    from preflight.refcheck.core import Verdict
+
+    stored = {}
+
+    class FakeStore:
+        def put(self, key, payload, positive):
+            stored["positive"] = positive
+
+    pending = Verdict(Reference(raw="x", index=0), Status.DETAILS_MISMATCH,
+                      discrepancies=[Discrepancy("registration", "not registered yet")])
+    engine._remember(FakeStore(), "k", pending)
+    assert stored["positive"] is False
+    engine._remember(FakeStore(), "k", Verdict(Reference(raw="x", index=0), Status.VERIFIED))
+    assert stored["positive"] is True
+
+
 class _FakeSearch:
     """A web search that claims to have found the work at a given URL."""
 
@@ -1093,6 +1186,30 @@ def test_a_reference_found_only_by_web_search_is_a_warning(clean_paper: Path) ->
     assert found["reference_verification"].severity is Severity.ERROR
     assert "1 of 2 reference(s)" in found["reference_verification"].message
     assert found["reference_verification.web_only"].severity is Severity.WARNING
+
+
+def test_a_doi_awaiting_registration_is_only_a_warning(clean_paper: Path) -> None:
+    from preflight.models import Severity
+    from preflight.refcheck.core import Verdict
+
+    pending = Verdict(Reference(raw="[12] x", index=0, title="All that glitters is not audio"),
+                      Status.DETAILS_MISMATCH,
+                      discrepancies=[Discrepancy("registration", "DOI 10.21437/x is not registered yet",
+                                                 "doi.org")])
+    found = _findings(clean_paper, [pending])
+    assert found["reference_details"].severity is Severity.PASS
+    assert "1 not registered yet" in found["reference_details"].message
+    warning = found["reference_details.pending"]
+    assert warning.severity is Severity.WARNING
+    assert warning.evidence[0].quote == "[12] All that glitters is not audio"
+
+    # Beside a wrong detail, each keeps its own severity.
+    wrong = Verdict(Reference(raw="[5] y", index=1, title="GQA"), Status.DETAILS_MISMATCH,
+                    discrepancies=[Discrepancy("pages", "pages 1–2; the record has 3-4")])
+    found = _findings(clean_paper, [pending, wrong])
+    assert found["reference_details"].severity is Severity.ERROR
+    assert "registration" not in found["reference_details"].evidence[0].detail
+    assert found["reference_details.pending"].severity is Severity.WARNING
 
 
 def test_a_preprint_with_a_published_version_is_only_a_warning(clean_paper: Path) -> None:

@@ -14,10 +14,12 @@ from __future__ import annotations
 
 import asyncio
 import re
+from dataclasses import dataclass
+from dataclasses import field as _field
 from typing import Any
 
 from ..context import CheckContext
-from ..document import Line
+from ..document import BBox, Line
 from ..llm.client import AsyncLLMClient, LLMError
 from .core import Reference, compact, find_pages, normalise_title, normalise_url, parse_page_range
 
@@ -215,8 +217,37 @@ def _rows(lines: list[Line], lefts: list[float]) -> list[Line]:
     return out
 
 
+@dataclass(slots=True)
+class Entry:
+    """One bibliography entry: its text, and where its hyperlinks lead."""
+
+    text: str
+    links: list[str] = _field(default_factory=list)
+
+
 def segment(ctx: CheckContext, lines: list[Line]) -> list[str]:
     """Group lines into entries using the bibliography's hanging indent."""
+    return [entry.text for entry in split_entries(ctx, lines)]
+
+
+def _links_on(lines: list[Line], areas: list[tuple[int, BBox, str]]) -> list[str]:
+    """The link targets laid over these lines, in reading order.
+
+    ACL's style, and many others, print no DOI or URL: the title itself links to
+    the DOI the BibTeX entry carries. A link counts for a line when the middle of
+    its rectangle sits within the line's height and the two overlap across.
+    """
+    out: list[str] = []
+    for line in lines:
+        x0, y0, x1, y1 = line.bbox
+        for page, (lx0, ly0, lx1, ly1), uri in areas:
+            if page == line.page and y0 <= (ly0 + ly1) / 2 <= y1 and min(x1, lx1) > max(x0, lx0):
+                out.append(uri)
+    return list(dict.fromkeys(out))
+
+
+def split_entries(ctx: CheckContext, lines: list[Line]) -> list[Entry]:
+    """Group lines into entries using the bibliography's hanging indent, with their links."""
     if not lines:
         return []
     tolerance = float(ctx.conf("refcheck.entry_indent_tolerance_pt", 2.5))
@@ -241,8 +272,9 @@ def segment(ctx: CheckContext, lines: list[Line]) -> list[str]:
         entries.append(current)
 
     minimum = int(ctx.conf("refcheck.min_entry_chars", 25))
+    areas = ctx.doc.link_areas
     return [
-        text for text in (_join(entry) for entry in entries)
+        Entry(text, _links_on(entry, areas)) for text, entry in ((_join(e), e) for e in entries)
         if len(text) >= minimum and looks_like_entry(text)
     ]
 
@@ -272,9 +304,9 @@ def looks_like_entry(text: str) -> bool:
     return bool(_YEAR.search(text) or _LOCATOR.search(text))
 
 
-def quick_parse(raw: str, index: int) -> Reference:
+def quick_parse(raw: str, index: int, links: list[str] | None = None) -> Reference:
     """A structural first pass, so identifiers survive even if the model call fails."""
-    reference = Reference(raw=raw, index=index)
+    reference = Reference(raw=raw, index=index, links=list(links or []))
     reference.scavenge()
     return reference
 
@@ -284,9 +316,14 @@ async def parse_entries(
     entries: list[str],
     client: AsyncLLMClient,
     batch_size: int = 20,
+    links: list[list[str]] | None = None,
 ) -> list[Reference]:
-    """Parse every entry, in concurrent batches. Falls back to the quick parse."""
-    references = [quick_parse(raw, i) for i, raw in enumerate(entries)]
+    """Parse every entry, in concurrent batches. Falls back to the quick parse.
+
+    ``links`` holds each entry's hyperlink targets (see :func:`split_entries`).
+    """
+    references = [quick_parse(raw, i, links[i] if links and i < len(links) else None)
+                  for i, raw in enumerate(entries)]
     if not references or not client.available:
         for reference in references:
             reference.classify_kind()

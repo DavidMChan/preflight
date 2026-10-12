@@ -8,9 +8,10 @@ database-only checker reports as missing.
 
 from .core import Kind, MatchPolicy, Reference, Status, Verdict
 from .engine import RefCheckConfig, RefCheckReport, verify
-from .parse import bibliography_lines, parse_entries, segment
+from .parse import Entry, bibliography_lines, parse_entries, segment, split_entries
 
 __all__ = [
+    "Entry",
     "Kind",
     "MatchPolicy",
     "RefCheckConfig",
@@ -21,5 +22,6 @@ __all__ = [
     "bibliography_lines",
     "parse_entries",
     "segment",
+    "split_entries",
     "verify",
 ]

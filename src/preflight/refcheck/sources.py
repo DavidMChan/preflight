@@ -408,11 +408,15 @@ class DoiLookup:
     """What the DOI registry says about a DOI.
 
     ``exists`` is True or False only when a registry answered; None means the
-    lookups failed, and that is never reported as a missing DOI.
+    lookups failed, and that is never reported as a missing DOI. For a DOI that
+    does not exist, ``registrant`` says whether its prefix belongs to anyone: a
+    publisher can assign DOIs weeks before it registers them (ISCA does this for
+    Interspeech), but nobody assigns them under a prefix that was never issued.
     """
 
     exists: bool | None
     record: Candidate | None = None
+    registrant: bool | None = None
 
 
 def _crossref_candidate(item: dict[str, Any], exact: bool = False, source: str = "crossref") -> Candidate:
@@ -492,8 +496,21 @@ async def resolve_doi(session: Session, doi: str) -> DoiLookup:
         if code == 1:
             return DoiLookup(True)
         if code == 100:
-            return DoiLookup(False)
+            return DoiLookup(False, registrant=await _prefix_exists(session, doi))
     return DoiLookup(None)
+
+
+async def _prefix_exists(session: Session, doi: str) -> bool | None:
+    """Whether the DOI's prefix (``10.21437``) has been issued to a registrant."""
+    prefix = doi.split("/", 1)[0]
+    response = await session.get(f"https://doi.org/api/handles/0.NA/{quote(prefix)}", rate=5)
+    if response is None:
+        return None
+    try:
+        code = response.json().get("responseCode")
+    except ValueError:
+        return None
+    return True if code == 1 else False if code == 100 else None
 
 
 # ---------------------------------------------------------------------------

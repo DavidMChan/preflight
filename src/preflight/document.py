@@ -535,13 +535,22 @@ class Document:
     @cached_property
     def hyperlinks(self) -> list[tuple[int, str]]:
         """(page, uri) for every link annotation."""
-        out: list[tuple[int, str]] = []
+        return [(page, uri) for page, _, uri in self.link_areas]
+
+    @cached_property
+    def link_areas(self) -> list[tuple[int, BBox, str]]:
+        """(page, rectangle, uri) for every link annotation that leads out of the PDF.
+
+        A link broken across lines has one rectangle per line, each listed.
+        """
+        out: list[tuple[int, BBox, str]] = []
         for i in range(self.doc.page_count):
             try:
                 for link in self.doc[i].get_links():
                     uri = link.get("uri")
                     if uri:
-                        out.append((i + 1, str(uri)))
+                        rect = link["from"]
+                        out.append((i + 1, (rect.x0, rect.y0, rect.x1, rect.y1), str(uri)))
             except Exception:  # pragma: no cover
                 continue
         return out

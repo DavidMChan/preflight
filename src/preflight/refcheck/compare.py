@@ -323,8 +323,13 @@ def _followed_up(records: list[Candidate]) -> Candidate:
     return next((r for r in records if r.doi), records[0])
 
 
-def compare(reference: Reference, records: list[Candidate]) -> list[Discrepancy]:
-    """Everything the confirming records contradict in the citation."""
+def compare(reference: Reference, records: list[Candidate],
+            venue_pending: bool = False) -> list[Discrepancy]:
+    """Everything the confirming records contradict in the citation.
+
+    ``venue_pending``: the citation's DOI is awaiting registration, which is
+    already reported, so finding only a preprint is not reported again here.
+    """
     if not records:
         return []
     out: list[Discrepancy] = []
@@ -372,7 +377,7 @@ def compare(reference: Reference, records: list[Candidate]) -> list[Discrepancy]
                             "venue", f"cited in {reference.venue}; the record has {record.venue}",
                             source=record.source, record=record.link))
                         break
-        elif _primary(cited_tags):
+        elif _primary(cited_tags) and not venue_pending:
             out.append(Discrepancy(
                 "venue", f"the cited venue ({reference.venue}) could not be confirmed; only a "
                 "preprint of this work was found"))

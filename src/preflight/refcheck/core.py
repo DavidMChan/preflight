@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from enum import StrEnum
 from typing import Any
+from urllib.parse import unquote
 
 _PUNCT = re.compile(r"[^\w\s]")
 _SPACE = re.compile(r"\s+")
@@ -24,6 +25,8 @@ _PAGE = r"[A-Za-z]?\d+"
 _PAGES_LABELLED = re.compile(rf"(?i)(?:\bpages?|\bpp?\.)\s*({_PAGE}(?:\s*{_DASH}\s*{_PAGE})?)")
 _PAGES_JOURNAL = re.compile(rf"\d+\s*\(\s*[\w./-]+\s*\)\s*:\s*({_PAGE}\s*{_DASH}\s*{_PAGE})")
 _PAGE_RANGE = re.compile(rf"^\s*({_PAGE})\s*(?:{_DASH}\s*({_PAGE}))?\s*$")
+_DOI_LINK = re.compile(r"(?i)^(?:https?://(?:dx\.)?doi\.org/|doi:)")
+_ARXIV_LINK = re.compile(r"(?i)^https?://(?:www\.|export\.)?arxiv\.org/(?:abs|pdf)/(\d{4}\.\d{4,5})")
 # "et al.", "and others", and the count some styles print: "and 87 others".
 _ETAL_RE = re.compile(r"(?i)\bet\.?\s*al\b|\band\s+others\b|\b\d+\s+(?:others|more\s+authors)\b")
 
@@ -302,6 +305,7 @@ class Reference:
     url: str | None = None
     pages: str | None = None
     kind: Kind = Kind.UNKNOWN
+    links: list[str] = field(default_factory=list)   # where the entry's hyperlinks lead
 
     def classify_kind(self) -> Kind:
         if self.kind is Kind.UNKNOWN:
@@ -360,12 +364,29 @@ class Reference:
             if match:
                 self.arxiv_id = match.group(1)
         self.url = normalise_url(self.url) or extract_url(self.raw)
+        self._from_links()
         if not self.year:
             years = [int(y) for y in re.findall(r"\b(?:19|20)\d{2}\b", self.raw)]
             if years:
                 # Citations often carry an access date as well; the publication
                 # year is the earlier one in practice.
                 self.year = min(years)
+
+    def _from_links(self) -> None:
+        """Fill identifiers the entry does not print from where its hyperlinks lead.
+
+        ACL's style links the title to the DOI or URL in the BibTeX entry rather
+        than printing it. What the entry prints still wins.
+        """
+        for link in self.links:
+            doi = normalise_doi(unquote(link)) if _DOI_LINK.match(link) else None
+            arxiv = _ARXIV_LINK.match(link)
+            if doi:
+                self.doi = self.doi or doi
+            elif arxiv:
+                self.arxiv_id = self.arxiv_id or arxiv.group(1)
+            elif not self.url:
+                self.url = normalise_url(link)
 
 
 _PREPRINT_DOI = ("10.48550/", "10.1101/", "10.2139/ssrn", "10.31219/", "10.20944/preprints",

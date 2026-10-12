@@ -20,7 +20,7 @@ from typing import Any
 from ..context import CheckContext
 from ..llm.client import AsyncLLMClient
 from ..models import LLM, NETWORK, Evidence, Finding
-from ..refcheck import RefCheckConfig, bibliography_lines, parse_entries, segment, verify
+from ..refcheck import RefCheckConfig, bibliography_lines, parse_entries, split_entries, verify
 from ..refcheck.core import MatchPolicy, Status
 from ..registry import register
 from .llm_checks import _client
@@ -43,7 +43,7 @@ _STATUS_LABEL = {
 
 _FIELD_LABEL = {
     "doi": "DOI", "arxiv": "arXiv id", "url": "link", "pages": "pages", "year": "year",
-    "venue": "venue", "authors": "authors", "version": "version",
+    "venue": "venue", "authors": "authors", "version": "version", "registration": "DOI",
 }
 
 
@@ -93,7 +93,8 @@ async def _run(ctx: CheckContext) -> dict[str, Any]:
     if cached is not None:
         return cached
 
-    entries = segment(ctx, bibliography_lines(ctx))
+    split = split_entries(ctx, bibliography_lines(ctx))
+    entries = [entry.text for entry in split]
     config = _config(ctx)
 
     # Without a model the parser falls back to a structural pass, which still
@@ -101,7 +102,8 @@ async def _run(ctx: CheckContext) -> dict[str, Any]:
     client: AsyncLLMClient | None = _client(ctx) if ctx.settings.enable_llm else None
     if client is None or not config.use_llm_parse:
         client = None
-    references = await parse_entries(ctx, entries, client or AsyncLLMClient(api_key=None))
+    references = await parse_entries(ctx, entries, client or AsyncLLMClient(api_key=None),
+                                     links=[entry.links for entry in split])
     parsed_by_model = client is not None and client.available and bool(entries)
     if client is None and ctx.settings.enable_llm:
         client = _client(ctx)      # still allowed for the web-search tier
@@ -323,7 +325,7 @@ def _web_only(ctx: CheckContext, verdicts: list[Any], scope: str, cap: int) -> F
     )
 
 
-_FIELD_ORDER = ("doi", "arxiv", "url", "authors", "pages", "year", "venue", "version")
+_FIELD_ORDER = ("doi", "arxiv", "url", "authors", "pages", "year", "venue", "version", "registration")
 
 
 def _ranked(verdicts: list[Any], fields: set[str]) -> list[tuple[Any, list[Any]]]:
@@ -358,8 +360,13 @@ _DETAIL_FIELDS = {"doi", "arxiv", "url", "authors", "pages", "year", "venue"}
 @register("reference_details", "Reference details", module=MODULE, category="references",
           requires=("enable_refcheck",), uses=(NETWORK, LLM), order=89)
 @_tagged
-async def check_reference_details(ctx: CheckContext) -> Finding:
-    """Compare each confirmed reference against its record: DOI, pages, year, venue, authors."""
+async def check_reference_details(ctx: CheckContext) -> Finding | list[Finding]:
+    """Compare each confirmed reference against its record: DOI, pages, year, venue, authors.
+
+    A recent DOI that is not registered yet, under a prefix that is, is reported
+    apart from the rest and as a warning: the author cannot fix it, and the
+    publisher usually registers it within weeks.
+    """
     data = await _run(ctx)
     report = data["report"]
 
@@ -369,18 +376,23 @@ async def check_reference_details(ctx: CheckContext) -> Finding:
                         category="references")
 
     entries = _ranked(report.miscited, _DETAIL_FIELDS)
+    pending = _ranked(report.miscited, {"registration"})
+    extra = [_pending(ctx, pending)] if pending else []
     confirmed = report.count(Status.VERIFIED) + report.count(Status.DETAILS_MISMATCH)
     if not entries:
-        return ctx.ok(
+        dois = (f"every printed DOI resolves to the cited work except {len(pending)} not "
+                "registered yet (reported separately)" if pending
+                else "every printed DOI resolves to the cited work")
+        return [ctx.ok(
             "reference_details", "Reference details",
-            f"All {confirmed} confirmed reference(s) match their records: every printed DOI "
-            "resolves to the cited work, and the pages, year, venue and authors agree.",
-            category="references")
+            f"All {confirmed} confirmed reference(s) match their records: {dois}, and the pages, "
+            "year, venue and authors agree.",
+            category="references"), *extra]
 
     fields = sorted({_FIELD_LABEL.get(d.field, d.field) for _, found in entries for d in found})
     as_error = bool(ctx.conf("refcheck.details_mismatch_is_error", True))
     reporter = ctx.error if as_error else ctx.warn
-    return reporter(
+    return [reporter(
         "reference_details", "Reference details",
         f"{len(entries)} reference(s) cite a real work with details its record contradicts "
         f"({', '.join(fields)}).",
@@ -389,6 +401,20 @@ async def check_reference_details(ctx: CheckContext) -> Finding:
         "replace the entry with that record's own citation — the BibTeX from the ACL Anthology, "
         "the DOI, DBLP or arXiv — rather than correcting fields by hand.",
         confidence="high — each discrepancy is read off the key source's own record",
+    ), *extra]
+
+
+def _pending(ctx: CheckContext, entries: list[tuple[Any, list[Any]]]) -> Finding:
+    """Recent DOIs their publisher has assigned but not yet registered."""
+    return ctx.warn(
+        "reference_details.pending", "DOIs not registered yet",
+        f"{len(entries)} reference(s) carry a recent DOI that doi.org does not know yet, so the "
+        "venue they cite cannot be confirmed.",
+        category="references", evidence=_listing(ctx, entries),
+        remedy="Check that each DOI matches the one the publisher lists for the paper, and run "
+        "preflight again once the publisher has registered it.",
+        confidence="medium — the DOI's prefix is registered and the citation is recent, but a "
+        "mistyped DOI looks the same until registration",
     )
 
 
