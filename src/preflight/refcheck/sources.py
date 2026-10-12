@@ -589,7 +589,8 @@ def _openreview_candidate(note: dict[str, Any]) -> Candidate | None:
         year=year,
         venue=venue + ("" if accepted else " (not accepted)") if venue else None,
         url=f"https://openreview.net/forum?id={note.get('forum') or note.get('id')}",
-        preprint=not accepted,
+        # OpenReview mirrors DBLP, arXiv's "CoRR 2025" included: the venue decides those.
+        preprint=True if not accepted else None,
         record_id=note.get("id"),
     )
 

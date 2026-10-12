@@ -44,7 +44,7 @@ from .websources import liveness, needs_web_route, resolve_web
 
 #: Bump when the verdict logic changes, so verdicts reached by older logic are
 #: not served from the cache.
-CACHE_VERSION = "v10"
+CACHE_VERSION = "v11"
 
 SEARCH_DOMAINS = [
     "arxiv.org", "aclanthology.org", "openreview.net", "dl.acm.org", "ieeexplore.ieee.org",

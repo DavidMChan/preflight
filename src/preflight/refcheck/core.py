@@ -24,7 +24,8 @@ _PAGE = r"[A-Za-z]?\d+"
 _PAGES_LABELLED = re.compile(rf"(?i)(?:\bpages?|\bpp?\.)\s*({_PAGE}(?:\s*{_DASH}\s*{_PAGE})?)")
 _PAGES_JOURNAL = re.compile(rf"\d+\s*\(\s*[\w./-]+\s*\)\s*:\s*({_PAGE}\s*{_DASH}\s*{_PAGE})")
 _PAGE_RANGE = re.compile(rf"^\s*({_PAGE})\s*(?:{_DASH}\s*({_PAGE}))?\s*$")
-_ETAL_RE = re.compile(r"(?i)\bet\.?\s*al\b|\band others\b")
+# "et al.", "and others", and the count some styles print: "and 87 others".
+_ETAL_RE = re.compile(r"(?i)\bet\.?\s*al\b|\band\s+others\b|\b\d+\s+(?:others|more\s+authors)\b")
 
 
 def normalise_doi(doi: str | None) -> str | None:

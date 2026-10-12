@@ -92,6 +92,21 @@ def test_doi_hyphen_at_a_line_break_is_kept() -> None:
     assert not _continues_url("10.18653/v1/2024.findings-emnlp.218.", "https://aclanthology.org/x")
 
 
+def test_openreview_mirrors_of_arxiv_are_preprints() -> None:
+    """OpenReview imports DBLP, whose venue for arXiv is "CoRR 2025"."""
+    from preflight.refcheck.sources import _openreview_candidate
+
+    def note(venue: str, venueid: str) -> Candidate:
+        record = _openreview_candidate({"id": "n", "content": {
+            "title": {"value": "Voxtral"}, "venue": {"value": venue}, "venueid": {"value": venueid}}})
+        assert record is not None
+        return record
+
+    assert note("CoRR 2025", "dblp.org/journals/CORR/2025").is_preprint
+    assert note("Submitted to ICLR 2025", "ICLR.cc/2025/Conference/Submission").is_preprint
+    assert not note("ICLR 2025 poster", "ICLR.cc/2025/Conference").is_preprint
+
+
 # ---------------------------------------------------------------------------
 # Authors
 # ---------------------------------------------------------------------------
@@ -175,6 +190,18 @@ def test_a_silently_shortened_author_list_is_reported() -> None:
     # A company listed among the record's authors is not a person the citation left out.
     assert compare_authors(CONVLAB_AUTHORS, [["Physical Intelligence", *CONVLAB_AUTHORS]],
                            truncated=False) == []
+
+
+def test_a_counted_truncation_is_not_an_author() -> None:
+    """ARR allows "..., Amélie Héliou, and 87 others"; that shortens the list, it names nobody."""
+    assert split_name("87 others") is None
+    assert split_name("and 87 others") is None
+    assert split_name("Amélie Héliou, and 87 others").surname == "heliou"
+    cited = Reference(raw="Alexander H. Liu, Andy Ehrenberg, and 87 others. 2025. Voxtral.", index=0,
+                      authors=["Alexander H. Liu", "Andy Ehrenberg", "87 others"])
+    assert cited.truncated_authors
+    record = ["Alexander H. Liu", "Andy Ehrenberg", "Andy Lo", "Amélie Martin"]
+    assert compare_authors(cited.authors, [record], truncated=cited.truncated_authors) == []
 
 
 # ---------------------------------------------------------------------------

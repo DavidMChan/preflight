@@ -25,12 +25,14 @@ from .core import Candidate, Discrepancy, Kind, Reference, parse_page_range, str
 # ---------------------------------------------------------------------------
 
 _SUFFIXES = {"jr", "sr", "ii", "iii", "iv"}
-_ETAL = re.compile(r"(?i)^\s*(?:et\.?\s*al\.?|others|and others|\.\.\.|…)\s*$")
+# A shortened list can say how many it left out: "and 87 others", "+ 12 more authors".
+_ETAL = re.compile(r"(?i)^\s*(?:et\.?\s*al\.?|(?:(?:and|&|\+)\s*)?(?:\d+\s+)?others|"
+                   r"(?:(?:and|&|\+)\s*)?\d+\s+more\s+authors|\.\.\.|…)\s*$")
 # An author list split on its commas leaves the conjunction on the last name
 # ("and Madian Khabsa", "& Jane Doe"), and a shortened list can keep its marker
 # on the name before it ("Hugo Touvron and others", "Jane Doe et al.").
 _CONJUNCTION = re.compile(r"(?i)^(?:and|&)\s+(?=\S)")
-_TRAILING_ETAL = re.compile(r"(?i)(?<=\S)[,\s]+(?:et\.?\s*al\.?|and\s+others)\s*$")
+_TRAILING_ETAL = re.compile(r"(?i)(?<=\S)[,\s]+(?:et\.?\s*al\.?|and\s+(?:\d+\s+)?others)\s*$")
 _CORPORATE = re.compile(
     r"(?i)\b(?:team|group|consortium|collaboration|committee|project|organi[sz]ation|"
     r"foundation|institute|university|laborator(?:y|ies)|labs?|inc|ltd|llc|corp(?:oration)?|intelligence|"
