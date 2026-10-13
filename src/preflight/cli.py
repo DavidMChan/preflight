@@ -14,11 +14,11 @@ from rich.table import Table
 
 from . import cache
 from .context import Settings
-from .models import Progress, Severity
+from .models import Progress, Report, Severity
 from .picker import PickerUnavailable, pick_conference, pick_track, remember
 from .profile import Profile, ProfileError, available_profiles, load_profile
 from .registry import describe, load_builtin_checks
-from .report import print_report, render_finding, to_markdown
+from .report import print_report, render_finding, to_html, to_markdown, to_pdf
 from .runner import run_checks
 
 app = typer.Typer(
@@ -116,6 +116,8 @@ def check(
     max_refs: Annotated[int, typer.Option("--max-refs", help="Cap references sent to hallucinator (0 = all).")] = 0,
     json_out: Annotated[Path | None, typer.Option("--json", help="Write the full report as JSON.")] = None,
     markdown_out: Annotated[Path | None, typer.Option("--markdown", help="Write a Markdown summary.")] = None,
+    html_out: Annotated[Path | None, typer.Option("--html", help="Write the report as a self-contained HTML page.")] = None,
+    pdf_out: Annotated[Path | None, typer.Option("--pdf", help="Write the report as a PDF.")] = None,
     verbose: Annotated[bool, typer.Option("--verbose/--minimal", "-v", help="--verbose (the default) shows every piece of evidence and the CFP references; --minimal collapses each finding to its first few lines.")] = True,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Only show errors and warnings.")] = False,
     strict: Annotated[bool, typer.Option("--strict", help="Exit non-zero on warnings as well as errors.")] = False,
@@ -169,14 +171,8 @@ def check(
                 f"`preflight show` for everything, `preflight show <check_id>` for one finding.[/dim]"
             )
 
-        if json_out is not None:
-            target = _numbered(json_out, path, len(pdf))
-            target.write_text(report.to_json(), encoding="utf-8")
-            console.print(f"[dim]JSON written to {target}[/dim]")
-        if markdown_out is not None:
-            target = _numbered(markdown_out, path, len(pdf))
-            target.write_text(to_markdown(report, verbose=verbose), encoding="utf-8")
-            console.print(f"[dim]Markdown written to {target}[/dim]")
+        _export(report, path, len(pdf), verbose=verbose, json_out=json_out,
+                markdown_out=markdown_out, html_out=html_out, pdf_out=pdf_out)
 
         if report.errors:
             worst = max(worst, 1)
@@ -191,6 +187,29 @@ def _numbered(target: Path, pdf: Path, count: int) -> Path:
     if count <= 1:
         return target
     return target.with_name(f"{target.stem}-{pdf.stem}{target.suffix}")
+
+
+def _export(
+    report: Report, pdf: Path, count: int, *, verbose: bool, json_out: Path | None,
+    markdown_out: Path | None, html_out: Path | None, pdf_out: Path | None,
+) -> None:
+    """Write the report to each file asked for."""
+    outputs = (
+        (json_out, "JSON", report.to_json),
+        (markdown_out, "Markdown", lambda: to_markdown(report, verbose=verbose)),
+        (html_out, "HTML", lambda: to_html(report, verbose=verbose)),
+        (pdf_out, "PDF", lambda: to_pdf(report, verbose=verbose)),
+    )
+    for out, label, render in outputs:
+        if out is None:
+            continue
+        target = _numbered(out, pdf, count)
+        content = render()
+        if isinstance(content, bytes):
+            target.write_bytes(content)
+        else:
+            target.write_text(content, encoding="utf-8")
+        console.print(f"[dim]{label} written to {target}[/dim]")
 
 
 @app.command()
@@ -236,6 +255,10 @@ def show(
     list_runs: Annotated[bool, typer.Option("--list", help="List cached runs instead of showing one.")] = False,
     quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Only errors and warnings.")] = False,
     verbose: Annotated[bool, typer.Option("--verbose/--minimal", "-v", help="--verbose (the default) shows every piece of evidence and the CFP references; --minimal collapses each finding to its first few lines.")] = True,
+    json_out: Annotated[Path | None, typer.Option("--json", help="Write the whole run as JSON.")] = None,
+    markdown_out: Annotated[Path | None, typer.Option("--markdown", help="Write the whole run as a Markdown summary.")] = None,
+    html_out: Annotated[Path | None, typer.Option("--html", help="Write the whole run as a self-contained HTML page.")] = None,
+    pdf_out: Annotated[Path | None, typer.Option("--pdf", help="Write the whole run as a PDF.")] = None,
 ) -> None:
     """Re-read a finished run in full detail, without re-running anything."""
     if list_runs:
@@ -288,9 +311,11 @@ def show(
         console.print()
         for finding in wanted:
             console.print(render_finding(finding, verbose=verbose))
-        raise typer.Exit(0)
+    else:
+        print_report(report, console, verbose=verbose, show_passed=not quiet)
 
-    print_report(report, console, verbose=verbose, show_passed=not quiet)
+    _export(report, Path(report.pdf_path), 1, verbose=verbose, json_out=json_out,
+            markdown_out=markdown_out, html_out=html_out, pdf_out=pdf_out)
 
 
 @app.command("conferences")

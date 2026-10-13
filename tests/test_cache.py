@@ -90,3 +90,22 @@ def test_check_is_verbose_unless_minimal(tmp_path: Path, clean_paper: Path, monk
     assert "Full evidence kept as run" in minimal.output
     assert "Full evidence kept as run" not in verbose.output
     assert CliRunner().invoke(app, ["show", "--minimal"]).exit_code == 0
+
+
+def test_show_exports_a_cached_run_as_html_and_pdf(tmp_path: Path, monkeypatch) -> None:
+    from typer.testing import CliRunner
+
+    from preflight.cli import app
+
+    monkeypatch.setattr(cache, "DEFAULT_ROOT", tmp_path)
+    cache.save(_report())
+    page, pdf = tmp_path / "report.html", tmp_path / "report.pdf"
+
+    result = CliRunner().invoke(app, ["show", "--html", str(page), "--pdf", str(pdf)])
+    assert result.exit_code == 0
+    assert "Content page limit" in page.read_text(encoding="utf-8")
+    assert pdf.read_bytes().startswith(b"%PDF")
+    # Naming one check still exports the whole run.
+    page.unlink()
+    assert CliRunner().invoke(app, ["show", "margins", "--html", str(page)]).exit_code == 0
+    assert "Content page limit" in page.read_text(encoding="utf-8")

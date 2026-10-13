@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Checks: 117](https://img.shields.io/badge/checks-117-blue)](#checks)
 [![Venues: 11](https://img.shields.io/badge/venues-11-blueviolet)](#conferences)
-[![Tests: 394](https://img.shields.io/badge/tests-394%20passing-brightgreen)](#development)
+[![Tests: 408](https://img.shields.io/badge/tests-408%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -116,17 +116,24 @@ Results are cached to avoid repeated processing costs:
 uv run preflight show                           # re-read the last run in full
 uv run preflight show min_font_size             # a single finding with all its evidence
 uv run preflight show --list                    # enumerate cached runs
+uv run preflight show --pdf report.pdf          # export the last run without re-running it
 ```
 
 ```bash
 uv run preflight conferences                    # list bundled profiles
 uv run preflight checks -c arr                  # the checks a profile runs: offline, online or LLM
 uv run preflight paper.pdf --json report.json --markdown report.md
+uv run preflight paper.pdf --html report.html --pdf report.pdf
 uv run preflight *.pdf --quiet --strict         # batch processing
 ```
 
 Reports show every piece of evidence and the CFP references by default. `--minimal` collapses each
 finding to its first few lines, and `preflight show <check_id>` expands one again.
+
+`--html` writes a self-contained page with no external assets, and `--pdf` lays the same report
+out on numbered Letter pages. Both include every finding, including the passed ones, and follow
+`--minimal`. `preflight show` takes the same four export flags, so a finished run can be written
+out again without repeating the model calls.
 
 Additional options: `-m/--model` selects the model, `--concurrency` limits simultaneous model calls
 (default 8), `--quiet` restricts output to errors and warnings, and `--strict` treats warnings as a

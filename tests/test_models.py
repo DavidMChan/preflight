@@ -106,3 +106,44 @@ def test_findings_show_everything_unless_minimal() -> None:
     report.add(finding)
     assert "entry 9" in to_markdown(report)
     assert "entry 9" not in to_markdown(report, verbose=False)
+
+
+def test_the_html_report_escapes_and_tags_every_finding() -> None:
+    from preflight.report import to_html
+
+    report = Report(pdf_path="p.pdf", conference="arr", track="long",
+                    meta={"llm_model": "gpt-x", "refcheck": True})
+    report.add(Finding("reference_details", "Reference details", Severity.ERROR, "cites <script>",
+                       evidence=[Evidence(detail=f"entry {i}") for i in range(10)],
+                       remedy="fix it", uses=("network", "llm")))
+    report.add(Finding("margins", "Margins", Severity.PASS, "fine", uses=()))
+    report.scores = {"model": "gpt-x", "dimensions": {"clarity": {"score": 4, "justification": "ok"}}}
+
+    page = to_html(report)
+    assert page.startswith("<!DOCTYPE html>")
+    assert "cites &lt;script&gt;" in page and "<script>" not in page
+    assert '<span class="m-llm">online + LLM</span>' in page
+    assert '<span class="m-offline">offline</span>' in page
+    assert "Not ready to submit" in page and "fix the errors below" in page
+    assert "entry 9" in page and "Clarity" in page
+    collapsed = to_html(report, verbose=False)
+    assert "entry 5" in collapsed and "entry 6" not in collapsed
+    assert "and 4 more (preflight show reference_details)" in collapsed
+
+
+def test_the_pdf_report_lays_out_every_finding() -> None:
+    import pymupdf
+
+    from preflight.report import to_pdf
+
+    report = Report(pdf_path="p.pdf", conference="arr", track="long")
+    report.add(Finding("page_limit", "Content page limit", Severity.ERROR, "too long",
+                       evidence=[Evidence(page=9, detail=f"line {i}") for i in range(200)]))
+    report.add(Finding("margins", "Margins", Severity.PASS, "fine", uses=()))
+
+    doc = pymupdf.open("pdf", to_pdf(report))
+    assert doc.page_count > 1                       # long evidence flows onto later pages
+    assert doc.metadata["title"] == "ARR pre-flight — p.pdf"
+    text = "".join(page.get_text(flags=0) for page in doc)
+    assert "Content page limit" in text and "line 199" in text and "Margins" in text
+    assert f"page {doc.page_count} of {doc.page_count}" in text
