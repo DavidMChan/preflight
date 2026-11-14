@@ -1,30 +1,40 @@
 # CVPR — IEEE/CVF Conference on Computer Vision and Pattern Recognition.
 #
-# CYCLE: this profile encodes CVPR 2026, the most recent OFFICIALLY published
-# cycle. It is deliberately NOT labelled "CVPR 2027": at the time of writing
-# cvpr.thecvf.com/Conferences/2027 and .../2027/AuthorGuidelines both return
-# HTTP 404, the site's year selector offers only 2023-2026, and the homepage
-# still fronts CVPR 2026 (Denver, June 3-7, 2026). The author-kit main branch is
-# likewise stamped for 2026 (\ProvidesPackage{cvpr}[2026 LaTeX class for IEEE
-# CVPR], main.tex \def\confYear{2026}); no 2027 branch or tag exists. CVPR
-# geometry has been stable for years, but the page limit and the policy wording
-# must be re-verified against the CVPR 2027 CFP when it appears.
+# CYCLE: this profile encodes CVPR 2027 (abstract registration Nov 10 2026, paper
+# submission Nov 16 2026; conference June 22-25 2027). The author guidelines and
+# the CVPR2027-v1 tag of the author kit (Oct 28 2026) are both published.
+#
+# WHAT CHANGED FROM 2026:
+#   * A mandatory "LLM Usage Statement" section, after the main text and before
+#     the references. It does not count toward the eight pages, and a paper
+#     without it is rejected without review. See `statements.ai_use`.
+#   * The page-limit exemption now covers "cited references and the mandatory LLM
+#     Usage Statement". Nothing else may run past page eight.
+#   * The review copy no longer carries a Paper ID. cvpr.sty drops it from the
+#     author block, the corner boxes ("CVPR" alone) and the banner, which now reads
+#     "CVPR 2027 Submission. CONFIDENTIAL REVIEW COPY. DO NOT DISTRIBUTE."
+#   * Per-author quotas (25 papers; at most one paper with no eligible reciprocal
+#     reviewer) and a consolidated desk-rejection list. Neither is visible in a PDF.
+#   * The 2026 Author Compute Reporting Form is gone.
+#   The text block is unchanged: the 2026 -> 2027 cvpr.sty diff touches only the
+#   version banner and the Paper ID.
 #
 # SOURCES:
-#   https://cvpr.thecvf.com/Conferences/2026/AuthorGuidelines
-#   https://github.com/cvpr-org/author-kit
-#   https://raw.githubusercontent.com/cvpr-org/author-kit/main/cvpr.sty
-#   https://raw.githubusercontent.com/cvpr-org/author-kit/main/main.tex
-#   https://raw.githubusercontent.com/cvpr-org/author-kit/main/sec/2_formatting.tex
+#   https://cvpr.thecvf.com/Conferences/2027/AuthorGuidelines
+#   https://github.com/cvpr-org/author-kit (tag CVPR2027-v1)
+#   https://raw.githubusercontent.com/cvpr-org/author-kit/CVPR2027-v1/cvpr.sty
+#   https://raw.githubusercontent.com/cvpr-org/author-kit/CVPR2027-v1/main.tex
+#   https://raw.githubusercontent.com/cvpr-org/author-kit/CVPR2027-v1/sec/2_formatting.tex
 #
 # NOTE ON NUMBERS: every geometry length below is taken verbatim from cvpr.sty
 # and converted once, in inches, at the PDF big point (1in = 72pt) — see the
 # per-key comments for the arithmetic. Those numbers are solid. The TOLERANCES
 # are not conference policy: CVPR publishes no official format-checking script
 # (there is no CVPR equivalent of ACL's aclpubcheck), so no vendor-sanctioned
-# margin slack exists and the tolerances here are our own engineering judgement.
-# Because of that, and because the cycle itself is unconfirmed, margins stay a
-# warning: an unverified number must never produce a false desk rejection.
+# margin slack exists and the tolerances here are our own engineering judgement,
+# checked against the kit's own main.tex compiled in review mode. Margins
+# therefore stay a warning: an unofficial tolerance must never produce a false
+# desk rejection.
 #
 # ALSO UNSETTLED (see `unverifiable:` for the author-facing versions):
 #   * The template prose mentions an A4 bottom margin ("for A4 paper,
@@ -34,11 +44,11 @@
 #   * No supplementary-material page limit or upload size cap could be
 #     established from a primary source; the guidelines explicitly waive
 #     formatting requirements for supplementary PDFs, so none is enforced.
-#   * The Findings Track is invitation-only (ACs recommend papers after review)
-#     and "Detailed guidelines will be made available" — no submission format or
-#     page limit is published, so no track is defined for it.
-#   * Deadlines were not chased beyond the one visible on the guidelines page
-#     (OpenReview profile completion, Nov 16 2025); 2027 dates are unknown.
+#   * The Findings Track (piloted in 2026) is by AC invitation after review and
+#     "Detailed guidelines will follow" — no submission format or page limit is
+#     published, so no track is defined for it.
+#   * The kit has no LLM Usage Statement section or placeholder text, so there is
+#     no template boilerplate to catch; presence, title and placement are checked.
 #   * The title block is centred 1 3/8in from the top edge per template prose
 #     rather than an explicit cvpr.sty length, so first-page content starts
 #     LOWER than the 72pt top margin that governs pages 2+. A naive first-page
@@ -58,19 +68,32 @@ tracks:
     content_page_limit: 8
     description: >-
       Main conference submission — 8 pages of content INCLUDING all figures and
-      tables, in the CVPR style. Additional pages containing only cited
-      references are allowed and do not count. Papers over eight pages excluding
-      references are rejected without review. Any appendix or extra material
+      tables, in the CVPR 2027 style. Additional pages containing only cited
+      references and the mandatory LLM Usage Statement are allowed and do not
+      count. Papers over eight pages (excluding those) or without the LLM Usage
+      Statement are rejected without review. Any appendix or extra material
       must go in a separate supplementary PDF, not in the main paper (the
       template's sec/X_suppl.tex is commented out with "WARNING: do not forget
       to delete the supplementary pages from your submission").
   rebuttal:
     content_page_limit: 1
     description: >-
-      Author rebuttal — "The rebuttal is limited to a one-page PDF file using
-      the rebuttal template included in the CVPR 2026 Submission Template"
-      (rebuttal.tex, \usepackage[rebuttal]{cvpr}). It must maintain anonymity
-      and cannot include links to external material such as code or videos.
+      Author rebuttal — "The rebuttal is limited to a one-page PDF using the
+      rebuttal template in the CVPR 2027 Submission Template" (rebuttal.tex,
+      \usepackage[rebuttal]{cvpr}). It must maintain anonymity and cannot
+      include links to external material such as code or videos.
+    # What the rebuttal template does differently from the paper's, per cvpr.sty.
+    settings:
+      geometry:
+        # \iftoggle{cvprrebuttal}{\vspace*{-.3in}} raises the title 0.3in (21.6pt)
+        # above the text block's top edge.
+        tolerance_top_pt: 22.0
+      anonymity:
+        # The rebuttal prints the title alone: no "Anonymous CVPR submission"
+        # line. Names, emails and affiliations are still looked for.
+        expected_author_line: null
+      # The LLM Usage Statement belongs to the paper, not the response.
+      statements: null
 
 geometry:
   # main.tex: \documentclass[10pt,twocolumn,letterpaper]{article}; cvpr.sty
@@ -101,7 +124,14 @@ geometry:
   tolerance_left_pt: 4.0
   tolerance_right_pt: 6.0
   tolerance_top_pt: 4.0
-  tolerance_bottom_pt: 4.0
+  # TeX lets the last line on a page hang up to \maxdepth below the text block,
+  # and the extractor's boxes add font descent: page 1 of the kit's own main.tex
+  # ends 5.1pt below the block. 4pt reported the official template.
+  tolerance_bottom_pt: 6.0
+  margin_furniture:
+    # cvpr.sty's review banner, 1cm above the text block on every page. Matched
+    # from the start of the line so text planted beside it is still reported.
+    cvpr_review_banner: '^CVPR \d{4} Submission\b.*CONFIDENTIAL REVIEW COPY'
 
 columns:
   expected_columns: 2
@@ -132,77 +162,135 @@ fonts:
   # Legitimately outside the text block in [review] mode: the lineno ruler set
   # \linenumbersep = 0.75cm outside the block on both sides in 8pt Helvetica
   # bold (\font\cvprtenhv = phvb at 8pt, zero-filled 3-digit numbers), the
-  # centred "CVPR 2026 Submission #NNNN. CONFIDENTIAL REVIEW COPY. DO NOT
-  # DISTRIBUTE." banner 1cm above the block, the two "CVPR / #paperID" boxes at
-  # -65pt and \textwidth-12pt from the text upper-left, and the centred review
-  # footer page number 3/4in from the bottom edge.
-  ignore_small_text_regex: '^\s*\d{1,4}\s*$|CONFIDENTIAL REVIEW COPY|^\s*CVPR\s*$|^\s*#?\d{3,6}\s*$'
+  # centred "CVPR 2027 Submission. CONFIDENTIAL REVIEW COPY. DO NOT DISTRIBUTE."
+  # banner 1cm above the block, the two "CVPR" boxes at -65pt and
+  # \textwidth-12pt from the text upper-left, and the centred review footer page
+  # number 3/4in from the bottom edge. Some checks match this from the start of
+  # the line and others anywhere in it, so every alternative is anchored. The
+  # "#NNNN" alternative is the 2026 kit's Paper ID box: a paper built with last
+  # year's kit is reported once, by `running_head`, not again per corner box.
+  ignore_small_text_regex: '^\s*\d{1,4}\s*$|^\s*CVPR \d{4} Submission\b.*CONFIDENTIAL REVIEW COPY|^\s*CVPR\s*$|^\s*#?\d{3,6}\s*$'
 
 structure:
   # CVPR mandates no Limitations, ethics, reproducibility or impact section, and
-  # has no NeurIPS-style checklist in the PDF. The one comparable 2026
-  # obligation, experimental compute reporting, is filed through a separate
-  # Author Compute Reporting Form on the conference site, is invisible to
-  # reviewers and "will not influence acceptance decisions".
+  # has no NeurIPS-style checklist in the PDF. Its one mandatory section is the
+  # LLM Usage Statement, declared under `statements:` below.
   limitations_required: false
-  # ONLY the references are exempt: "Additional pages containing only cited
-  # references are allowed." Nothing else may follow them inside the main PDF —
-  # no appendix, no ethics statement, no checklist. Appendices, proofs, extra
+  # "Additional pages containing only cited references and the mandatory LLM
+  # Usage Statement are allowed." Nothing else may sit past page eight — no
+  # appendix, no acknowledgments, no stray figure. Appendices, proofs, extra
   # figures/tables, deeper analysis, video and code go in the separate
-  # supplementary upload (later deadline), which reviewers are "encouraged to
-  # look at ... but are not obligated to do so". So `unlimited_after` lists the
-  # references alone: an appendix inside the submission is a length violation,
-  # not free space.
-  unlimited_after: [references]
+  # supplementary upload, which reviewers are "encouraged to look at ... but are
+  # not obligated to do so". So only these two kinds are end matter, and every
+  # other section counts toward the limit wherever it sits: an appendix after
+  # the references is a length violation, not free space.
+  unlimited_after: [ai_use, references]
+  content_end: last_content_section
   references_aliases: [References, Bibliography]
-  appendix_must_follow_references: true
+  # There is no permitted place for an appendix inside the submission PDF, so no
+  # placement is "correct"; the page limit counts one as content instead.
+  appendix_must_follow_references: false
   appendix_must_be_two_column: true
 
+# Checked by core.statements (presence, title, placement) and, with --llm,
+# llm_statement_coverage (what the statement must say).
+statements:
+  ai_use:
+    title: LLM Usage Statement
+    requirement: required
+    # "Every submission must include a section titled 'LLM Usage Statement'". A
+    # statement under another title is still found, and asked to be renamed.
+    required_title: LLM Usage Statement
+    aliases:
+      [LLM Usage Statement, LLM Usage, LLM Use Statement, LLM Use, LLM Usage Disclosure,
+       Use of LLMs, Usage of LLMs, Declaration of LLM Usage, Use of Large Language Models,
+       The Use of Large Language Models, The Use of Large Language Models (LLMs),
+       AI Usage Statement, AI Use Statement, AI Use, AI Usage, AI-Use Statement,
+       AI Use Disclosure, AI Disclosure, AI Disclosure Statement, Statement on AI Use,
+       Disclosure of AI Use, Declaration of AI Use, Use of AI, Use of AI Tools,
+       Use of Generative AI, Use of Generative AI Tools, Generative AI Use Statement,
+       Generative AI Usage, Generative AI Usage Statement]
+    before_references: true
+    why: >-
+      CVPR 2027 requires every submission to include a section titled "LLM Usage
+      Statement" after the main text and before the references, disclosing any use of LLMs
+      or other generative AI tools in the research or the writing, or saying none were
+      used. It does not count toward the page limit, and papers without it will be
+      desk-rejected.
+    remedy: >-
+      Add an unnumbered section titled "LLM Usage Statement" at the end of the main text,
+      before the references. Name each LLM or generative AI tool used, the parts of the
+      paper or research it affected (text, figures, code, experiments, related work,
+      ideation) and the nature and extent of the use, counting editing and grammar. If none
+      were used, write "No LLMs or generative AI tools were used in this work." Keep it
+      anonymous: describe a non-public or in-house tool generically until the camera ready.
+    must_address_rule: >-
+      it must disclose any use of LLMs or other generative AI tools in the research or the
+      writing, including for editing and grammar, and for that use name the tools, identify
+      the parts of the paper or research affected, and briefly describe the nature and
+      extent of the use (CVPR 2027 LLM Policy). A statement that says no LLMs or generative
+      AI tools were used in this work settles every item. A generic technical description
+      of a tool counts as naming it when the exact name would reveal the authors.
+    must_address:
+      - Which tools were used, by name
+      - Which parts of the paper or research they affected
+      - The nature and extent of the use
+
+template:
+  # cvpr.sty prints this banner on every page in review mode, the rebuttal
+  # included; \usepackage{cvpr} (final) drops it. A year other than 2027 means
+  # last cycle's kit (2026's also carries "#<Paper ID>").
+  running_head:
+    pattern: 'CVPR \d{4} Submission(?: #\S+)?\. CONFIDENTIAL REVIEW COPY\. DO NOT DISTRIBUTE\.'
+    expected:
+      main: CVPR 2027 Submission. CONFIDENTIAL REVIEW COPY. DO NOT DISTRIBUTE.
+      rebuttal: CVPR 2027 Submission. CONFIDENTIAL REVIEW COPY. DO NOT DISTRIBUTE.
+
 anonymity:
-  # cvpr.sty's [review] mode replaces the author block with these two lines; a
-  # real author list or affiliation on a review-mode PDF is an anonymity
-  # violation and a documented rejection-without-review condition.
+  # cvpr.sty's [review] mode replaces the author block with this line (the 2026
+  # "Paper ID" line below it is gone in 2027); a real author list or affiliation
+  # on a review-mode PDF is an anonymity violation and a desk-rejection condition.
   expected_author_line: "Anonymous CVPR submission"
   # The title sits 1 3/8in (99pt) from the top edge, with the anonymous author
-  # block and paper-ID line below it; 200pt keeps the scan on the title/author
-  # area and clear of the two-column abstract.
+  # line below it; 200pt keeps the scan on the title/author area and clear of
+  # the two-column abstract.
   title_block_height_pt: 200.0
 
 structure_note: >-
   CVPR review-mode PDFs carry several elements outside the text block by design:
   an 8pt line-number ruler 0.75cm outside both margins, a centred "CONFIDENTIAL
-  REVIEW COPY" banner 1cm above the block, "CVPR / #paperID" corner boxes, and a
-  centred footer page number 3/4in from the bottom edge (the camera ready must
-  show none of these). The margin and font checks exempt them via
-  fonts.ignore_small_text_regex. The first page also begins lower than pages 2+,
-  because the title is centred 1 3/8 inches from the top edge rather than at the
-  1-inch text-block top.
+  REVIEW COPY" banner 1cm above the block, "CVPR" corner boxes, and a centred
+  footer page number 3/4in from the bottom edge (the camera ready must show none
+  of these). The margin and font checks exempt them. The first page also begins
+  lower than pages 2+, because the title is centred 1 3/8 inches from the top
+  edge rather than at the 1-inch text-block top.
 
 severity:
-  # "Papers that are not properly anonymized, or do not use the template, or
-  # have more than eight pages (excluding references) will be rejected without
-  # review." — CVPR 2026 Author Guidelines. Only conditions quoted that plainly
-  # are promoted here.
+  # "Papers that are not properly anonymized, do not use the template, have more
+  # than eight pages (excluding references and the LLM Usage Statement), or do
+  # not include the LLM Usage Statement will be rejected without review." — CVPR
+  # 2027 Author Guidelines. Only conditions quoted that plainly are promoted
+  # here; a missing required statement (statement.ai_use) is already an error.
   page_limit: error
   anonymity_title_block: error
-  # Hidden text and prompt injection: "Hidden text or instructions to influence
-  # reviewers/tools, is strictly prohibited and considered an ethics violation.
-  # Submissions containing such attempts will be desk-rejected without review
-  # and may face further sanctions."
+  # Prompt injection: "hidden or visible instructions intended to manipulate
+  # reviewers, ACs or automated tools" is listed among the desk-rejection
+  # reasons and "counts as a collusion attempt and an ethics violation".
   hidden_invisible_text: error
   hidden_low_contrast: error
   hidden_offpage_text: error
   hidden_prompt_injection: error
   # NOT promoted: hidden_tiny_text fires on text that is visible but too small to
   # read, which is overwhelmingly an illegible figure label rather than concealed
-  # content — the check's own message says so. CVPR's rule is about hidden text
+  # content — the check's own message says so. CVPR's rule is about instructions
   # aimed at reviewers, and reporting an unreadable axis label as an ethics
   # violation would be a false accusation. It stays a warning.
   # DELIBERATELY NOT PROMOTED: margins, paper size, column count and body font
-  # size. "Do not use the template" is a desk-rejection condition, but the
-  # numbers behind those checks come from an unconfirmed cycle and from
-  # tolerances we chose ourselves, with no official CVPR checker to defer to.
-  # An unverified number must not be able to produce a false desk rejection.
+  # size. "Substantially altered margins or fonts" is a desk-rejection condition,
+  # but the tolerances behind those checks are our own, with no official CVPR
+  # checker to defer to. An unofficial number must not be able to produce a
+  # false desk rejection. (running_head stays an error: the banner string is
+  # verbatim from the 2027 kit, and a wrong one means the wrong template or mode.)
   margins: warning
   paper_size: warning
   column_layout: warning
@@ -211,11 +299,30 @@ severity:
 cfp:
   page_limit: >-
     "Papers are limited to eight pages, including figures and tables, in the CVPR style.
-    Additional pages containing only cited references are allowed." (CVPR 2026 Author
-    Guidelines, Submission Policies / Paper formatting). "Papers that are not properly
-    anonymized, or do not use the template, or have more than eight pages (excluding
-    references) will be rejected without review." The author rebuttal is a separate,
-    one-page PDF using the rebuttal template.
+    Additional pages containing only cited references and the mandatory LLM Usage Statement
+    are allowed." (CVPR 2027 Author Guidelines, Paper formatting). "Papers that are not
+    properly anonymized, do not use the template, have more than eight pages (excluding
+    references and the LLM Usage Statement), or do not include the LLM Usage Statement
+    will be rejected without review." The author rebuttal is a separate, one-page PDF
+    using the rebuttal template.
+  statement.ai_use: >-
+    "Every submission must include a section titled "LLM Usage Statement" after the main
+    text and before the references. It does not count toward the page limit and must not
+    reveal the authors' identity." It must disclose any use of LLMs or other generative AI
+    tools in the research or the writing, including for editing and grammar; name the
+    tool(s), the parts of the paper or research affected and the nature and extent of the
+    use; or state "No LLMs or generative AI tools were used in this work". "A paper with no
+    statement may be desk-rejected." (CVPR 2027 LLM Policy)
+  llm_statement_coverage.ai_use: >-
+    The statement must "name the tool(s) used, identify the parts of the paper or the
+    research affected ... and briefly describe the nature and extent of the use", or say
+    that none were used. "A statement that leaves out significant information may lead to
+    desk rejection or to referral to the ethics committee." (CVPR 2027 LLM Policy)
+  running_head: >-
+    "Please download the CVPR 2027 Submission Template for detailed formatting
+    instructions." Using the wrong template is a desk-rejection condition. In review mode
+    (\usepackage[review]{cvpr}) the 2027 kit prints "CVPR 2027 Submission. CONFIDENTIAL
+    REVIEW COPY. DO NOT DISTRIBUTE." above every page.
   paper_size: >-
     cvpr.sty banner: "CVPR 8.5 x 11-Inch Proceedings Style `cvpr.sty'." It checks the
     class option and warns "Incorrect paper size - CVPR uses paper size `letter'. Please
@@ -226,133 +333,135 @@ cfp:
   margins: >-
     Margins come from cvpr.sty and must not be altered to fit content: the text block is
     6 7/8 x 8 7/8 inches, the second and following pages begin 1 inch from the top edge,
-    and the bottom margin is 1 1/8 inches from the bottom edge on 8.5 x 11-inch paper.
+    and the bottom margin is 1 1/8 inches from the bottom edge on 8.5 x 11-inch paper. A
+    paper with "substantially altered margins or fonts" may be desk-rejected.
   body_font_size: >-
     Main text is 10-point Times, single-spaced, in two columns 3 1/4 inches wide with a
     5/16-inch gutter. Title 14-point bold, author names 12-point, first-order headings
     12-point bold, second-order 11-point bold, third-order 10-point bold, captions and
     references 9-point, footnotes 8-point. Do not shrink type to fit the page limit.
   anonymity_title_block: >-
-    "CVPR reviewing is double blind, in that authors do not know the names of the area
-    chairs or reviewers for their papers, and the area chairs/reviewers cannot, beyond a
-    reasonable doubt, infer the names of the authors from the submission and the
-    additional material. ... Violation of any of these guidelines may lead to rejection
-    without review." In [review] mode the template prints "Anonymous CVPR submission" and
-    "Paper ID *****" in place of the author block.
+    "CVPR reviewing is double blind. Authors do not know the names of the area chairs or
+    reviewers for their papers, and the area chairs and reviewers must not be able to
+    infer, beyond reasonable doubt, the names of the authors from the submission and the
+    additional material. ... Violating any of these guidelines may lead to rejection
+    without review." In [review] mode the template prints "Anonymous CVPR submission" in
+    place of the author block.
   anonymity_urls: >-
     "Do not provide links to websites that identify the authors." External links that
-    expand the content of the paper are banned in the submission, the supplementary
-    material and the rebuttal. Public code cannot be cited: "To preserve anonymity, you
-    cannot cite your public codebase. You can say that the code will be made publicly
-    available."
+    expand the paper's content or subvert the review process are banned in the
+    submission, the supplementary material and the rebuttal, and are a desk-rejection
+    condition. Public code cannot be cited: "To preserve anonymity, you cannot cite your
+    public codebase. You can say that the code will be made publicly available."
   anonymity_self_reference: >-
     Do not identify the authors in the acknowledgments (e.g. co-workers and grant IDs) or
-    in the supplementary material (e.g. author/institution names in demo videos, or
-    non-anonymized attached papers). "If you need to cite any of your own papers that are
-    being submitted concurrently to another venue, you should (1) include anonymized
-    versions of those papers in the supplementary material; (2) cite these anonymized
-    papers; and (3) argue in the body of your paper why your CVPR submission is
-    non-trivially different from these concurrent submissions."
+    in the supplementary material (e.g. author or institution names in demo videos, or
+    non-anonymized attached papers). "If you need to cite your own papers that are being
+    submitted concurrently to another venue, you should (1) include anonymized versions of
+    those papers in the supplementary material; (2) cite these anonymized papers; and (3)
+    argue in the body of your paper why your CVPR submission is non-trivially different
+    from these concurrent submissions."
   references_position: >-
     "List and number all bibliographical references in 9-point Times, single-spaced, at
     the end of your paper." (author-kit sec/2_formatting.tex). With "Additional pages
-    containing only cited references are allowed", the references sit after the body and
-    are the sole content permitted on the extra pages.
+    containing only cited references and the mandatory LLM Usage Statement are allowed",
+    those two are the only content permitted past page eight.
   appendix_position: >-
     No appendix is permitted inside the main submission PDF; extra material goes to the
-    separate supplementary upload: "The authors may optionally submit additional material
-    that could not be included due to constraints of format or space. ... Supplementary
+    separate supplementary upload: "Authors may optionally submit additional material
+    that could not be included because of format or space constraints. ... Supplementary
     material may include videos, proofs, additional figures or tables, more detailed
-    analysis of experiments presented in the paper, or a concurrent submission to another
+    analysis of the experiments in the paper, or a concurrent submission to another
     conference." The template enforces this with "WARNING: do not forget to delete the
-    supplementary pages from your submission" guarding \input{sec/X_suppl}, and cvpr.sty's
-    \maketitlesupplementary starts supplementary content on a fresh page.
+    supplementary pages from your submission" guarding \input{sec/X_suppl}.
 
 unverifiable:
-  - id: cycle_unconfirmed
-    title: Profile encodes CVPR 2026, not a published 2027 CFP
+  - id: ai_use_accuracy
+    title: Accuracy of the LLM Usage Statement
     message: >-
-      No CVPR 2027 cycle is public yet — cvpr.thecvf.com/Conferences/2027 and its
-      AuthorGuidelines page return HTTP 404, the site's year selector stops at 2026, and
-      the author-kit main branch is stamped "2026 LaTeX class for IEEE CVPR". Every
-      number and quote here is from the CVPR 2026 kit. CVPR geometry has been stable for
-      years, but re-verify the page limit and the policy wording against the CVPR 2027
-      CFP when it appears. 2027 deadlines are unknown; the only 2026 date on the
-      guidelines page is the Nov 16 2025 OpenReview profile deadline.
+      The statement's presence, title and placement are checked above, and with --llm
+      whether it names the tools, the affected parts and the extent of use. Whether it
+      truthfully describes how LLMs were used is not a property of the PDF. "A statement
+      that leaves out significant information may lead to desk rejection or to referral to
+      the ethics committee." In the camera ready, IEEE policy moves the disclosure into the
+      Acknowledgments, de-anonymized.
   - id: margin_tolerances
     title: Margin tolerances are unofficial
     message: >-
       CVPR publishes no format-checking script (there is no counterpart to ACL's
       aclpubcheck), so no sanctioned margin tolerance exists. The slack used here is our
       own engineering judgement, which is why margin, paper-size, column and font-size
-      findings warn rather than error even though "do not use the template" is a stated
-      rejection-without-review condition. Compile with the unmodified cvpr.sty and the
-      geometry takes care of itself.
+      findings warn rather than error even though "substantially altered margins or
+      fonts" is a stated desk-rejection condition. Compile with the unmodified CVPR 2027
+      cvpr.sty and the geometry takes care of itself.
   - id: paper_size_a4
     title: A4 acceptability
     message: >-
       The template prose mentions an A4 bottom margin ("for A4 paper, approximately
       1 5/8 inches (4.13 cm) from the bottom edge"), but cvpr.sty warns on anything other
       than letterpaper and no statement could be found that A4 is acceptable for CVPR
-      2026. This profile treats US Letter as the only compliant size.
+      2027. This profile treats US Letter as the only compliant size.
   - id: supplementary
     title: Supplementary material
     message: >-
       The supplementary PDF is a separate upload with a later deadline and is not visible
       here. No page limit or size cap could be established from a primary source, and
       formatting requirements are explicitly waived ("The important thing is that
-      supplementary PDFs are legible and neatly formatted ... Formatting supplementary
-      documents in a single-column layout is permitted"), so none is enforced. Whether
-      the supplement is itself anonymous — no author or institution names in demo videos,
-      no non-anonymized attached papers — cannot be checked from the main PDF, and a leak
-      there is a rejection-without-review condition.
+      supplementary PDFs are legible and neatly formatted ... A single-column layout is
+      permitted"), so none is enforced. Whether the supplement is itself anonymous and
+      free of content-expanding links cannot be checked from the main PDF, and a leak
+      there is a desk-rejection condition.
   - id: findings_track
     title: Findings Track
     message: >-
-      The Findings Track is invitation-only — area chairs recommend papers after review —
-      and its detailed guidelines are not yet published, so no separate format or page
-      limit exists to check against. Submit to the main track.
-  - id: compute_reporting
-    title: Experimental compute reporting form
-    message: >-
-      CVPR 2026 asks authors to file experimental compute details through a separate
-      Author Compute Reporting Form on the conference site. It is not part of the PDF, is
-      invisible to reviewers, and "will not influence acceptance decisions" — but the
-      submission is not complete without it.
+      The Findings Track has separate proceedings; area chairs recommend papers for it
+      after review and invite their authors to submit. "Detailed guidelines will follow",
+      so no separate format or page limit exists to check against. Submit to the main
+      track.
   - id: dual_submission
     title: Dual submission and content overlap
     message: >-
       Nothing in the PDF shows whether this work is under review or published elsewhere.
       CVPR treats 20 percent or more content overlap with another submitted or published
-      work as a dual submission and desk-rejects it.
+      work as a dual submission and desk-rejects it; concurrent submission is not allowed.
   - id: openreview_profiles
-    title: OpenReview profiles, author registration and conflicts
+    title: OpenReview profiles, author enrollment and conflicts
     message: >-
-      "Papers with authors who have not completed their profiles will be desk-rejected"
-      and "Papers with incomplete author registrations after the deadline will be
-      desk-rejected." Incomplete or inaccurate conflict-of-interest information means
-      "the submission may be summarily rejected". None of this is in the PDF.
-  - id: submission_cap
-    title: Per-author submission cap
+      Every author needs a complete OpenReview profile and author enrollment (including
+      the data-use and AI consent) by the abstract deadline, Nov 10 2026. "Papers with
+      authors who have not completed their profiles will be desk-rejected", and incomplete
+      or inaccurate conflict information can lead to summary rejection. Authors cannot be
+      added or removed after Nov 10, and the order is final after Nov 16. None of this is
+      in the PDF.
+  - id: submission_quotas
+    title: Per-author submission quotas
     message: >-
-      "If an author registers more than 25 papers, the Program Chairs (PCs) will
-      desk-reject any submissions exceeding this limit." The PDF cannot show how many
-      papers an author has registered.
+      Each author may be on at most 25 submissions, and on at most one submission where no
+      author is an eligible reciprocal reviewer (an accepted main-track paper at a listed
+      venue, shown on their OpenReview profile, by Nov 10 2026). Excess papers are
+      desk-rejected, highest paper IDs first. The PDF cannot show either count.
+  - id: irresponsible_reviewing
+    title: Authors' own reviewing
+    message: >-
+      Authors assigned as reviewers or ACs who are found highly irresponsible — missing
+      reviews, careless reviews, or uploading submissions to external LLMs — may have all
+      of their own CVPR 2027 submissions desk-rejected.
   - id: authorship
     title: Correct authorship
     message: >-
       The PDF can catch leaked identities, but cannot confirm that all and only
-      substantial contributors are listed on the submission form.
+      substantial contributors are listed on the submission form. An LLM cannot be an
+      author.
   - id: preprints
-    title: Preprints posted during review
+    title: Publicity during review
     message: >-
-      Publicising a submission during the review period is not visible in the PDF. The
-      Program Chairs warn that "such actions could reasonably be interpreted as a
-      violation of anonymity, potentially leading to a desk rejection."
+      Posting on arXiv is allowed, but describing the paper as under submission to CVPR
+      (on a webpage, in a preprint note, or to the media) is not visible in the PDF, and
+      the Program Chairs warn it "could reasonably be seen as a violation of anonymity and
+      could lead to desk rejection."
   - id: citation_existence
     title: Citations to real material
     message: >-
-      "Papers containing citations of non-existent material will be rejected when found,
-      and may be rejected without review ... Glaring examples of citations to non-existent
-      material can be desk-rejected." Run with --refcheck, and confirm by hand any
-      reference the checker cannot resolve.
+      "Fabricated content, including citations to non-existent work and obvious factual
+      fabrications" is a desk-rejection condition. Run with --refcheck, and confirm by
+      hand any reference the checker cannot resolve.

@@ -7,7 +7,9 @@ from typing import Any
 
 from .document import Document
 from .models import Evidence, Finding, Severity
-from .profile import Profile, TrackSpec
+from .profile import Profile, TrackSpec, _deep_merge
+
+_MISSING = object()
 
 
 @dataclass(slots=True)
@@ -44,7 +46,21 @@ class CheckContext:
 
     # -- profile helpers --------------------------------------------------
     def conf(self, path: str, default: Any = None) -> Any:
-        return self.profile.get(path, default)
+        """A profile setting, with the track's own ``settings:`` taking precedence.
+
+        A track can differ from its venue's paper: CVPR's rebuttal template sets
+        its title higher and prints no anonymous author line. Mappings merge as
+        they do between profiles; a ``null`` removes the venue's value.
+        """
+        base = self.profile.get(path, _MISSING)
+        node: Any = self.profile.get(f"tracks.{self.track.name}.settings", None)
+        for part in path.split("."):
+            if not isinstance(node, dict) or part not in node:
+                return default if base is _MISSING else base
+            node = node[part]
+        if isinstance(node, dict) and isinstance(base, dict):
+            return _deep_merge(base, node)
+        return node
 
     def cfp(self, key: str) -> str | None:
         return self.profile.cfp_note(key)

@@ -1,9 +1,9 @@
 """Statements a venue asks for beside the paper: AI use, ethics, reproducibility.
 
 Each is declared in the profile's ``statements:`` map, so this module knows only
-the shape of the rules: whether the statement is required or recommended, where
-it belongs, how long it may run, and which template boilerplate must not survive
-into the submission. A venue that declares none gets no findings.
+the shape of the rules: whether the statement is required or recommended, what
+it must be titled, where it belongs, how long it may run, and which template
+boilerplate must not survive into the submission. A venue that declares none gets no findings.
 
 A missing *required* statement is an error even when the venue names no
 penalty: the point of a pre-flight check is to catch it before a reviewer does.
@@ -194,6 +194,20 @@ def _judge(ctx: CheckContext, stmt: _Statement, starts: list[int]) -> Finding:
                  for topic in unmentioned],
             ))
 
+    # A venue that names the section's title: one found under another alias is
+    # still the statement, so this only asks for the rename.
+    required_title = stmt.spec.get("required_title")
+    if required_title:
+        m = _RUN_IN_RE.match(head.text) if stmt.run_in else None
+        used = " ".join((m.group(1) if m else head.text).split())
+        if " ".join(_normalize(used).split()) != " ".join(_normalize(str(required_title)).split()):
+            problems.append((
+                Severity.WARNING,
+                f"It is headed {used!r}; the venue asks for a section titled {required_title!r}.",
+                [Evidence(page=head.page, detail="statement heading", quote=used,
+                          expected=str(required_title))],
+            ))
+
     if stmt.spec.get("before_references"):
         refs = ctx.doc.find_heading([str(a) for a in (ctx.conf("structure.references_aliases", []) or [])])
         refs_at = None if refs is None else _line_index(ctx, refs)
@@ -247,6 +261,11 @@ def _statements(ctx: CheckContext) -> tuple[list[_Statement], list[int]]:
     starts = sorted({*_heading_indices(ctx), *(s.start for s in stmts if s.start is not None)})
     ctx.shared["statements"] = (stmts, starts)
     return stmts, starts
+
+
+def venue_statements(ctx: CheckContext) -> tuple[list[_Statement], list[int]]:
+    """Every statement the venue declares, located: for checks that place end matter."""
+    return _statements(ctx)
 
 
 def statement_text(ctx: CheckContext, key: str) -> tuple[int, str] | None:

@@ -15,6 +15,7 @@ from ..context import CheckContext
 from ..document import Heading, Line
 from ..models import Evidence, Finding
 from ..registry import register
+from .statements import venue_statements
 
 MODULE = "core.structure"
 
@@ -45,6 +46,13 @@ def _headings(ctx: CheckContext) -> dict[str, Heading | None]:
     found = {kind: ctx.doc.find_heading(_aliases(ctx, kind)) for kind in dict.fromkeys(kinds)}
     ctx.shared["structure_headings"] = found
     return found
+
+
+def _kind_label(ctx: CheckContext, kind: str) -> str:
+    """How a section kind reads in a message: a venue statement by its title."""
+    if kind in _KIND_ALIAS_KEYS:
+        return kind
+    return str(ctx.conf(f"statements.{kind}.title", None) or kind.replace("_", " "))
 
 
 def _first_unlimited(ctx: CheckContext) -> Heading | None:
@@ -89,15 +97,35 @@ def _last_content_page(ctx: CheckContext, kinds: list[str], limit: int) -> tuple
         for kind in kinds for alias in _aliases(ctx, kind)
     }
     starts = {(h.page, round(h.bbox[0], 1), round(h.bbox[1], 1)): h for h in ctx.doc.headings}
+    # A statement set as a bold run-in head (\paragraph{LLM Usage Statement}) is
+    # end matter too, though it never becomes a heading; it runs to the next one.
+    stmts, _ = venue_statements(ctx)
+    run_in = {s.start: s.title for s in stmts if s.run_in and s.start is not None and s.key in kinds}
     section, end_matter = "the main text", False
     last = 1
     stray: list[Evidence] = []
     reported: set[tuple[str, int]] = set()
-    for line in ctx.doc.reading_order:
+    # End-matter lines that carry on the paragraph above them. One that opens
+    # "Figure 2." is a sentence wrapped there ("... we used DALL-E for\nFigure 2.
+    # The authors ..."), not the caption of a float.
+    prose: set[int] = set()
+    lines = ctx.doc.reading_order
+    for i, line in enumerate(lines):
         heading = starts.get((line.page, round(line.bbox[0], 1), round(line.bbox[1], 1)))
-        if heading is not None and not (heading.numbering and "." in heading.numbering):
+        # A short run-in line ("LLM Usage Statement. None were used.") is also
+        # read as a heading, under its whole text; the statement's title wins.
+        if i in run_in:
+            section, end_matter = run_in[i], True
+        elif heading is not None and not (heading.numbering and "." in heading.numbering):
             section, end_matter = heading.text, heading.normalized in wanted
-        if end_matter or not _is_content_line(ctx, line):
+        if end_matter:
+            above = lines[i - 1] if i else None
+            if (above is not None and above.page == line.page and heading is None
+                    and abs(above.bbox[0] - line.bbox[0]) < 1.0
+                    and 0.0 <= line.bbox[1] - above.bbox[3] < 4.0):
+                prose.add(i)
+            continue
+        if not _is_content_line(ctx, line):
             continue
         last = max(last, line.page)
         if line.page > limit and (section, line.page) not in reported:
@@ -105,7 +133,7 @@ def _last_content_page(ctx: CheckContext, kinds: list[str], limit: int) -> tuple
             stray.append(Evidence(page=line.page, detail=f"{section!r} continues past page {limit}",
                                   quote=" ".join(line.text.split())[:80]))
     for caption in captions(ctx):
-        if caption.page > limit:
+        if caption.page > limit and caption.line not in prose:
             last = max(last, caption.page)
             stray.append(Evidence(page=caption.page, detail=f"{caption.name} is set past page {limit}",
                                   quote=caption.text[:80]))
@@ -126,7 +154,7 @@ def check_page_limit(ctx: CheckContext) -> Finding | None:
 
     if anywhere:
         content_pages, stray = _last_content_page(ctx, unlimited_kinds, limit)
-        allowed = ", ".join(unlimited_kinds)
+        allowed = ", ".join(_kind_label(ctx, k) for k in unlimited_kinds)
         note = (
             f"Only end matter ({allowed}) may appear after page {limit}; every other section "
             "counts toward the limit wherever it sits."
@@ -172,7 +200,7 @@ def check_page_limit(ctx: CheckContext) -> Finding | None:
     if content_pages > limit:
         if anywhere:
             remedy = (
-                f"Fit everything except {', '.join(unlimited_kinds)} into the first {limit} pages. "
+                f"Fit everything except {allowed} into the first {limit} pages. "
                 "Appendices, figures and tables are content here, not end matter. "
                 "Do not shrink fonts or margins to fit."
             )

@@ -305,6 +305,7 @@ class Caption:
     page: int
     word_count: int = 0
     numbers: list[str] = field(default_factory=list)
+    line: int = -1  # index of its first line in the document's reading order
 
     @property
     def name(self) -> str:
@@ -350,6 +351,7 @@ def captions(ctx: CheckContext) -> list[Caption]:
                 page=line.page,
                 word_count=len(body.split()),
                 numbers=re.findall(r"\d+(?:\.\d+)?", body),
+                line=i,
             )
         )
     ctx.shared["analysis_captions"] = out

@@ -524,12 +524,15 @@ class Document:
         return None
 
     def find_heading(self, aliases: list[str]) -> Heading | None:
-        """First heading whose label matches one of ``aliases`` (case/punct-insensitive)."""
+        """First heading whose label matches one of ``aliases`` (case/punct-insensitive).
+
+        A numbered subsection gives way to a section-level match: "2.5. References"
+        in a style guide's body is not the bibliography that follows it.
+        """
         wanted = {re.sub(r"[^a-z ]", "", a.lower()).strip() for a in aliases}
-        for h in self.headings:
-            if h.normalized in wanted:
-                return h
-        return None
+        matches = [h for h in self.headings if h.normalized in wanted]
+        sections = [h for h in matches if not (h.numbering and "." in h.numbering)]
+        return (sections or matches or [None])[0]
 
     # -- links and identifiers -------------------------------------------
     @cached_property

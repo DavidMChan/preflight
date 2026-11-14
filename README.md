@@ -6,7 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Checks: 117](https://img.shields.io/badge/checks-117-blue)](#checks)
 [![Venues: 11](https://img.shields.io/badge/venues-11-blueviolet)](#conferences)
-[![Tests: 408](https://img.shields.io/badge/tests-408%20passing-brightgreen)](#development)
+[![Tests: 423](https://img.shields.io/badge/tests-423%20passing-brightgreen)](#development)
 [![Lint: ruff](https://img.shields.io/badge/lint-ruff-d7ff64?logo=ruff&logoColor=black)](https://docs.astral.sh/ruff/)
 [![Managed with uv](https://img.shields.io/badge/managed%20with-uv-de5fe9?logo=uv&logoColor=white)](https://docs.astral.sh/uv/)
 
@@ -159,7 +159,7 @@ Eleven bundled profiles, each selected with `-c`:
 | `neurips` | NeurIPS (main track) | `main` 9p | US Letter, single-column, 10pt; NeurIPS checklist mandatory |
 | `iclr` | ICLR (main conference) | `main` 9p · `camera_ready` 10p | US Letter, single-column, 10pt; AI use statement mandatory |
 | `icml` | ICML | `main` 8p · `position` 8p · `camera_ready` 9p | US Letter, two-column, 10pt; Impact Statement mandatory |
-| `cvpr` | CVPR (IEEE/CVF) | `main` 8p · `rebuttal` 1p | US Letter, two-column, 10pt; no appendix in the submission PDF |
+| `cvpr` | CVPR 2027 (IEEE/CVF) | `main` 8p · `rebuttal` 1p | US Letter, two-column, 10pt; LLM Usage Statement mandatory; only it and the references may pass page 8 |
 | `aaai` | AAAI (main technical track) | `main` 7p, and six further tracks | US Letter, two-column, 10pt; reproducibility checklist |
 | `aistats` | AISTATS | `main` 8p · `camera_ready` 9p | US Letter, two-column, 10pt |
 | `icra` | ICRA 2027 (IEEE RAS) | `main` 8p complete paper | US Letter, two-column, 10pt; references included; double-anonymous |
@@ -168,7 +168,7 @@ Eleven bundled profiles, each selected with `-c`:
 | `arxiv` | arXiv preprint | `preprint`, no page limit | Any template, size or length; no Limitations or anonymity rules; authors must be named |
 
 Each profile encodes the most recent author kit published at the time it was written, named in a
-note at the top of the file. `cvpr`, `aistats` and `icml` carry 2026 numbers and `aaai` carries
+note at the top of the file. `aistats` and `icml` carry 2026 numbers and `aaai` carries
 AAAI-27 numbers, because no later kit exists yet. Where a value could not be confirmed against an
 official source it is documented in the profile and its check is held at warning, so a superseded
 number cannot report a desk rejection.
@@ -193,8 +193,9 @@ number cannot report a desk rejection.
   separately for figure labels, table cells and running prose.
 - **Content page limit.** The limit applies to content preceding the first venue-approved unlimited
   section. For venues such as ICRA that count references and appendices, every PDF page counts.
-  ICASSP allows only named end matter past the limit, so there every other section, figure and table
-  counts wherever it sits, and a track's `total_page_limit` caps the whole PDF.
+  ICASSP and CVPR allow only named end matter past the limit (for CVPR, the references and the LLM
+  Usage Statement), so there every other section, figure and table counts wherever it sits. A
+  track's `total_page_limit` caps the whole PDF (ICASSP's 4 + 1).
 - **Limitations section** — presence, title, position before the references, and absence of new
   methods or results.
 - **Appendix** — venue-specific placement and column layout.
@@ -202,9 +203,10 @@ number cannot report a desk rejection.
 ### Venue statements and template — `core.statements`, `core.template`
 
 A profile's `statements:` map declares the sections a venue requires or recommends beside the
-paper — for ICLR, the AI use, ethics and reproducibility statements. Each is located as a heading or
-a bold run-in head, and reported as missing (an error when required, a warning when recommended),
-still holding the template's placeholder text (treated as missing when required), placed after the
+paper — for ICLR, the AI use, ethics and reproducibility statements; for CVPR, the LLM Usage
+Statement. Each is located as a heading or a bold run-in head, and reported as missing (an error
+when required, a warning when recommended), headed other than the title the venue names
+(`required_title`), still holding the template's placeholder text (treated as missing when required), placed after the
 references, longer than the venue's cap, or silent on a topic it must name (`must_mention`: for
 ICASSP, conflicts of interest, even when there are none). Statements a venue excludes from the page limit are
 listed in `structure.unlimited_after`. With `--llm`, a model also confirms that the statement
@@ -436,6 +438,21 @@ Three mechanisms make modules reusable across venues:
 
 Numeric tolerances are defined in the profile rather than in Python. A track with no page limit
 says so explicitly, with `content_page_limit: null`; leaving the key out is still an error.
+
+A track can override any setting for itself under `settings:`, merged over the venue's the same
+way a profile merges over its parent, with `null` removing a value. CVPR's rebuttal template raises
+its title above the text block and prints no anonymous author line, and the LLM Usage Statement
+belongs to the paper rather than the response:
+
+```yaml
+tracks:
+  rebuttal:
+    content_page_limit: 1
+    settings:
+      geometry: { tolerance_top_pt: 22.0 }
+      anonymity: { expected_author_line: null }
+      statements: null
+```
 
 ---
 
